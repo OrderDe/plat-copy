@@ -15,15 +15,6 @@
 </template>
 
 <script>
-// +----------------------------------------------------------------------
-// | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
-// +----------------------------------------------------------------------
-// | Copyright (c) 2016~2025 https://www.crmeb.com All rights reserved.
-// +----------------------------------------------------------------------
-// | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
-// +----------------------------------------------------------------------
-// | Author: CRMEB Team <admin@crmeb.com>
-// +----------------------------------------------------------------------
 import * as merchant from '@/api/merchant';
 import { areaMerchantApi } from '@/api/area';
 import product from '@/mixins/product';
@@ -123,14 +114,14 @@ export default {
       // 根据merIds 获取所有 this.merSelect 下 id 对应的第二级商户的对象
       const merArr = [];
       const allMerchants = this.merSelect.flatMap((cat) => cat.merchantList);
-      
+
       this.merIds.forEach((id) => {
         const merchant = allMerchants.find((mer) => mer.id === id);
         if (merchant) {
           merArr.push(merchant);
         }
       });
-      
+
       this.$emit('getMerId', this.merIds, merArr);
     },
     // 刷新圈层商户数据（供外部调用）
