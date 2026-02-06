@@ -265,11 +265,11 @@
                         <span>{{ item.expressName + '：' + item.trackingNumber }}</span>
                         <span class="ml30">{{ item.createTime }}</span>
                       </template>
-                      <template v-else-if="item.deliveryType === 'merchant'">
+                      <!-- <template v-else-if="item.deliveryType === 'merchant'">
                         <span class="font-color">【商家送货】</span>
                         <span>{{ item.deliveryCarrier + '：' + item.carrierPhone }}</span>
                         <span class="ml30">{{ item.createTime }}</span>
-                      </template>
+                      </template> -->
                       <template v-else>
                         <span class="font-color"
                           >【{{
@@ -350,19 +350,20 @@
         <div class="logistics_img"><img src="@/assets/imgs/expressi.jpg" /></div>
         <div class="logistics_cent">
           <span class="mb10">物流公司：{{ expressName }}</span>
-          <span>物流单号：{{ resultInfo.number }}</span>
-          <span v-show="resultInfo.courierPhone">快递站：{{ resultInfo.courierPhone }}</span>
-          <span v-show="resultInfo.courierPhone">快递员电话：{{ resultInfo.courierPhone }}</span>
+          <span>物流单号：{{ resultInfo.logisticCode }}</span>
+          <span v-show="resultInfo.deliveryManTel">快递站：{{ resultInfo.deliveryManTel }}</span>
+          <span v-show="resultInfo.deliveryManTel">快递员电话：{{ resultInfo.deliveryManTel }}</span>
         </div>
       </div>
       <div class="acea-row row-column-around trees-coadd">
         <div class="scollhide">
-          <el-timeline :reverse="reverse">
+          <el-timeline v-if="result && result.length > 0" :reverse="reverse">
             <el-timeline-item v-for="(item, i) in result" :key="i">
-              <p class="time" v-text="item.time"></p>
-              <p class="content" v-text="item.status"></p>
+              <p class="time" v-text="item.acceptTime"></p>
+              <p class="content" v-text="item.acceptStation + ' ' + item.actionName"></p>
             </el-timeline-item>
           </el-timeline>
+          <div v-else class="no-data">暂无轨迹信息</div>
         </div>
       </div>
       <span slot="footer">
@@ -373,7 +374,7 @@
 </template>
 
 <script>
-import { getLogisticsInfoApi, orderInvoiceListApi, orderDetailApi, refundOrderDetailApi } from '@/api/order';
+import { getLogisticsInfoApi, orderInvoiceListApi, orderDetailApi, refundOrderDetailApi,getExpressTrackListApi } from '@/api/order';
 import * as areaApi from '@/api/area.js';
 import { checkPermi } from '@/utils/permission'; // 权限判断函数
 import { OrderSecondTypeEnum } from '@/enums/productEnums';
@@ -438,10 +439,21 @@ export default {
     // 获取订单物流信息
     getOrderData(id) {
       getLogisticsInfoApi(id).then(async (res) => {
-        this.resultInfo = res;
-        this.result = res.list;
+        this.resultInfo = res.ebExpressOrder;
+        this.result = res.traceList;
       });
     },
+    // // 获取订单物流信息
+    // getOrderData(id) {
+    //   let params = {
+    //     orderNo: 'SH17698281306852575',
+    //   };
+    //   getExpressTrackListApi(params).then(async (res) => {
+    //     console.log(res);
+    //     // this.resultInfo = res;
+    //     // this.result = res.list;
+    //   });
+    // },
     // 获取订单发货单列表
     getOrderInvoiceList(id) {
       orderInvoiceListApi(id)

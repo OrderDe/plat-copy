@@ -153,11 +153,11 @@
                         <span>{{ item.expressName + '：' + item.trackingNumber }}</span>
                         <span class="ml30">{{ item.createTime }}</span>
                       </template>
-                      <template v-else-if="item.deliveryType === 'merchant'">
+                      <!-- <template v-else-if="item.deliveryType === 'merchant'">
                         <span class="font-color">【商家送货】</span>
                         <span>{{ item.deliveryCarrier + '：' + item.carrierPhone }}</span>
                         <span class="ml30">{{ item.createTime }}</span>
-                      </template>
+                      </template> -->
                       <template v-else>
                         <span class="font-color">【无需配送】</span>
                         <span>{{ item.createTime }}</span>

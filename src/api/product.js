@@ -357,7 +357,7 @@ export function brandShowApi(id) {
  */
 export function guaranteeListApi(params) {
   return request({
-    url: `/admin/platform/product/guarantee/list`,
+    url: `/admin/platform/product/guarantee/page`,
     method: 'get',
     params,
   });

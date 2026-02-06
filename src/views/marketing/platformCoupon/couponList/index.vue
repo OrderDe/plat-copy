@@ -170,7 +170,7 @@
               <li class="item">
                 <div class="tips">领取时间：</div>
                 <div class="value">
-                  {{ cell.isTimeReceive ? cell.receiveStartTime + ' - ' + cell.receiveEndTime : '不限时' }}
+                  {{ cell.isTimeReceive ? (cell.receiveStartTime || '') + ' - ' + (cell.receiveEndTime || '') : '不限时' }}
                 </div>
               </li>
               <li class="item">
@@ -201,7 +201,7 @@
                 <div class="value">
                   {{
                     cell.isFixedTime
-                      ? cell.useStartTime + ' - ' + cell.useEndTime + ' 有效'
+                      ? ((cell.useStartTime || '') + ' - ' + (cell.useEndTime || '') + (cell.useStartTime || cell.useEndTime ? ' 有效' : ''))
                       : '领取后' + cell.day + '天内有效'
                   }}
                 </div>

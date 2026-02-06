@@ -70,6 +70,8 @@ export default {
   mounted() {
     this.openSetingsDrawer();
     this.getLayoutThemeConfig();
+    // 页面刷新时调用获取商品分类
+    this.$store.dispatch('product/getAdminProductClassify');
   },
   methods: {
     reload() {

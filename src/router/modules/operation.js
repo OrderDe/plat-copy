@@ -191,45 +191,45 @@ const operationRouter = {
         },
       ],
     },
-    {
-      path: 'onePass',
-      name: 'OnePass',
-      meta: {
-        title: '一号通',
-        noCache: true,
-      },
-      redirect: 'onePass/home',
-      component: () => import('@/views/onePass'),
-      children: [
-        {
-          path: 'home',
-          name: 'onePass',
-          component: () => import('@/views/onePass/home'),
-          meta: {
-            title: '一号通',
-            icon: 'clipboard',
-          },
-        },
-        {
-          path: 'onePassConfig',
-          component: () => import('@/views/onePass/onePassConfig'),
-          name: 'OnePassConfig',
-          meta: { title: '一号通配置', noCache: true },
-        },
-        {
-          path: 'pay',
-          component: () => import('@/views/onePass/smsPay'),
-          name: 'SmsPay',
-          meta: { title: '短信购买', noCache: true },
-        },
-        {
-          path: 'template',
-          component: () => import('@/views/onePass/smsTemplate'),
-          name: 'SmsTemplate',
-          meta: { title: '短信模板', noCache: true },
-        },
-      ],
-    },
+    // {
+    //   path: 'onePass',
+    //   name: 'OnePass',
+    //   meta: {
+    //     title: '一号通',
+    //     noCache: true,
+    //   },
+    //   redirect: 'onePass/home',
+    //   component: () => import('@/views/onePass'),
+    //   children: [
+    //     {
+    //       path: 'home',
+    //       name: 'onePass',
+    //       component: () => import('@/views/onePass/home'),
+    //       meta: {
+    //         title: '一号通',
+    //         icon: 'clipboard',
+    //       },
+    //     },
+    //     {
+    //       path: 'onePassConfig',
+    //       component: () => import('@/views/onePass/onePassConfig'),
+    //       name: 'OnePassConfig',
+    //       meta: { title: '一号通配置', noCache: true },
+    //     },
+    //     {
+    //       path: 'pay',
+    //       component: () => import('@/views/onePass/smsPay'),
+    //       name: 'SmsPay',
+    //       meta: { title: '短信购买', noCache: true },
+    //     },
+    //     {
+    //       path: 'template',
+    //       component: () => import('@/views/onePass/smsTemplate'),
+    //       name: 'SmsTemplate',
+    //       meta: { title: '短信模板', noCache: true },
+    //     },
+    //   ],
+    // },
     {
       path: 'application',
       name: 'Application',

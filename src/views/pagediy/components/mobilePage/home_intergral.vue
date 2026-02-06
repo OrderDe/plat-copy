@@ -144,7 +144,8 @@ export default {
     boxBgStyle() {
       return [
         {
-          background: `linear-gradient(to right,${this.configObj.contentBgColor.color[0].item}, ${this.configObj.contentBgColor.color[1].item})`,
+          // background: `linear-gradient(to right,${this.configObj.contentBgColor.color[0].item}, ${this.configObj.contentBgColor.color[1].item})`,
+          background:'#FF22FF'
         },
         {
           gap: `${this.configObj.contentConfig.val}px`,

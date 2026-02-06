@@ -8,7 +8,6 @@
         v-loading="listLoading"
         :data="tableData.data"
         size="small"
-        height="500px"
         :highlight-current-row="true"
         class="mt20"
       >
@@ -44,21 +43,16 @@
   </div>
 </template>
 <script>
-// +---------------------------------------------------------------------
-// | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
-// +---------------------------------------------------------------------
-// | Copyright (c) 2016~2025 https://www.crmeb.com All rights reserved.
-// +---------------------------------------------------------------------
-// | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
-// +---------------------------------------------------------------------
-// | Author: CRMEB Team <admin@crmeb.com>
-// +---------------------------------------------------------------------
+ 
 import * as merchant from '@/api/merchant';
 import { checkPermi } from '@/utils/permission'; // 权限判断函数
 export default {
   data() {
     return {
-      tableFrom: {},
+      tableFrom: {
+        page: 1,
+        limit: 20,
+      },
       tableData: {
         data: [],
         total: 0,
@@ -78,10 +72,11 @@ export default {
   methods: {
     checkPermi,
     // 列表
-    getList() {
+    getList(num) {
       this.listLoading = true;
+      this.tableFrom.page = num ? num : this.tableFrom.page;
       merchant
-        .merchantTypeListApi()
+        .merchantTypeListApi(this.tableFrom)
         .then((res) => {
           this.tableData.data = res.list;
           this.tableData.total = res.total;
@@ -98,7 +93,7 @@ export default {
     },
     handleSizeChange(val) {
       this.tableFrom.limit = val;
-      this.getList();
+      this.getList(1);
     },
     handlerOpenEdit(isCreate, editDate) {
       const _this = this;
@@ -127,7 +122,7 @@ export default {
               this.$message.success('操作成功');
               this.$msgbox.close();
               this.$store.commit('merchant/SET_MerchantType', []);
-              this.getList();
+              this.getList(this.tableFrom.page);
             })
             .catch(() => {
               this.loading = false;
@@ -138,7 +133,7 @@ export default {
               this.$message.success('操作成功');
               this.$msgbox.close();
               this.$store.commit('product/SET_MerchantType', []);
-              this.getList();
+              this.getList(this.tableFrom.page);
             })
             .catch(() => {
               this.loading = false;
@@ -148,7 +143,7 @@ export default {
       this.$modalSure('删除当前店铺类型吗？').then(() => {
         merchant.merchantTypeDeleteApi(rowData.id).then((data) => {
           this.$message.success('删除店铺类型成功');
-          this.getList();
+          this.getList(this.tableFrom.page);
           this.$store.commit('product/SET_MerchantType', []);
         });
       });

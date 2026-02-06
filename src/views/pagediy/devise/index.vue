@@ -122,6 +122,7 @@ export default {
     };
   },
   mounted() {
+    console.log(this.$selfUtil.getFrontDomainUrl());
     this.frontDomain = `${this.$selfUtil.getFrontDomainUrl()}/pages/index/index`;
     this.getWechatQrcode();
     this.getQRcode();

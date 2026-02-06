@@ -264,7 +264,7 @@ export default {
     },
     // 重置密码
     handleResetPassword(row) {
-      this.$confirm(`确定重置该管理员密码为 000000 吗？`, '提示', {
+      this.$confirm(`确定重置该管理员密码为 123456 吗？`, '提示', {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
         type: 'warning',

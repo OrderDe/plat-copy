@@ -32,15 +32,7 @@
 </template>
 
 <script>
-// +---------------------------------------------------------------------
-// | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
-// +---------------------------------------------------------------------
-// | Copyright (c) 2016~2025 https://www.crmeb.com All rights reserved.
-// +---------------------------------------------------------------------
-// | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
-// +---------------------------------------------------------------------
-// | Author: CRMEB Team <admin@crmeb.com>
-// +---------------------------------------------------------------------
+ 
 import { getSystemColorApi, saveSystemColorApi } from '@/api/systemConfig';
 import { Debounce } from '@/utils/validate';
 import { checkPermi } from '@/utils/permission'; // 权限判断函数
@@ -54,6 +46,7 @@ export default {
         { tit: '生鲜绿', class: 'bg3' },
         { tit: '海鲜蓝', class: 'bg4' },
         { tit: '女神粉', class: 'bg5' },
+        { tit: '淡粉', class: 'bg6' },
       ],
       themeData: [],
       imgList: [require('@/assets/theme/theme1.png')],
@@ -62,6 +55,7 @@ export default {
       theme3: [require('@/assets/theme/theme3.png')],
       theme4: [require('@/assets/theme/theme4.png')],
       theme5: [require('@/assets/theme/theme5.png')],
+      theme6: [require('@/assets/theme/theme5.png')],
     };
   },
   mounted() {
@@ -81,6 +75,8 @@ export default {
         this.$set(this, 'imgList', this.theme4);
       } else if (index == 4) {
         this.$set(this, 'imgList', this.theme5);
+      }else {
+        this.$set(this, 'imgList', this.theme5);
       }
     },
     getSet() {
@@ -95,6 +91,8 @@ export default {
         } else if (res.value == 4) {
           this.$set(this, 'imgList', this.theme4);
         } else if (res.value == 5) {
+          this.$set(this, 'imgList', this.theme5);
+        } else {
           this.$set(this, 'imgList', this.theme5);
         }
       });
@@ -182,6 +180,9 @@ export default {
 }
 .bg5 {
   background: #ff448f;
+}
+.bg6{
+  background: #f6d2e0;
 }
 .white {
   color: #fff;

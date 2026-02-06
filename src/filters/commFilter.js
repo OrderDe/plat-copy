@@ -190,7 +190,7 @@ export function onePassTypeFilter(status) {
     sms: '短信',
     copy: '商品采集',
     expr_query: '物流查询',
-    expr_dump: '电子面单打印',
+    // expr_dump: '电子面单打印',
   };
   return statusMap[status];
 }

@@ -192,6 +192,7 @@ export default {
         page: 1,
         limit: 20,
       };
+      this.timeVal = [];
       this.getList();
     },
     pageChange(page) {

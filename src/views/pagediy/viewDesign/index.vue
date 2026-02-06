@@ -187,7 +187,7 @@
                             v-if="typeName !== 'indexNews'"
                             v-model.trim="item.name"
                             :placeholder="'请填写' + item.name"
-                            maxlength="4"
+                            maxlength="8"
                           />
                           <el-input v-else v-model.trim="item.info" :placeholder="'请填写' + item.info" />
                         </div>
@@ -253,7 +253,7 @@
                           v-if="typeName !== 'indexNews'"
                           v-model.trim="item.name"
                           :placeholder="'请填写' + item.name"
-                          maxlength="4"
+                          maxlength="8"
                         />
                         <el-input v-else v-model.trim="item.info" :placeholder="'请填写' + item.info" />
                       </div>
@@ -315,15 +315,7 @@
 </template>
 
 <script>
-// +---------------------------------------------------------------------
-// | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
-// +---------------------------------------------------------------------
-// | Copyright (c) 2016~2025 https://www.crmeb.com All rights reserved.
-// +---------------------------------------------------------------------
-// | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
-// +---------------------------------------------------------------------
-// | Author: CRMEB Team <admin@crmeb.com>
-// +---------------------------------------------------------------------
+ 
 import { designListApi, SaveDataApi, goodDesignList, getDataApi, getBottomNavigationApi } from '@/api/systemGroup';
 import ClipboardJS from 'clipboard';
 import linkaddress from '@/components/linkaddress';

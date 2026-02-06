@@ -192,15 +192,7 @@
 </template>
 
 <script>
-// +---------------------------------------------------------------------
-// | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
-// +---------------------------------------------------------------------
-// | Copyright (c) 2016~2025 https://www.crmeb.com All rights reserved.
-// +---------------------------------------------------------------------
-// | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
-// +---------------------------------------------------------------------
-// | Author: CRMEB Team <admin@crmeb.com>
-// +---------------------------------------------------------------------
+ 
 import { orderStatusNumApi, orderListApi, orderExcelApi } from '@/api/order';
 import * as areaApi from '@/api/area.js';
 import detailsFrom from '@/components/OrderDetail';
@@ -409,7 +401,24 @@ export default {
         merId: this.tableFrom.merId,
       };
       orderExcelApi(data).then((res) => {
-        window.open(res.fileName);
+        const blob = new Blob([res.data]);
+        const link = document.createElement('a');
+        link.href = window.URL.createObjectURL(blob);
+        // 从响应头获取文件名，如果没有则使用默认名称
+        const contentDisposition = res.headers['content-disposition'];
+        let filename = '订单列表.xlsx';
+        if (contentDisposition) {
+          const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
+          const matches = filenameRegex.exec(contentDisposition);
+          if (matches != null && matches[1]) {
+            filename = matches[1].replace(/['"]/g, '');
+          }
+        }
+        link.download = decodeURIComponent(filename);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(link.href);
       });
     },
     handleAddItem() {

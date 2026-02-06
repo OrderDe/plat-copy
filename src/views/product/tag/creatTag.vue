@@ -25,7 +25,7 @@
                 v-model.trim="dataForm.tagName"
                 type="text"
                 placeholder="请输入标签名称"
-                maxLength="4"
+                maxLength="8"
                 class="from-ipt-width"
                 :disabled="dataForm.owner === 0"
               />
@@ -174,7 +174,7 @@
     </div>
   </div>
 </template>
-<script setup>
+<script>
 import productAssociationForm from '@/components/productAssociationForm/index.vue';
 import merchantName from '@/components/merUseCategory/index.vue';
 import { mapGetters } from 'vuex';
@@ -218,7 +218,7 @@ export default {
         playType: [
           {
             required: true,
-            message: '请选择参与类型和对应规则',
+            message: '请检查参与类型和对应规则',
             trigger: 'blur',
             validator: validatePlayTypeAndPlayProducts,
           },

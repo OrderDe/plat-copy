@@ -28,6 +28,8 @@
           </template>
         </el-table-column>
         <el-table-column prop="content" label="服务内容描述" min-width="250" :show-overflow-tooltip="true" />
+        <el-table-column prop="merNum" label="使用商户数" min-width="100" />
+        <el-table-column prop="proNum" label="使用商品数" min-width="100" />
         <el-table-column prop="sort" label="排序" min-width="80" />
         <el-table-column label="创建时间" min-width="150">
           <template slot-scope="scope">
@@ -56,21 +58,26 @@
           </template>
         </el-table-column>
       </el-table>
+      <div class="block">
+        <el-pagination
+          background
+          :page-sizes="[20, 40, 60, 80]"
+          :page-size="tableFrom.limit"
+          :current-page="tableFrom.page"
+          layout="total, sizes, prev, pager, next, jumper"
+          :total="tableData.total"
+          @size-change="handleSizeChange"
+          @current-change="pageChange"
+        />
+      </div>
     </el-card>
   </div>
 </template>
 <script>
-// +---------------------------------------------------------------------
-// | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
-// +---------------------------------------------------------------------
-// | Copyright (c) 2016~2025 https://www.crmeb.com All rights reserved.
-// +---------------------------------------------------------------------
-// | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
-// +---------------------------------------------------------------------
-// | Author: CRMEB Team <admin@crmeb.com>
-// +---------------------------------------------------------------------
+
 import * as product from '@/api/product';
 import { checkPermi } from '@/utils/permission'; // 权限判断函数
+import Debounce from '@/libs/debounce';
 export default {
   data() {
     return {
@@ -81,6 +88,10 @@ export default {
       listLoading: false,
       keyNum: 0,
       id: 0,
+      tableFrom: {
+        page: 1,
+        limit: 20,
+      },
     };
   },
   mounted() {
@@ -92,9 +103,10 @@ export default {
     getList() {
       this.listLoading = true;
       product
-        .guaranteeListApi()
+        .guaranteeListApi(this.tableFrom)
         .then((res) => {
-          this.tableData.data = res;
+          this.tableData.data = res.list || [];
+          this.tableData.total = res.total || 0;
           this.listLoading = false;
         })
         .catch((res) => {
@@ -124,7 +136,7 @@ export default {
         (this.keyNum += 4),
       );
     },
-    submit(formValue) {
+    submit: Debounce(function(formValue) {
       const data = {
         id: this.id,
         name: formValue.name,
@@ -154,7 +166,7 @@ export default {
             .catch(() => {
               this.loading = false;
             });
-    },
+    }, 1000),
     handlerOpenDel(rowData) {
       this.$modalSure('删除当前保障服务吗').then(() => {
         product.guaranteeDeleteApi(rowData.id).then((data) => {

@@ -33,7 +33,7 @@
           <div class="c_row-item mb10">
             <el-col class="label" :span="4"> 名称 </el-col>
             <el-col :span="19" class="slider-box">
-              <el-input size="small" v-model="item.name" maxlength="4" placeholder="不超过4个字" />
+              <el-input size="small" v-model="item.name" maxlength="6" placeholder="不超过6个字" />
             </el-col>
           </div>
           <div class="c_row-item">
@@ -65,15 +65,7 @@
 </template>
 
 <script>
-// +---------------------------------------------------------------------
-// | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
-// +---------------------------------------------------------------------
-// | Copyright (c) 2016~2025 https://www.crmeb.com All rights reserved.
-// +---------------------------------------------------------------------
-// | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
-// +---------------------------------------------------------------------
-// | Author: CRMEB Team <admin@crmeb.com>
-// +---------------------------------------------------------------------
+ 
 import vuedraggable from 'vuedraggable';
 import linkaddress from '@/components/linkaddress';
 export default {

@@ -6,7 +6,7 @@
  * @param val 回显的值
  * @returns {Promise<any>}
  */
-export default function modalPrompt(inputType, title, val) {
+export default function modalPrompt(inputType, title, val, maxLength = 50) {
   return new Promise((resolve, reject) => {
     this.$prompt('', `${title}`, {
       confirmButtonText: '确定',
@@ -19,12 +19,8 @@ export default function modalPrompt(inputType, title, val) {
       customClass: 'prompt-form',
       inputPlaceholder: `请输入${title}`,
       inputValidator: (value) => {
-        if (value === null) {
-          return true;
-        }
-        if (!value) return '输入不能为空';
-        if (value.indexOf(' ') !== -1) return '输入不能为空';
-        if (value.length > 50) return '输入限制50字以内';
+        if (!value && value !== 0) return '输入不能为空';
+        if (value.length > maxLength) return `输入限制${maxLength}字以内`;
       },
       beforeClose: (action, instance, done) => {
         if (action === 'confirm') {

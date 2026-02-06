@@ -138,7 +138,7 @@
                 style="width: 100%"
               >
                 <el-table-column width="30"></el-table-column>
-                <el-table-column width="50">
+                <el-table-column width="50" >
                   <template slot="header" slot-scope="scope">
                     <el-checkbox :indeterminate="isIndeterminate" v-model="checkAll" @change="handleCheckAllChange" />
                   </template>
@@ -240,7 +240,7 @@
             @click="activeName = 'first'"
             >上一步</el-button
           >
-
+          {{ ruleForm.status }}
           <el-button
             :disabled="ruleForm.status == 2"
             v-show="
@@ -288,6 +288,7 @@ export default {
         endDate: '',
         merStars: 1,
         name: '',
+        status:null,
         oneQuota: 0,
         proCategory: '',
         startDate: '',
@@ -328,6 +329,7 @@ export default {
     this.tempRoute = Object.assign({}, this.$route);
   },
   mounted() {
+    console.log(this.merPlatProductClassify)
     if (!this.merPlatProductClassify.length) this.$store.dispatch('product/getAdminProductClassify');
     if (this.pageType) this.activeName = 'second';
     this.setTagsViewTitle();
@@ -469,6 +471,7 @@ export default {
     },
     // 选中商品
     getAttrValue(row) {
+      console.log(row);
       const _this = this;
       row.map((item) => {
         _this.$set(item, 'sort', item.sort ? item.sort : 0);
@@ -486,6 +489,7 @@ export default {
         _this.$set(item, 'children', item.attrValue);
       });
       _this.proData = row;
+      console.log(_this.proData)
       _this.isCkecked();
     },
     batchDel() {
@@ -539,6 +543,7 @@ export default {
             return {
               id: item.id,
               sort: item.sort,
+              checked: item.checked,
               attrValue: item.attrValue.map((item1) => {
                 return {
                   activityPrice: item1.activityPrice,
@@ -562,6 +567,12 @@ export default {
               })
               .catch((res) => {});
           } else {
+            if(this.$route.params.id!=0){
+
+              this.ruleForm.productList = this.ruleForm.productList.filter(item => item.checked !== false);
+
+            }
+
             this.$route.params.id!=0
               ? seckillAtivityUpdateApi(this.ruleForm)
                   .then((res) => {

@@ -24,6 +24,7 @@
           </el-form-item>
           <el-form-item>
             <el-button size="small" type="primary" @click="getList(1)">查询</el-button>
+            <el-button size="small" @click="reset()">重置</el-button>
           </el-form-item>
         </el-form>
       </div>
@@ -211,6 +212,16 @@ export default {
     onchangeTime(e) {
       this.timeVal = e;
       this.tableFrom.dateLimit = e ? this.timeVal.join(',') : '';
+      this.getList(1);
+    },
+    // 重置
+    reset() {
+      this.timeVal = [];
+      this.tableFrom = {
+        page: 1,
+        limit: 20,
+        dateLimit: '',
+      };
       this.getList(1);
     },
     handleClick() {

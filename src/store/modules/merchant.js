@@ -54,7 +54,7 @@ const actions = {
 
 /** tree去除 childList=[] 的结构**/
 const changeNodes = function (data) {
-  if (data.length > 0) {
+  if (data&&data.length > 0) {
     for (var i = 0; i < data.length; i++) {
       if (!data[i].childList || data[i].childList.length < 1) {
         data[i].childList = undefined;

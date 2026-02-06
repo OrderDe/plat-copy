@@ -8,7 +8,7 @@
         <el-input v-model.trim="pram.pwd" type="password" placeholder="管理员密码" clearable />
       </el-form-item>
       <el-form-item v-if="pram.pwd && isCreate === 0" required label="确认密码：" prop="repwd">
-        <el-input v-model.trim="pram.repwd" placeholder="确认密码" clearable />
+        <el-input v-model.trim="pram.repwd" placeholder="确认密码" clearable  type="password"/>
       </el-form-item>
       <el-form-item label="管理员姓名：" prop="realName">
         <el-input v-model.trim="pram.realName" maxlength="16" placeholder="管理员姓名" />
@@ -52,15 +52,7 @@
 </template>
 
 <script>
-// +---------------------------------------------------------------------
-// | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
-// +---------------------------------------------------------------------
-// | Copyright (c) 2016~2025 https://www.crmeb.com All rights reserved.
-// +---------------------------------------------------------------------
-// | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
-// +---------------------------------------------------------------------
-// | Author: CRMEB Team <admin@crmeb.com>
-// +---------------------------------------------------------------------
+ 
 import * as roleApi from '@/api/role.js';
 import * as systemAdminApi from '@/api/systemadmin.js';
 import * as areaApi from '@/api/area.js';

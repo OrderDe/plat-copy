@@ -123,15 +123,15 @@ export default {
   computed: {
     ...mapState('mobildConfig', ['defaultArray']),
     ...mapGetters(['mobileTheme']),
-    //标签文字颜色
+    // 标签文字颜色
     textColor() {
       return this.configObj.fontColor.color[0].item;
     },
-    //选中颜色
+    // 选中颜色
     checkColor() {
       return { background: this.configObj.checkColor.color[0].item };
     },
-    //指示器样式
+    // 指示器样式
     dotStyle() {
       return [
         { padding: '0 22px' },
@@ -152,7 +152,7 @@ export default {
           : `linear-gradient(180deg, rgba(245, 245, 245, 0) 0%, #f5f5f5 100%)`,
       };
     },
-    //搜索框样式
+    // 搜索框样式
     contentStyle() {
       return [
         { 'border-radius': this.configObj.contentStyle.val ? this.configObj.contentStyle.val + 'px' : '0' },
@@ -167,8 +167,8 @@ export default {
         },
       ];
     },
-    //轮播图圆角
-    //内容圆角
+    // 轮播图圆角
+    // 内容圆角
     contentStyleBanner() {
       return [
         { 'border-radius': this.configObj.contentStyleBanner.val ? this.configObj.contentStyleBanner.val + 'px' : '0' },
@@ -357,7 +357,7 @@ export default {
             },
           ],
         },
-        //分类设置
+        // 分类设置
         listConfig: {
           title: '鼠标拖拽左侧圆点可调整选项卡顺序',
           tabTitle: '选项卡设置',
@@ -472,7 +472,7 @@ export default {
             },
           ],
         },
-        //色调
+        // 色调
         themeStyleConfig: {
           title: '色调',
           tabVal: 0,

@@ -1,48 +1,48 @@
 <template>
   <div v-if="configObj">
     <div class="home_plant indexList" :style="boxStyle">
-      <div class="bg_box" :style="boxBgStyle"></div>
+      <div class="bg_box" :style="boxBgStyle" />
       <div class="title acea-row row-between-wrapper">
         <div class="text line1 tui-skeleton-rect acea-row">
-          <el-image class="image" :src="src"></el-image>
+          <el-image class="image" :src="src" />
           <span class="label" :style="titleColor">{{ configObj.titleConfig.val }}</span>
         </div>
         <div class="more tui-skeleton-rect" :style="moreColor">
           更多
-          <span class="iconfont icon-xuanze"></span>
+          <span class="iconfont icon-xuanze" />
         </div>
       </div>
       <div class="tips mb10">Strolling the community</div>
       <div class="list-wrapper" :class="'colum' + listStyle">
-        <div class="item" :style="contentConfig" v-for="(item, index) in list" :index="index">
+        <div v-for="(item, index) in list" class="item" :style="contentConfig" :index="index">
           <div class="img-box">
-            <div class="mask"></div>
-            <img v-if="item.image" :src="item.image" alt="" />
+            <div class="mask" />
+            <img v-if="item.image" :src="item.image" alt="">
             <div class="empty-box" :style="contentStyle">
-              <span class="iconfont icon-tu"></span>
+              <span class="iconfont icon-tu" />
             </div>
           </div>
           <div class="info">
             <template v-if="listStyle === 0">
               <div class="author">
                 <div class="acea">
-                  <img v-show="avatarShow" src="@/assets/imgs/ren1.png" alt="" />
-                  <span :style="nameColor" v-show="nicknameShow">{{ item.nickname }}</span>
+                  <img v-show="avatarShow" src="@/assets/imgs/ren1.png" alt="">
+                  <span v-show="nicknameShow" :style="nameColor">{{ item.nickname }}</span>
                 </div>
               </div>
-              <div class="title line1" style="margin-top: 5px" :style="laberColor" v-if="titleShow">
+              <div v-if="titleShow" class="title line1" style="margin-top: 5px" :style="laberColor">
                 {{ item.store_name }}
               </div>
             </template>
             <template v-else>
-              <div class="title line1" :style="laberColor" v-if="titleShow">{{ item.store_name }}</div>
+              <div v-if="titleShow" class="title line1" :style="laberColor">{{ item.store_name }}</div>
               <div class="author">
                 <div class="acea">
-                  <img v-show="avatarShow" src="@/assets/imgs/ren1.png" alt="" />
-                  <span :style="nameColor" v-show="nicknameShow">{{ item.nickname }}</span>
+                  <img v-show="avatarShow" src="@/assets/imgs/ren1.png" alt="">
+                  <span v-show="nicknameShow" :style="nameColor">{{ item.nickname }}</span>
                 </div>
                 <div class="likes">
-                  <span class="iconfont-h5" :class="item.iconfont"></span>
+                  <span class="iconfont-h5" :class="item.iconfont" />
                   {{ item.likes }}
                 </div>
               </div>
@@ -55,9 +55,9 @@
 </template>
 
 <script>
-import { mapState, mapGetters } from 'vuex';
+import { mapState, mapGetters } from 'vuex'
 export default {
-  name: 'home_discover',
+  name: 'HomeDiscover',
   cname: '种草社区',
   configName: 'c_home_discover',
   icon: 't-icon-zujian-zhongcaoshequ',
@@ -74,103 +74,103 @@ export default {
   computed: {
     ...mapState('mobildConfig', ['defaultArray']),
     ...mapGetters(['mediaDomain']),
-    //最外层盒子的样式
+    // 最外层盒子的样式
     boxStyle() {
       return [
         { 'border-radius': this.configObj.bgStyle.val ? this.configObj.bgStyle.val + 'px' : '0' },
         { margin: this.configObj.mbConfig.val + 'px' + ' ' + this.configObj.lrConfig.val + 'px' + ' ' + 0 },
         { padding: this.configObj.upConfig.val + 'px' + ' ' + '10px' + ' ' + this.configObj.downConfig.val + 'px' },
-      ];
+      ]
     },
-    //图片背景
+    // 图片背景
     boxBgStyle() {
       return {
         backgroundImage: `url(${this.mediaDomain}/crmebimage/presets/discoverbj.png),linear-gradient(${this.configObj.bgColor.color[0].item}, ${this.configObj.bgColor.color[1].item})`,
-      };
+      }
     },
-    //内容边距
+    // 内容边距
     contentConfig() {
       if (this.listStyle === 0) {
         return [
           { 'margin-right': this.configObj.contentConfig.val ? this.configObj.contentConfig.val + 'px' : '0' },
           { 'border-radius': this.configObj.contentStyle.val + 'px' },
-        ];
+        ]
       } else {
         return [
           { 'grid-gap': this.configObj.contentConfig.val ? this.configObj.contentConfig.val + 'px' : '0' },
           { 'border-radius': this.configObj.contentStyle.val + 'px' },
-        ];
+        ]
       }
     },
-    //作者昵称
+    // 作者昵称
     nameColor() {
-      return { color: this.configObj.nameColor.color[0].item };
+      return { color: this.configObj.nameColor.color[0].item }
     },
-    //标题颜色
+    // 标题颜色
     titleColor() {
-      return { color: this.configObj.titleColor.color[0].item };
+      return { color: this.configObj.titleColor.color[0].item }
     },
-    //文章标题颜色
+    // 文章标题颜色
     laberColor() {
-      return { color: this.configObj.laberColor.color[0].item };
+      return { color: this.configObj.laberColor.color[0].item }
     },
-    //更多颜色
+    // 更多颜色
     moreColor() {
-      return { color: this.configObj.moreColor.color[0].item };
+      return { color: this.configObj.moreColor.color[0].item }
     },
-    //展示数量
+    // 展示数量
     numConfig() {
-      return this.configObj.numConfig.val;
+      return this.configObj.numConfig.val
     },
-    //图片样式
+    // 图片样式
     contentStyle() {
       return {
         'border-radius': this.configObj.contentStyle.val + 'px',
-      };
+      }
     },
-    //标题
+    // 标题
     titleShow() {
       if (this.configObj.typeConfig.activeValue.indexOf(0) !== -1) {
-        return true;
+        return true
       } else {
-        return false;
+        return false
       }
     },
-    //头像
+    // 头像
     avatarShow() {
       if (this.configObj.typeConfig.activeValue.indexOf(1) !== -1) {
-        return true;
+        return true
       } else {
-        return false;
+        return false
       }
     },
-    //昵称
+    // 昵称
     nicknameShow() {
       if (this.configObj.typeConfig.activeValue.indexOf(2) !== -1) {
-        return true;
+        return true
       } else {
-        return false;
+        return false
       }
     },
   },
   watch: {
     pageData: {
       handler(nVal, oVal) {
-        this.setConfig(nVal);
+        this.setConfig(nVal)
       },
       deep: true,
     },
     num: {
       handler(nVal, oVal) {
-        let data = this.$store.state.mobildConfig.defaultArray[nVal];
-        this.setConfig(data);
+        const data = this.$store.state.mobildConfig.defaultArray[nVal]
+        this.setConfig(data)
       },
       deep: true,
     },
     defaultArray: {
       handler(nVal, oVal) {
-        let data = this.$store.state.mobildConfig.defaultArray[this.num];
-        this.setConfig(data);
+        const data = this.$store.state.mobildConfig.defaultArray[this.num]
+        this.setConfig(data)
       },
       deep: true,
     },
@@ -211,7 +211,7 @@ export default {
           isShow: 1,
           max: 100,
         },
-        //数量
+        // 数量
         numConfig: {
           tabTitle: '内容数量',
           title: '展示数量',
@@ -219,7 +219,7 @@ export default {
           isShow: 1,
           max: 8,
         },
-        //显示内容
+        // 显示内容
         typeConfig: {
           tabTitle: '显示内容',
           title: '展示内容',
@@ -401,78 +401,38 @@ export default {
           iconfont: 'icon-shoucang1',
           likes: '1.5w',
         },
-        // {
-        //   image: '',
-        //   store_name: '西安首家线下体验店',
-        //   nickname: '国宝小熊猫',
-        //   avatar: '',
-        //   iconfont: 'icon-shoucang',
-        //   likes: '215',
-        // },
-        // {
-        //   image: '',
-        //   store_name: '西安首家线下体验店',
-        //   nickname: '国宝小熊猫',
-        //   avatar: '',
-        //   iconfont: 'icon-shoucang',
-        //   likes: '1.5w',
-        // },
-        // {
-        //   image: '',
-        //   store_name: '西安首家线下体验店',
-        //   nickname: '国宝小熊猫',
-        //   avatar: '',
-        //   iconfont: 'icon-shoucang1',
-        //   likes: '215',
-        // },
-        // {
-        //   image: '',
-        //   store_name: '西安首家线下体验店',
-        //   nickname: '国宝小熊猫',
-        //   avatar: '',
-        //   iconfont: 'icon-shoucang1',
-        //   likes: '1.5w',
-        // },
-        // {
-        //   image: '',
-        //   store_name: '西安首家线下体验店',
-        //   nickname: '国宝小熊猫',
-        //   avatar: '',
-        //   iconfont: 'icon-shoucang',
-        //   likes: '215',
-        // },
       ],
       discoverList: [],
       pageData: {},
       listStyle: 0,
       configObj: null,
-      src: '', //标题图片
-    };
+      src: '', // 标题图片
+    }
   },
   mounted() {
     this.$nextTick(() => {
       if (this.num) {
-        this.pageData = this.$store.state.mobildConfig.defaultArray[this.num];
-        this.setConfig(this.pageData);
+        this.pageData = this.$store.state.mobildConfig.defaultArray[this.num]
+        this.setConfig(this.pageData)
       }
-    });
+    })
   },
   methods: {
     setConfig(data) {
-      if (!data) return;
-      //this.discoverList = this.list;
+      if (!data) return
+      // this.discoverList = this.list;
       if (data) {
-        this.configObj = data;
-        this.navlist = data.tabConfig.list;
-        this.listStyle = data.tabConfig.tabVal;
+        this.configObj = data
+        this.navlist = data.tabConfig.list
+        this.listStyle = data.tabConfig.tabVal
         this.src = this.configObj.logoConfig.url
           ? this.configObj.logoConfig.url
-          : localStorage.getItem('mediaDomain') + '/crmebimage/presets/guangguang.png';
-        //this.discoverList = this.list.splice(0, this.configObj.numConfig.val)
+          : localStorage.getItem('mediaDomain') + '/crmebimage/presets/guangguang.png'
+        // this.discoverList = this.list.splice(0, this.configObj.numConfig.val)
       }
     },
   },
-};
+}
 </script>
 
 <style scoped lang="scss">

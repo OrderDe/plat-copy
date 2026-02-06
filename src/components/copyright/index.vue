@@ -13,7 +13,7 @@ export default {
   name: 'i-copyright',
   data() {
     return {
-      copyright: 'Copyright © 2023 西安众邦网络科技有限公司',
+      copyright: 'Copyright ©',
       copyrightNew: '',
     };
   },

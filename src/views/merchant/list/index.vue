@@ -120,8 +120,8 @@
         </el-table-column>
         <el-table-column label="操作" width="160" fixed="right">
           <template slot-scope="scope">
-            <a @click="handleLoginMer(scope.row.id)" v-hasPermi="['platform:merchant:detail']">登录 </a>
-            <el-divider direction="vertical"></el-divider>
+            <!-- <a @click="handleLoginMer(scope.row.id)" v-hasPermi="['platform:merchant:detail']">登录 </a> -->
+            <!-- <el-divider direction="vertical"></el-divider> -->
             <a
               @click="handleEdit(scope.row.id, 1, 'info')"
               v-hasPermi="['platform:merchant:detail', 'circle:merchant:detail']"
@@ -476,7 +476,7 @@ export default {
     // 修改密码表单
     onPassword(id) {
       this.merId = id;
-      this.$modalSure('重置商户密码为000000吗？').then(() => {
+      this.$modalSure('重置商户密码为123456吗？').then(() => {
         merchant.merRsetPasswordApi(id).then((res) => {
           this.$message.success('重置密码成功');
         });

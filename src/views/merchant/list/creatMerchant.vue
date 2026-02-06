@@ -41,7 +41,7 @@
       </div>
     </div>
     <div class="prompt">
-      <el-alert title="商户登录账号为手机号，初始密码为000000，可从个人中心修改密码" type="warning" effect="light">
+      <el-alert title="商户登录账号为手机号，初始密码为123456，可从个人中心修改密码" type="warning" effect="light">
       </el-alert>
     </div>
     <el-form v-loading="loadingFrom" ref="dataForm" :model="dataForm" label-width="100px" :rules="rules">
@@ -192,15 +192,7 @@
 </template>
 
 <script>
-// +---------------------------------------------------------------------
-// | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
-// +---------------------------------------------------------------------
-// | Copyright (c) 2016~2025 https://www.crmeb.com All rights reserved.
-// +---------------------------------------------------------------------
-// | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
-// +---------------------------------------------------------------------
-// | Author: CRMEB Team <admin@crmeb.com>
-// +---------------------------------------------------------------------
+ 
 import * as merchant from '@/api/merchant';
 import * as areaApi from '@/api/area.js';
 import { mapGetters } from 'vuex';

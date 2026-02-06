@@ -8,11 +8,11 @@
     "
   >
     <div class="container" :class="[fullWidth > 768 ? 'containerSamll' : 'containerBig']">
-      <template v-if="fullWidth > 768">
+      <!-- <template v-if="fullWidth > 768">
         <div class="swiperPic">
           <img :src="leftLogo" />
         </div>
-      </template>
+      </template> -->
       <div class="index_from page-account-container">
         <div class="labelPic">
           <img v-if="isPlatform" src="../../assets/imgs/laber.png" />
@@ -81,15 +81,7 @@
 </template>
 
 <script>
-// +---------------------------------------------------------------------
-// | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
-// +---------------------------------------------------------------------
-// | Copyright (c) 2016~2025 https://www.crmeb.com All rights reserved.
-// +---------------------------------------------------------------------
-// | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
-// +---------------------------------------------------------------------
-// | Author: CRMEB Team <admin@crmeb.com>
-// +---------------------------------------------------------------------
+ 
 import { validUsername } from '@/utils/validate';
 import '@/assets/js/canvas-nest.min.js';
 import { getLoginPicApi } from '@/api/user';
@@ -136,8 +128,8 @@ export default {
         },
       },
       loginForm: {
-        account: 'demo', // admin
-        pwd: 'crmeb.com',
+        account: '', // admin
+        pwd: '',
         captchaVO: {},
       },
       loginRules: {

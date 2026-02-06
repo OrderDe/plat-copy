@@ -3,7 +3,7 @@
     <el-form-item label="发货类型：" v-if="formItem.deliveryType === 'express'">
       <el-radio-group v-model="formItem.expressRecordType">
         <el-radio label="1">手动填写</el-radio>
-        <el-radio label="2" :disabled="true">电子面单打印</el-radio>
+        <!-- <el-radio label="2" :disabled="true">电子面单打印</el-radio> -->
       </el-radio-group>
     </el-form-item>
     <el-form-item v-if="formItem.deliveryType === 'express'" label="快递公司：" prop="expressCode">

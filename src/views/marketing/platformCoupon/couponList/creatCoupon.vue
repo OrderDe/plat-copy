@@ -477,12 +477,49 @@ export default {
       this.formValidate.validityTime = e;
       this.formValidate.useStartTime = e ? e[0] : '';
       this.formValidate.useEndTime = e ? e[1] : '';
+      // 验证使用时间与领取时间的关系
+      this.validateTimeRelation();
     },
     // 领取时间
     onChangeCollectionTime(e) {
       this.formValidate.collectionTime = e;
       this.formValidate.receiveStartTime = e ? e[0] : '';
       this.formValidate.receiveEndTime = e ? e[1] : '';
+      // 验证使用时间与领取时间的关系
+      this.validateTimeRelation();
+    },
+    // 验证使用时间与领取时间的关系
+    validateTimeRelation() {
+      // 如果选择了固定时间段的使用时间
+      if (this.formValidate.isFixedTime && this.formValidate.validityTime && this.formValidate.validityTime.length === 2) {
+        const useStartTime = new Date(this.formValidate.validityTime[0]).getTime();
+        const useEndTime = new Date(this.formValidate.validityTime[1]).getTime();
+
+        // 如果选择了领取时间段
+        if (this.formValidate.isTimeReceive && this.formValidate.collectionTime && this.formValidate.collectionTime.length === 2) {
+          const receiveEndTime = new Date(this.formValidate.collectionTime[1]).getTime();
+
+          // 使用结束时间不能早于领取结束时间
+          if (useEndTime < receiveEndTime) {
+            this.$message.warning('使用结束时间不能早于领取结束时间');
+            this.formValidate.validityTime = [];
+            this.formValidate.useStartTime = '';
+            this.formValidate.useEndTime = '';
+            return false;
+          }
+
+          // 使用开始时间不能早于领取开始时间
+          const receiveStartTime = new Date(this.formValidate.collectionTime[0]).getTime();
+          if (useStartTime < receiveStartTime) {
+            this.$message.warning('使用开始时间不能早于领取开始时间');
+            this.formValidate.validityTime = [];
+            this.formValidate.useStartTime = '';
+            this.formValidate.useEndTime = '';
+            return false;
+          }
+        }
+      }
+      return true;
     },
     back() {
       this.$router.push({ path: '/marketing/PlatformCoupon/list' });
@@ -582,6 +619,15 @@ export default {
     }),
     //保存
     save() {
+      // 验证使用时间与领取时间的关系
+      if (this.formValidate.isFixedTime && this.formValidate.isTimeReceive) {
+        const useEndTime = new Date(this.formValidate.useEndTime).getTime();
+        const receiveEndTime = new Date(this.formValidate.receiveEndTime).getTime();
+        if (useEndTime < receiveEndTime) {
+          this.$message.error('使用结束时间不能早于领取结束时间');
+          return;
+        }
+      }
       switch (this.formValidate.category) {
         case 6:
           this.formValidate.linkedData = this.merIds.toString();

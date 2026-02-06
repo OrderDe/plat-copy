@@ -313,6 +313,7 @@ export function orderExcelApi(params) {
     url: `/admin/platform/export/order/excel`,
     method: 'get',
     params,
+    responseType: 'blob',
   });
 }
 
@@ -325,5 +326,19 @@ export function orderRefundCompulsoryApi(refundOrderNo) {
   return request({
     url: `/admin/platform/refund/order/compulsory/refund/${refundOrderNo}`,
     method: 'post',
+  });
+}
+
+/**
+ * 获取快递轨迹列表
+ * @param params
+ */
+export function getExpressTrackListApi(params) {
+  let invoiceId = params.orderNo;
+  console.log('invoiceId',invoiceId)
+  return request({
+    url: `/admin/merchant/order/get/${invoiceId}/logistics/info`,
+    method: 'get',
+    // params,
   });
 }

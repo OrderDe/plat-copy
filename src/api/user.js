@@ -611,5 +611,6 @@ export function userExcelApi(params) {
     url: `/admin/platform/export/user/excel`,
     method: 'get',
     params,
+    responseType: 'blob',
   });
 }

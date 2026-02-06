@@ -88,7 +88,7 @@
                   <el-option value="0" label="未知"></el-option>
                   <el-option value="1" label="男"></el-option>
                   <el-option value="2" label="女"></el-option>
-                  <el-option value="3" label="保密"></el-option>
+                  <!-- <el-option value="3" label="保密"></el-option> -->
                 </el-select>
               </el-form-item>
               <el-form-item label="用户身份：">
@@ -614,7 +614,24 @@ export default {
     // 导出
     handleExports() {
       userExcelApi(this.userFrom).then((res) => {
-        window.open(res.fileName);
+        const blob = new Blob([res.data]);
+        const link = document.createElement('a');
+        link.href = window.URL.createObjectURL(blob);
+        // 从响应头获取文件名，如果没有则使用默认名称
+        const contentDisposition = res.headers['content-disposition'];
+        let filename = '用户列表.xlsx';
+        if (contentDisposition) {
+          const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
+          const matches = filenameRegex.exec(contentDisposition);
+          if (matches != null && matches[1]) {
+            filename = matches[1].replace(/['"]/g, '');
+          }
+        }
+        link.download = decodeURIComponent(filename);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(link.href);
       });
     },
     handleResetSelection(){
@@ -625,7 +642,7 @@ export default {
         0: '未知',
         1: '男',
         2: '女',
-        3: '保密',
+        // 3: '保密',
       };
       return statusMap[status];
     },
@@ -732,8 +749,11 @@ export default {
       this.userFrom.identity = '';
       this.userFrom.registerType = '';
       this.userFrom.page = 1;
+      this.userFrom.limit = 20;
       this.userFrom.searchType = 'all';
       this.userFrom.content = '';
+      this.userFrom.tagIds = '';
+      this.userFrom.dateLimit = '';
       this.keywords = '';
       this.labelData = [];
       this.timeVal = [];

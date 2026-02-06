@@ -3,7 +3,7 @@
     <div class="left-board">
       <div class="logo-wrapper">
         <div class="logo">
-          <span>CRMEB</span>
+          <span></span>
           <!-- <img :src="logo" alt="logo"> Form Generator
           <a class="github" href="https://github.com/JakHuang/form-generator" target="_blank">
             <img src="https://github.githubassets.com/pinned-octocat.svg" alt>

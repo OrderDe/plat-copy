@@ -1,4 +1,4 @@
-# CRMEB Admin
+# Admin
 
 ## 开发规范
 
@@ -198,7 +198,7 @@ utils 自定义工具 js 独立命名，一般不用新建文件夹
 │   │    └──maintain                 # 维护
 │   │         └──devconfig           # 组合数据
 │   │         └──formConfig          # 表单配置
-│   │         └──authCRMEB           # 用户授权
+│   │         └──auth           # 用户授权
 │   │         └──logistics           # 物流设置
 │   │         └──picture             # 素材管理
 │   │         └──user                # 个人中心
@@ -272,7 +272,7 @@ utils 自定义工具 js 独立命名，一般不用新建文件夹
 
 ```bash
 # 克隆项目
-git clone https://gitee.com/ZhongBangKeJi/crmeb_java/
+git clone 
 
 # 进入项目目录
 cd ##

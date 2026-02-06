@@ -74,5 +74,6 @@ export function peopleExcelApi(params) {
     url: `/admin/platform/export/retail/store/people/excel`,
     method: 'get',
     params,
+    responseType: 'blob',
   });
 }
