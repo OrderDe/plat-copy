@@ -557,9 +557,13 @@ export default {
             ? this.ruleForm.proCategorylist.toString()
             : '0';
           if (this.pageType) {
+            let selectProduct = this.ruleForm.productList.filter(item => item.checked !== false);
+            if(!selectProduct || (selectProduct && !selectProduct.length)){
+              return this.$message.warning('请选择商品')
+            }
             seckillProAdd({
               id: this.$route.params.id,
-              productList: this.ruleForm.productList,
+              productList: selectProduct,
             })
               .then((res) => {
                 this.$message.success('添加成功');
@@ -567,11 +571,11 @@ export default {
               })
               .catch((res) => {});
           } else {
-            if(this.$route.params.id!=0){
+            // if(this.$route.params.id!=0){
 
-              this.ruleForm.productList = this.ruleForm.productList.filter(item => item.checked !== false);
-
-            }
+              
+            // }
+            this.ruleForm.productList = this.ruleForm.productList.filter(item => item.checked !== false);
 
             this.$route.params.id!=0
               ? seckillAtivityUpdateApi(this.ruleForm)

@@ -8,7 +8,7 @@ import { isPhone } from '@/libs/wechat';
 import { isPlatform } from '@/utils/settingMer';
 
 const service = axios.create({
-  baseURL: SettingMer.apiBaseURL,
+  baseURL: '',
   timeout: 60000, // 过期时间
 });
 
@@ -23,6 +23,10 @@ service.interceptors.request.use(
     if (/get/i.test(config.method)) {
       config.params = config.params || {};
       config.params.temp = Date.parse(new Date()) / 1000;
+    }
+    console.log(config)
+    if(!config.baseURL){
+      config.baseURL = SettingMer.apiBaseURL;
     }
     return config;
   },

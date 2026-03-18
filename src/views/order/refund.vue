@@ -30,6 +30,16 @@
               @keyup.enter.native="handleSearchList"
             ></el-input>
           </el-form-item>
+          <el-form-item label="平台订单号：" label-width="90px">
+            <el-input
+              v-model.trim="tableFrom.platOrderNo"
+              placeholder="请输入平台订单号"
+              class="selWidth"
+              size="small"
+              clearable
+              @keyup.enter.native="handleSearchList"
+            />
+          </el-form-item>
           <el-form-item label="时间选择：">
             <el-date-picker
               v-model="timeVal"
@@ -102,7 +112,16 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column prop="orderNo" label="订单编号" min-width="180" v-if="checkedCities.includes('订单编号')" />
+        <el-table-column label="订单编号" min-width="180" v-if="checkedCities.includes('订单编号')">
+          <template slot-scope="scope">
+            <div>{{ scope.row.orderNo }}</div>
+          </template>
+        </el-table-column>
+        <el-table-column label="平台订单号" min-width="180" v-if="checkedCities.includes('平台订单号')">
+          <template slot-scope="scope">
+            <div>{{ scope.row.platOrderNo}}</div>
+          </template>
+        </el-table-column>
         <el-table-column
           prop="userNickName"
           label="用户昵称"
@@ -249,6 +268,7 @@ export default {
         refundStatus: '9',
         dateLimit: '',
         orderNo: '',
+        platOrderNo: '',
         refundOrderNo: '',
         page: 1,
         limit: 20,
@@ -271,6 +291,7 @@ export default {
       checkedCities: [
         '退款单号',
         '订单编号',
+        '平台订单号',
         '用户昵称',
         '退款金额',
         '退款状态',
@@ -282,6 +303,7 @@ export default {
       columnData: [
         '退款单号',
         '订单编号',
+        '平台订单号',
         '用户昵称',
         '退款金额',
         '退款状态',
@@ -309,6 +331,7 @@ export default {
       this.tableFrom.refundStatus = '9';
       this.tableFrom.dateLimit = '';
       this.tableFrom.orderNo = '';
+      this.tableFrom.platOrderNo = '';
       this.tableFrom.refundOrderNo = '';
       this.tableFrom.page = 1;
       this.tableFrom.merId = null;

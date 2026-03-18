@@ -88,6 +88,7 @@ export default {
       listLoading: false,
       keyNum: 0,
       id: 0,
+      submitLoading: false,
       tableFrom: {
         page: 1,
         limit: 20,
@@ -137,6 +138,9 @@ export default {
       );
     },
     submit: Debounce(function(formValue) {
+      if (this.submitLoading) return;
+      this.submitLoading = true;
+
       const data = {
         id: this.id,
         name: formValue.name,
@@ -152,9 +156,10 @@ export default {
               this.$message.success('操作成功');
               this.$msgbox.close();
               this.getList();
+              this.submitLoading = false;
             })
             .catch(() => {
-              this.loading = false;
+              this.submitLoading = false;
             })
         : product
             .guaranteeUpdateApi(data)
@@ -162,9 +167,10 @@ export default {
               this.$message.success('操作成功');
               this.$msgbox.close();
               this.getList();
+              this.submitLoading = false;
             })
             .catch(() => {
-              this.loading = false;
+              this.submitLoading = false;
             });
     }, 1000),
     handlerOpenDel(rowData) {

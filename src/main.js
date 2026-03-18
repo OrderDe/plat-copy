@@ -37,6 +37,11 @@ import directive from './directive'; //directive
 import libs from './libs/index.js'; // 全局函数
 import { isPlatform } from "./utils/settingMer";
 Vue.prototype.__isPlatform = isPlatform;
+import modelerStore from '@/components/Process/common/global'
+
+
+// 全局方法挂载
+Vue.prototype.modelerStore = modelerStore
 Vue.use(VueLazyload, {
   preLoad: 1.3,
   error: require('./assets/imgs/no.png'),

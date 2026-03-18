@@ -1,7 +1,7 @@
 
 import defaultSettings from '@/settings';
 
-const title = window.localStorage.getItem('platSiteName') || 'CRMEB Admin';
+const title = window.localStorage.getItem('platSiteName') || '';
 
 export default function getPageTitle(pageTitle) {
   if (pageTitle) {

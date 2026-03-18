@@ -19,6 +19,8 @@ import operationRouter from './modules/operation';
 import merchant from './modules/merchant';
 import pagediy from '@/router/modules/pagediy';
 import areaRouter from './modules/area';
+import definitionRouter from './modules/definition';
+import flowableRouter from './modules/flowable';
 /**
  * Note: sub-menu only appear when route children.length >= 1
  * Detail see: https://panjiachen.github.io/vue-element-admin-site/guide/essentials/router-and-nav.html
@@ -68,6 +70,8 @@ export const constantRoutes = [
   pagediy,
   // 圈层管理
   areaRouter,
+  definitionRouter,
+  flowableRouter,
   {
     path: '/404',
     component: () => import('@/views/error-page/404'),
