@@ -21,6 +21,8 @@ import pagediy from '@/router/modules/pagediy';
 import areaRouter from './modules/area';
 import definitionRouter from './modules/definition';
 import flowableRouter from './modules/flowable';
+import yytRouter from './modules/yyt';
+import invoiceRouter from './modules/invoice';
 /**
  * Note: sub-menu only appear when route children.length >= 1
  * Detail see: https://panjiachen.github.io/vue-element-admin-site/guide/essentials/router-and-nav.html
@@ -72,6 +74,10 @@ export const constantRoutes = [
   areaRouter,
   definitionRouter,
   flowableRouter,
+  // 怡亚通管理
+  yytRouter,
+  // 发票管理
+  invoiceRouter,
   {
     path: '/404',
     component: () => import('@/views/error-page/404'),

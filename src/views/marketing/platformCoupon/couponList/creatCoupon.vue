@@ -201,10 +201,10 @@
             <el-form-item label-width="0">
               <el-radio-group v-model="formValidate.category" :disabled="isEdit && !isCopy">
                 <el-radio :label="3">通用</el-radio>
-                <el-radio :label="4">品类</el-radio>
+                <!-- <el-radio :label="4">品类</el-radio> -->
                 <el-radio :label="2">商品</el-radio>
-                <el-radio :label="5">品牌</el-radio>
-                <el-radio :label="6">跨店</el-radio>
+                <!-- <el-radio :label="5">品牌</el-radio>
+                <el-radio :label="6">跨店</el-radio> -->
               </el-radio-group>
             </el-form-item>
             <el-form-item v-if="formValidate.category == 4" label="选择分类:" :span="24" label-width="64px">
