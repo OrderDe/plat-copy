@@ -231,16 +231,13 @@
       <el-card dis-hover class="fixed-card box-card" :bordered="false" shadow="never">
         <div class="acea-row row-center-wrapper">
           <el-button v-show="activeName == 'first'" size="small" type="primary" @click="activeName = 'second'"
-            >下一步</el-button
-          >
-          <el-button
+            >下一步</el-button><el-button
             v-show="activeName == 'second' && !pageType"
             size="small"
             class="priamry_border"
             @click="activeName = 'first'"
             >上一步</el-button
           >
-          {{ ruleForm.status }}
           <el-button
             :disabled="ruleForm.status == 2"
             v-show="

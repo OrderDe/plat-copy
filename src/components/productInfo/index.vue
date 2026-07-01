@@ -98,7 +98,8 @@
                 <li v-show="formValidate.type >= 0" class="item">
                   <div class="lang">品牌：</div>
                   <div class="value">
-                    {{ getListName(brandList, formValidate.brandId) }}
+                    {{ getListName(brandList, formValidate.bId) }}
+                      <!-- {{formValidate.brandName}} -->
                   </div>
                 </li>
                 <li class="item">

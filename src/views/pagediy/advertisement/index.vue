@@ -193,4 +193,10 @@ export default {
   height: 0;
   background-color: transparent;
 }
+.footer_btn_fixed{
+  display: flex;
+  justify-content: center;
+
+  align-items: center;
+}
 </style>

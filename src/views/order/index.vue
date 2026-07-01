@@ -19,7 +19,7 @@
               @keyup.enter.native="handleSearchList"
             />
           </el-form-item>
-          <el-form-item label="平台订单号：" label-width="90px">
+          <!-- <el-form-item label="平台订单号：" label-width="90px">
             <el-input
               v-model.trim="tableFrom.platOrderNo"
               placeholder="请输入平台订单号"
@@ -28,7 +28,7 @@
               clearable
               @keyup.enter.native="handleSearchList"
             />
-          </el-form-item>
+          </el-form-item> -->
           <el-form-item label="订单类型：">
             <el-select
               v-model="tableFrom.type"
@@ -118,11 +118,11 @@
             <span v-show="scope.row.isUserDel" class="colorPrompt" style="display: block">用户已删除</span>
           </template>
         </el-table-column>
-        <el-table-column prop="platOrderNo" label="平台订单号" min-width="150" v-if="checkedCities.includes('平台订单号')">
+        <!-- <el-table-column prop="platOrderNo" label="平台订单号" min-width="150" v-if="checkedCities.includes('平台订单号')">
           <template slot-scope="scope">
             <span> {{ scope.row.platOrderNo}}</span>
           </template>
-        </el-table-column>
+        </el-table-column> -->
         <el-table-column prop="merName" label="商户名称" min-width="150" v-if="checkedCities.includes('商户名称')">
           <template slot-scope="scope">
             <span> {{ scope.row.merName | filterEmpty }}</span>
@@ -291,8 +291,10 @@ export default {
       active: false,
       card_select_show: false,
       checkAll: true,
-      checkedCities: ['订单编号', '平台订单号','商户名称', '用户昵称', '实际支付', '支付方式', '订单状态', '下单时间'],
-      columnData: ['订单编号', '平台订单号', '商户名称', '用户昵称', '实际支付', '支付方式', '订单状态', '下单时间'],
+      // checkedCities: ['订单编号', '平台订单号','商户名称', '用户昵称', '实际支付', '支付方式', '订单状态', '下单时间'],
+      // columnData: ['订单编号', '平台订单号', '商户名称', '用户昵称', '实际支付', '支付方式', '订单状态', '下单时间'],
+      checkedCities: ['订单编号','商户名称', '用户昵称', '实际支付', '支付方式', '订单状态', '下单时间'],
+      columnData: ['订单编号', '商户名称', '用户昵称', '实际支付', '支付方式', '订单状态', '下单时间'],
       isIndeterminate: false,
     };
   },

@@ -24,7 +24,8 @@ service.interceptors.request.use(
       config.params = config.params || {};
       config.params.temp = Date.parse(new Date()) / 1000;
     }
-    console.log(config)
+    // console.log(config)
+    // debugger
     if(!config.baseURL){
       config.baseURL = SettingMer.apiBaseURL;
     }

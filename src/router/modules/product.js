@@ -24,6 +24,12 @@ const productRouter = {
       meta: { title: '商品分类', icon: '' },
     },
     {
+      path: 'library',
+      component: () => import('@/views/product/library/index'),
+      name: 'ProductLibrary',
+      meta: { title: '商品库', icon: '' },
+    },
+    {
       path: 'comment',
       component: () => import('@/views/product/comment/index'),
       name: 'ProductComment',
@@ -40,6 +46,12 @@ const productRouter = {
       component: () => import('@/views/product/guarantee/index'),
       name: 'ProductGuarantee',
       meta: { title: '保障服务', icon: '' },
+    },
+    {
+      path: 'platguarantee/index',
+      component: () => import('@/views/product/platguarantee/index'),
+      name: 'ProductPlatguarantee',
+      meta: { title: '保障服务管理', icon: '' },
     },
     {
       path: 'tag',

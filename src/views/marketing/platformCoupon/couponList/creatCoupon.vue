@@ -30,11 +30,11 @@
               />
             </el-form-item>
             <el-form-item label="优惠券面值(元)：" prop="money">
+              <!-- :disabled="isEdit && !isCopy" -->
               <el-input-number
                 type="number"
                 v-model="formValidate.money"
                 size="small"
-                :disabled="isEdit && !isCopy"
                 :max="9999"
                 :min="1"
                 :step="1"
@@ -46,10 +46,10 @@
               </el-input-number>
             </el-form-item>
             <el-form-item label="使用门槛(元)：" prop="minPrice">
+              <!-- :disabled="isEdit && !isCopy" -->
               <el-input-number
                 v-model="formValidate.minPrice"
                 size="small"
-                :disabled="isEdit && !isCopy"
                 :max="999999"
                 :min="0"
                 :step="1"
@@ -62,7 +62,8 @@
               <p class="desc mt10">填写优惠券的最低消费金额，使用门槛为0时指无门槛</p>
             </el-form-item>
             <el-form-item label="领取方式：" prop="receiveType">
-              <el-radio-group v-model="formValidate.receiveType" :disabled="isEdit && !isCopy">
+              <!-- :disabled="isEdit && !isCopy" -->
+              <el-radio-group v-model="formValidate.receiveType" >
                 <el-radio :label="1">用户领取</el-radio>
                 <el-radio :label="3">平台活动使用</el-radio>
               </el-radio-group>
@@ -72,7 +73,8 @@
               </p>
             </el-form-item>
             <el-form-item label="领取时间：" prop="isTimeReceive" v-if="formValidate.receiveType === 1">
-              <el-radio-group v-model="formValidate.isTimeReceive" :disabled="isEdit && !isCopy">
+              <!-- :disabled="isEdit && !isCopy" -->
+              <el-radio-group v-model="formValidate.isTimeReceive" >
                 <el-radio :label="true">时间段</el-radio>
                 <el-radio :label="false">不限时</el-radio>
               </el-radio-group>
@@ -133,7 +135,8 @@
               />
             </el-form-item>
             <el-form-item :label="!isEdit || isCopy ? '发布数量(张)：' : '增加发布数量(张)：'" prop="isLimited">
-              <el-radio-group v-model="formValidate.isLimited" :disabled="isEdit && !isCopy">
+              <!-- :disabled="isEdit && !isCopy" -->
+              <el-radio-group v-model="formValidate.isLimited" >
                 <el-radio :label="true">限量</el-radio>
                 <el-radio :label="false">不限量</el-radio>
               </el-radio-group>
@@ -188,9 +191,9 @@
               </p>
             </el-form-item>
             <el-form-item label="是否开启:">
+              <!-- :disabled="isEdit && !isCopy" -->
               <el-switch
                 :width="56"
-                :disabled="isEdit && !isCopy"
                 v-model="formValidate.status"
                 active-text="开启"
                 inactive-text="关闭"
@@ -199,12 +202,14 @@
           </div>
           <div v-show="currentTab === '2'">
             <el-form-item label-width="0">
-              <el-radio-group v-model="formValidate.category" :disabled="isEdit && !isCopy">
+              <!-- :disabled="isEdit && !isCopy" -->
+              <el-radio-group v-model="formValidate.category" >
                 <el-radio :label="3">通用</el-radio>
                 <!-- <el-radio :label="4">品类</el-radio> -->
                 <el-radio :label="2">商品</el-radio>
-                <!-- <el-radio :label="5">品牌</el-radio>
-                <el-radio :label="6">跨店</el-radio> -->
+                
+                <!-- <el-radio :label="5">品牌</el-radio> -->
+                <!-- <el-radio :label="6">跨店</el-radio> -->
               </el-radio-group>
             </el-form-item>
             <el-form-item v-if="formValidate.category == 4" label="选择分类:" :span="24" label-width="64px">

@@ -30,7 +30,7 @@
               @keyup.enter.native="handleSearchList"
             ></el-input>
           </el-form-item>
-          <el-form-item label="平台订单号：" label-width="90px">
+          <!-- <el-form-item label="平台订单号：" label-width="90px">
             <el-input
               v-model.trim="tableFrom.platOrderNo"
               placeholder="请输入平台订单号"
@@ -39,7 +39,7 @@
               clearable
               @keyup.enter.native="handleSearchList"
             />
-          </el-form-item>
+          </el-form-item> -->
           <el-form-item label="时间选择：">
             <el-date-picker
               v-model="timeVal"
@@ -117,11 +117,11 @@
             <div>{{ scope.row.orderNo }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="平台订单号" min-width="180" v-if="checkedCities.includes('平台订单号')">
+        <!-- <el-table-column label="平台订单号" min-width="180" v-if="checkedCities.includes('平台订单号')">
           <template slot-scope="scope">
             <div>{{ scope.row.platOrderNo}}</div>
           </template>
-        </el-table-column>
+        </el-table-column> -->
         <el-table-column
           prop="userNickName"
           label="用户昵称"
@@ -288,10 +288,34 @@ export default {
       active: false,
       card_select_show: false,
       checkAll: true,
+      // checkedCities: [
+      //   '退款单号',
+      //   '订单编号',
+      //   '平台订单号',
+      //   '用户昵称',
+      //   '退款金额',
+      //   '退款状态',
+      //   '售后类型',
+      //   '退货类型',
+      //   '强制退款',
+      //   '创建时间',
+      // ],
+      // columnData: [
+      //   '退款单号',
+      //   '订单编号',
+      //   '平台订单号',
+      //   '用户昵称',
+      //   '退款金额',
+      //   '退款状态',
+      //   '售后类型',
+      //   '退货类型',
+      //   '强制退款',
+      //   '创建时间',
+      // ],
       checkedCities: [
         '退款单号',
         '订单编号',
-        '平台订单号',
+        // '平台订单号',
         '用户昵称',
         '退款金额',
         '退款状态',
@@ -303,7 +327,7 @@ export default {
       columnData: [
         '退款单号',
         '订单编号',
-        '平台订单号',
+        // '平台订单号',
         '用户昵称',
         '退款金额',
         '退款状态',
