@@ -1,5 +1,5 @@
 <template>
-  <div class="divBox relative">
+  <div v-if="checkPermi(['platform:yyt:category:list'])" class="divBox relative">
     <el-card :bordered="false" shadow="never" class="ivu-mt" :body-style="{ padding: '20px' }">
       <div class="mb15">
         <span class="page-title">怡亚通分类管理</span>
@@ -49,7 +49,7 @@
         <el-table-column prop="createTime" label="创建时间" min-width="160" />
         <el-table-column label="操作" width="100" fixed="right">
           <template slot-scope="{ row }">
-            <el-button type="text" size="small" @click="handleEdit(row)">编辑</el-button>
+            <el-button type="text" size="small" @click="handleEdit(row)" v-hasPermi="['platform:yyt:category:edit']">编辑</el-button>
           </template>
         </el-table-column>
       </el-table>

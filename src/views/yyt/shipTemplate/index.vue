@@ -1,5 +1,5 @@
 <template>
-  <div class="divBox">
+  <div v-if="checkPermi(['platform:yyt:shipTemplate:list'])" class="divBox">
     <pageHeader title="运费模板" backUrl="/yyt/goods/list" />
     <el-card class="box-card" shadow="never" :body-style="{ padding: '20px' }">
       <!-- 搜索 -->

@@ -1,5 +1,5 @@
 <template>
-  <div class="divBox relative">
+  <div v-if="checkPermi(['platform:yyt:goods:list'])" class="divBox relative">
     <el-card :bordered="false" shadow="never" class="ivu-mt" :body-style="{ padding: '20px' }">
       <div class="mb15">
         <span class="page-title">怡亚通商品列表</span>
@@ -104,7 +104,7 @@
         <el-table-column prop="createTime" label="创建时间" width="160" />
         <el-table-column label="操作" width="160" align="center" fixed="right">
           <template slot-scope="{ row }">
-            <el-button type="text" size="mini" @click="onViewDetail(row)">查看详情</el-button>
+            <el-button type="text" size="mini" @click="onViewDetail(row)" v-hasPermi="['platform:yyt:goods:detail']">查看详情</el-button>
             <!-- <el-button type="text" size="mini" style="color:#67C23A" @click="onAddToLibrary([row])">加入商品库</el-button> -->
           </template>
         </el-table-column>

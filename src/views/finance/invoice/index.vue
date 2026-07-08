@@ -1,5 +1,5 @@
 <template>
-  <div class="divBox">
+  <div v-if="checkPermi(['platform:invoice:management:list'])" class="divBox">
     <el-card :bordered="false" shadow="never" class="ivu-mt" :body-style="{ padding: '20px' }">
       <div class="mb15">
         <span class="page-title">开票管理</span>
@@ -48,9 +48,9 @@
         <el-table-column prop="createTime" label="申请时间" width="160" />
         <el-table-column label="操作" width="180" align="center" fixed="right">
           <template slot-scope="{ row }">
-            <el-button type="text" size="mini" @click="onViewOrder(row)">查看订单</el-button>
-            <el-button v-if="row.invoiceStatus === 0" type="text" size="mini" style="color:#67C23A" @click="onInvoice(row)">去开票</el-button>
-            <el-button v-if="row.invoiceStatus === 0" type="text" size="mini" style="color:#F56C6C" @click="onReject(row)">拒绝</el-button>
+            <el-button type="text" size="mini" @click="onViewOrder(row)" v-hasPermi="['platform:invoice:management:detail']">查看订单</el-button>
+            <el-button v-if="row.invoiceStatus === 0" type="text" size="mini" style="color:#67C23A" @click="onInvoice(row)" v-hasPermi="['platform:invoice:management:invoice']">去开票</el-button>
+            <el-button v-if="row.invoiceStatus === 0" type="text" size="mini" style="color:#F56C6C" @click="onReject(row)" v-hasPermi="['platform:invoice:management:reject']">拒绝</el-button>
           </template>
         </el-table-column>
       </el-table>

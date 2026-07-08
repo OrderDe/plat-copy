@@ -108,7 +108,7 @@ export default {
   data() {
     return {
       secretKey: '', // 后端返回的ase加密秘钥
-      checkNum: 3, // 默认需要点击的字数
+      checkNum: 4, // 默认需要点击的字数
       fontPos: [], // 选中的坐标信息
       checkPosArr: [], // 用户点击的坐标
       num: 1, // 点击的记数

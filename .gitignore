@@ -22,3 +22,4 @@ selenium-debug.log
 package-lock.json
 yarn.lock
 /.claude/settings.local.json
+/权限配置文档_平台端新增模块.md

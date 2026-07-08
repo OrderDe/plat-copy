@@ -1,5 +1,5 @@
 <template>
-  <div class="divBox">
+  <div v-if="checkPermi(['platform:maintain:orderLog:list'])" class="divBox">
     <el-card class="box-card" shadow="never" :bordered="false">
       <!-- 搜索栏 -->
       <el-form :inline="true" :model="tableFrom" size="small" class="mb15">

@@ -1,5 +1,5 @@
 <template>
-  <div class="invoice-record">
+  <div v-if="checkPermi(['platform:invoice:record:list'])" class="invoice-record">
     <el-card :bordered="false" shadow="never" class="ivu-mt" :body-style="{ padding: '20px' }">
       <div class="mb15">
         <span class="page-title">发票记录管理</span>
@@ -131,8 +131,8 @@
         <el-table-column label="开票时间" align="center" prop="invoiceTime" width="160" />
         <el-table-column label="操作" align="center" width="200" fixed="right">
           <template slot-scope="scope">
-            <el-button type="text" size="small" @click="handleDetail(scope.row.id)">详情</el-button>
-            <el-button v-if="scope.row.status === 0" type="text" size="small" @click="handleUploadInvoice(scope.row.id)"
+            <el-button type="text" size="small" @click="handleDetail(scope.row.id)" v-hasPermi="['platform:invoice:record:detail']">详情</el-button>
+            <el-button v-if="scope.row.status === 0" type="text" size="small" @click="handleUploadInvoice(scope.row.id)" v-hasPermi="['platform:invoice:record:upload']"
               >去开票</el-button
             >
             <!-- <el-button type="text" size="small" @click="handleDelete(scope.row.id)">删除</el-button> -->
@@ -170,6 +170,7 @@ import { getInvoiceRecordPage, deleteInvoiceRecord } from '@/api/invoiceRecord';
 import InvoiceRecordForm from './InvoiceRecordForm.vue';
 import InvoiceRecordDetail from './InvoiceRecordDetail.vue';
 import InvoiceUploadForm from './InvoiceUploadForm.vue';
+import { checkPermi } from '@/utils/permission'; // 权限判断函数
 
 export default {
   name: 'InvoiceRecord',

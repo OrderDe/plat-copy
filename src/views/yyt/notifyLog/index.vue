@@ -1,5 +1,5 @@
 <template>
-  <div class="divBox relative">
+  <div v-if="checkPermi(['platform:yyt:notifyLog:list'])" class="divBox relative">
     <el-card :bordered="false" shadow="never" class="ivu-mt" :body-style="{ padding: '20px' }">
       <div class="mb15">
         <span class="page-title">怡亚通通知日志</span>
