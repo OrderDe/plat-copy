@@ -14,6 +14,7 @@
         <router-link :to="{ path: '/dashboard' }">
           <span class="bullshit__return-home">返回控制台</span>
         </router-link>
+        <span class="bullshit__return-home" style="margin-left: 15px;" @click="handleReLogin">返回重新登录</span>
       </div>
     </div>
   </div>
@@ -23,7 +24,6 @@
  
 export default {
   name: 'Page404',
-
   data() {
     return {};
   },
@@ -32,7 +32,11 @@ export default {
       return '你不能进入这个页面...';
     },
   },
-  methods: {},
+  methods: {
+    handleReLogin() {
+      this.$store.dispatch('user/handleLogout');
+    },
+  },
 };
 </script>
 

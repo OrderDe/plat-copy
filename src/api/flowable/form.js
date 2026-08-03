@@ -1,13 +1,10 @@
-import request from '@/utils/request'
-import SettingMer from '@/utils/settingMer';
-let baseURL = SettingMer.apiBaseURL2;
+import request from './request'
 // 查询流程表单列表
 export function listForm(query) {
   return request({
     url: '/flowable/form/list',
     method: 'get',
     params: query,
-    baseURL: baseURL
   })
 }
 export function listAllForm(query) {
@@ -15,7 +12,6 @@ export function listAllForm(query) {
     url: '/flowable/form/formList',
     method: 'get',
     params: query,
-    baseURL: baseURL
   })
 }
 
@@ -24,27 +20,24 @@ export function getForm(formId) {
   return request({
     url: '/flowable/form/' + formId,
     method: 'get',
-    baseURL: baseURL
   })
 }
 
 // 新增流程表单
 export function addForm(data) {
   return request({
-    url: '/flowable/form',
+    url: '/flowable/form/add',
     method: 'post',
     data: data,
-    baseURL: baseURL
   })
 }
 
 // 修改流程表单
 export function updateForm(data) {
   return request({
-    url: '/flowable/form',
+    url: '/flowable/form/edit',
     method: 'put',
     data: data,
-    baseURL: baseURL
   })
 }
 // 挂载表单
@@ -53,16 +46,14 @@ export function addDeployForm(data) {
     url: '/flowable/form/addDeployForm',
     method: 'post',
     data: data,
-    baseURL: baseURL
   })
 }
 
 // 删除流程表单
 export function delForm(formId) {
   return request({
-    url: '/flowable/form/' + formId,
+    url: '/flowable/form/remove/' + formId,
     method: 'delete',
-    baseURL: baseURL
   })
 }
 
@@ -72,6 +63,5 @@ export function exportForm(query) {
     url: '/flowable/form/export',
     method: 'get',
     params: query,
-    baseURL: baseURL
   })
 }

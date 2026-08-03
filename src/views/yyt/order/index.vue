@@ -1,5 +1,6 @@
 <template>
-  <div v-if="checkPermi(['platform:yyt:order:list'])" class="divBox relative">
+  <!-- v-if="checkPermi(['platform:yyt:order:list'])" -->
+  <div class="divBox relative">
     <el-card :bordered="false" shadow="never" class="ivu-mt" :body-style="{ padding: '20px' }">
       <div class="mb15">
         <span class="page-title">怡亚通订单管理</span>
@@ -42,6 +43,11 @@
             <el-tag :type="statusTagType(row.orderStatus)" size="mini">{{ row.orderStatusName }}</el-tag>
           </template>
         </el-table-column>
+        <el-table-column label="发货状态" width="100" align="center">
+          <template slot-scope="{ row }">
+            <el-tag :type="sendTypeTag(row.sendType)" size="mini">{{ sendTypeLabel(row.sendType) }}</el-tag>
+          </template>
+        </el-table-column>
         <el-table-column prop="skuIds" label="SKU IDs" min-width="120" show-overflow-tooltip />
         <el-table-column prop="createTime" label="创建时间" width="160" />
         <el-table-column prop="updateTime" label="更新时间" width="160" />
@@ -75,6 +81,7 @@
 <script>
 import { GetSoldOrderList } from '@/api/yytapi';
 import OrderDetailDrawer from './components/OrderDetailDrawer.vue';
+// import { checkPermi } from '@/utils/permission';
 
 const STATUS_MAP = {
   0: { label: '待支付', type: 'warning' },
@@ -85,6 +92,12 @@ const STATUS_MAP = {
   5: { label: '已收货', type: 'success' },
   6: { label: '已完成', type: 'success' },
   9: { label: '已取消', type: 'info' },
+};
+
+const SEND_TYPE_MAP = {
+  0: { label: '未发货', type: 'info' },
+  1: { label: '已发货', type: 'success' },
+  2: { label: '部分发货', type: 'warning' },
 };
 
 export default {
@@ -108,6 +121,7 @@ export default {
     this.getList();
   },
   methods: {
+    // checkPermi,
     getList() {
       this.loading = true;
       GetSoldOrderList(this.queryForm)
@@ -127,6 +141,8 @@ export default {
     handleCurrentChange(page) { this.queryForm.pageNum = page; this.getList(); },
     statusLabel(status) { return STATUS_MAP[status] && STATUS_MAP[status].label || status; },
     statusTagType(status) { return STATUS_MAP[status] && STATUS_MAP[status].type || 'info'; },
+    sendTypeLabel(type) { return (SEND_TYPE_MAP[type] && SEND_TYPE_MAP[type].label) || type || '-'; },
+    sendTypeTag(type) { return (SEND_TYPE_MAP[type] && SEND_TYPE_MAP[type].type) || 'info'; },
     onViewDetail(row) { this.$refs.orderDetailDrawer.open(row.orderSn); },
   },
 };

@@ -200,6 +200,7 @@ export default {
     this.getList();
   },
   methods: {
+    checkPermi,
     /** 查询列表 */
     async getList() {
       this.loading = true;

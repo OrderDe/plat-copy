@@ -34,55 +34,56 @@ export default {
           icon: 'icon-yonghuguanli',
           title: '用户管理',
           url: '/user/index',
+          perms: ['platform:user:page:list'],
         },
         {
           bgColor: '#1890FF',
           icon: 'icon-shangpinguanli',
           title: '商品管理',
           url: '/product/list',
+          perms: ['platform:product:page:list'],
         },
         {
           bgColor: '#4BCAD5',
           icon: 'icon-shanghuguanli',
           title: '商户管理',
           url: '/merchant/list',
+          perms: ['platform:merchant:page:list'],
         },
         {
           bgColor: '#A277FF',
           icon: 'icon-a-dingdanguanli1',
           title: '订单管理',
           url: '/order/list',
+          perms: ['platform:order:page:list'],
         },
         {
           bgColor: '#1BBE6B',
           icon: 'icon-xitongshezhi',
           title: '系统设置',
           url: '/operation/setting',
+          perms: ['platform:system:form:info'],
         },
         {
           bgColor: '#1890FF',
           icon: 'icon-fenxiaoshezhi',
           title: '分销设置',
           url: '/distribution/distributionconfig',
+          perms: ['platform:retail:store:config:get'],
         },
         {
           bgColor: '#A277FF',
           icon: 'icon-caiwuguanli',
           title: '财务管理',
           url: '/finance/statement',
+          perms: ['platform:finance:daily:statement:page:list'],
         },
-
-        // {
-        //   bgColor: '#EF9C20',
-        //   icon: 'icon-yihaotong',
-        //   title: '一号通',
-        //   url: '/operation/onePass/home',
-        // },
         {
           bgColor: '#4BCAD5',
           icon: 'icon-qiandaopeizhi',
           title: '签到配置',
           url: '/marketing/sign/config',
+          perms: ['platform:sign:get:config'],
         },
       ],
       statisticData: [
@@ -98,13 +99,14 @@ export default {
     };
   },
   computed: {
-    //鉴权处理
+    //鉴权处理（权限标识 + 菜单路径双重校验）
     permList: function () {
+      const menuPaths = this.getMenuPaths();
       let arr = [];
       this.nav_list.forEach((item) => {
-        //if (this.checkPermi(item.perms)) {
-        arr.push(item);
-        //}
+        if (this.checkPermi(item.perms) && menuPaths.has(item.url)) {
+          arr.push(item);
+        }
       });
       return arr;
     },
@@ -114,6 +116,24 @@ export default {
   },
   methods: {
     checkPermi,
+    /**
+     * 从菜单树中递归提取所有可访问的路径集合
+     */
+    getMenuPaths() {
+      const menuList = this.$store.state.user.menuList;
+      if (!menuList || !Array.isArray(menuList)) return new Set();
+      const paths = new Set();
+      function traverse(items) {
+        items.forEach((item) => {
+          if (item.path) paths.add(item.path);
+          if (item.children && item.children.length) {
+            traverse(item.children);
+          }
+        });
+      }
+      traverse(menuList);
+      return paths;
+    },
     navigatorTo(path) {
       this.$router.push(path);
     },

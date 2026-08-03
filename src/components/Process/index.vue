@@ -278,7 +278,7 @@ export default {
 
     /** 关闭当前标签页并返回上个页面 */
     goBack() {
-      const obj = {path: "/flowable/definition", query: {t: Date.now()}};
+      const obj = {path: "/ryFlowAble/activiti/model", query: {t: Date.now()}};
       this.$tab.closeOpenPage(obj);
     },
   }

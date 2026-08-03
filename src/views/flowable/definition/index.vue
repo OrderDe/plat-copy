@@ -148,11 +148,10 @@
           将文件拖到此处，或
           <em>点击上传</em>
         </div>
-        <div class="el-upload__tip" slot="tip">
+        <!-- <div class="el-upload__tip" slot="tip">
           流程名称：<el-input v-model="upload.name"/>
           流程分类：
           <div>
-            <!--          <el-input v-model="upload.category"/>-->
             <el-select v-model="upload.category" placeholder="请选择流程分类">
               <el-option
                 v-for="dict in dict.type.sys_process_category"
@@ -162,7 +161,7 @@
               ></el-option>
             </el-select>
           </div>
-        </div>
+        </div> -->
         <div class="el-upload__tip" style="color:red" slot="tip">提示：仅允许导入“bpmn20.xml”格式文件！</div>
       </el-upload>
       <div slot="footer" class="dialog-footer">
@@ -261,10 +260,11 @@ export default {
   data() {
     return {
       // 遮罩层
-      loading: true,
+      loading: false,
       dialogVisible: false,
       // 选中数组
       ids: [],
+      dict:[],
       // 非单个禁用
       single: true,
       // 非多个禁用
@@ -351,11 +351,17 @@ export default {
   methods: {
     /** 查询流程定义列表 */
     getList() {
-      this.loading = true;
+      return new Promise((resolve, reject) => {
+        
+      })
+      // this.loading = true;
       listDefinition(this.queryParams).then(response => {
         this.definitionList = response.data.records;
         this.total = response.data.total;
-        this.loading = false;
+        // this.loading = false;
+      }).catch(err => {
+        this.$message.error(err.message);
+        // this.loading = false;
       });
     },
     handleClose(done) {
@@ -422,17 +428,16 @@ export default {
       this.readImage.open = true;
       // this.readImage.src = process.env.VUE_APP_BASE_API + "/flowable/definition/readImage/" + deploymentId;
       flowXmlAndNode({deployId:deployId}).then(res => {
-        this.flowData = res.data;
+        this.flowData = res;
       })
     },
     /** 表单查看 */
     handleForm(formId){
       getForm(formId).then(res =>{
         this.formTitle = "表单详情";
+        this.formData = JSON.parse(res.formContent);
         this.formConfOpen = true;
         this.$nextTick(() => {
-          // 回显数据
-          this.$refs.vFormRef.setFormJson(JSON.parse(res.data.formContent))
           this.$nextTick(() => {
             // 表单禁用
             this.$refs.vFormRef.disableForm();

@@ -75,6 +75,7 @@ export default {
     if (deployId) {
       this.getXmlData(deployId);
     }
+    this.dataExit = true;
     this.getDataList()
   },
   methods: {
@@ -82,8 +83,8 @@ export default {
     getXmlData(deployId) {
       // 发送请求，获取xml
       readXml(deployId).then(res =>{
-        this.xml = res.data;
-        this.modeler = res.data
+        this.xml = res;
+        this.modeler = res
       })
     },
     /** 保存xml */
@@ -103,13 +104,13 @@ export default {
     /** 指定流程办理人员列表 */
     getDataList() {
       userList().then(res => {
-        this.modelerStore.userList = res.data;
+        this.modelerStore.userList = res;
       })
       roleList().then(res => {
-        this.modelerStore.roleList = res.data;
+        this.modelerStore.roleList = res;
       })
       expList().then(res => {
-        this.modelerStore.expList = res.data;
+        this.modelerStore.expList = res;
         this.dataExit = true;
       });
     },

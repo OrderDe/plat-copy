@@ -1,5 +1,6 @@
 <template>
-  <div v-if="checkPermi(['platform:yyt:goods:list'])" class="divBox relative">
+  <!-- v-if="checkPermi(['platform:yyt:goods:list'])" -->
+  <div class="divBox relative">
     <el-card :bordered="false" shadow="never" class="ivu-mt" :body-style="{ padding: '20px' }">
       <div class="mb15">
         <span class="page-title">怡亚通商品列表</span>
@@ -30,10 +31,10 @@
           <el-input v-model="queryForm.name" placeholder="请输入商品名称" clearable style="width:160px" />
         </el-form-item>
         <!-- 库名称 -->
-        <el-form-item label="库名称">
+        <!-- <el-form-item label="库名称">
           <el-input v-model="queryForm.libName" placeholder="请输入库名称" clearable style="width:130px" />
           <el-button type="text" size="small" class="ml5" @click="onFillTestLib">测试库</el-button>
-        </el-form-item>
+        </el-form-item> -->
         <!-- SPU ID -->
         <el-form-item label="SPU ID">
           <el-input v-model="queryForm.spuId" placeholder="请输入SPU ID" clearable style="width:130px" />
@@ -104,7 +105,7 @@
         <el-table-column prop="createTime" label="创建时间" width="160" />
         <el-table-column label="操作" width="160" align="center" fixed="right">
           <template slot-scope="{ row }">
-            <el-button type="text" size="mini" @click="onViewDetail(row)" v-hasPermi="['platform:yyt:goods:detail']">查看详情</el-button>
+            <el-button type="text" size="mini" @click="onViewDetail(row)"><!-- v-hasPermi="['platform:yyt:goods:detail']" -->查看详情</el-button>
             <!-- <el-button type="text" size="mini" style="color:#67C23A" @click="onAddToLibrary([row])">加入商品库</el-button> -->
           </template>
         </el-table-column>
@@ -133,6 +134,7 @@
 <script>
 import { GetCategoryTree, GetSpuList, SyncYytBrand, SyncYytCategory, SyncYytSpu } from '@/api/yytapi';
 import GoodsDetailDrawer from './components/GoodsDetailDrawer.vue';
+// import { checkPermi } from '@/utils/permission';
 
 export default {
   name: 'YytGoods',
@@ -167,6 +169,7 @@ export default {
     this.getList();
   },
   methods: {
+    // checkPermi,
     // 加载一级分类
     async loadCategoryTree() {
       const res = await GetCategoryTree({ pid: 0, level: 1 });
@@ -235,8 +238,7 @@ export default {
     },
     getList() {
       this.loading = true;
-      GetSpuList(this.buildParams())
-        .then((res) => {
+      GetSpuList(this.buildParams()).then((res) => {
           console.log('商品列表', res);
           this.tableData = (res && res.list);
           this.total = (res && res.total) || 0;
@@ -278,7 +280,7 @@ export default {
     onAddToLibrary(rows) {
       this.$confirm(`确认将选中的 ${rows.length} 个商品加入商品库？`, '提示', { type: 'warning' }).then(() => {
         // 调用加入商品库接口（接口路径待配置）
-        this.$message.success('已成功加入商品库');
+        //this.$message.success('已成功加入商品库');
       });
     },
     onBatchAddToLibrary() {

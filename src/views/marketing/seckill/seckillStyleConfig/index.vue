@@ -11,7 +11,7 @@
         <el-form-item label="秒杀样式：" prop="value">
           <el-radio-group v-model="seckillStyleForm.value">
             <el-radio label="1">样式1</el-radio>
-            <el-radio label="2">样式2</el-radio>
+            <!-- <el-radio label="2">样式2</el-radio> -->
           </el-radio-group>
         </el-form-item>
         <el-form-item label="样式展示：">

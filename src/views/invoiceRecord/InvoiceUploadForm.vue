@@ -48,18 +48,20 @@
 
     <span slot="footer">
       <el-button @click="dialogVisible = false" :disabled="loading">取消</el-button>
-      <el-button
-        type="danger"
-        :loading="loading"
-        :disabled="loading"
-        @click="rejectInvoice"
-      >拒绝开票</el-button>
-      <el-button
-        type="primary"
-        :loading="loading"
-        :disabled="!uploadedFileUrl || loading"
-        @click="confirmInvoice"
-      >确认开票</el-button>
+      <template v-if="invoiceInfo.status === 0">
+        <el-button
+          type="danger"
+          :loading="loading"
+          :disabled="loading"
+          @click="rejectInvoice"
+        >拒绝开票</el-button>
+        <el-button
+          type="primary"
+          :loading="loading"
+          :disabled="!uploadedFileUrl || loading"
+          @click="confirmInvoice"
+        >确认开票</el-button>
+      </template>
     </span>
   </el-dialog>
 </template>

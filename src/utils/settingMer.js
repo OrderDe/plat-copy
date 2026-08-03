@@ -8,8 +8,8 @@ const SettingMer = {
   // 服务器地址
   httpUrl: VUE_APP_API_URL,
   // 接口请求地址
-  apiBaseURL: VUE_APP_API_URL + '/api/',
-  apiBaseURL2: VUE_APP_API_URL2 + '/',
+  apiBaseURL: VUE_APP_API_URL + '/admin/api/',
+  apiBaseURL2: VUE_APP_API_URL + '/flowable',
   // socket连接
   wsSocketUrl: VUE_APP_WS_URL,
   // 是否为平台端

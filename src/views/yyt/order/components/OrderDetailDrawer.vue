@@ -20,6 +20,11 @@
                 {{ detail.order && detail.order.orderStatusName }}
               </el-tag>
             </el-descriptions-item>
+            <el-descriptions-item label="发货状态">
+              <el-tag :type="sendTypeTag(detail.order && detail.order.sendType)" size="mini">
+                {{ sendTypeLabel(detail.order && detail.order.sendType) }}
+              </el-tag>
+            </el-descriptions-item>
             <el-descriptions-item label="订单总额">
               <span class="price-text">¥{{ detail.order && detail.order.totalAmount }}</span>
             </el-descriptions-item>
@@ -98,6 +103,12 @@ const STATUS_MAP = {
   9: { label: '已取消', type: 'info' },
 };
 
+const SEND_TYPE_MAP = {
+  0: { label: '未发货', type: 'info' },
+  1: { label: '已发货', type: 'success' },
+  2: { label: '部分发货', type: 'warning' },
+};
+
 export default {
   name: 'OrderDetailDrawer',
   data() {
@@ -120,6 +131,8 @@ export default {
     },
     handleClose() { this.visible = false; },
     statusTagType(status) { return STATUS_MAP[status] && STATUS_MAP[status].type || 'info'; },
+    sendTypeLabel(type) { return (SEND_TYPE_MAP[type] && SEND_TYPE_MAP[type].label) || type || '-'; },
+    sendTypeTag(type) { return (SEND_TYPE_MAP[type] && SEND_TYPE_MAP[type].type) || 'info'; },
     formatSpec(goodsSpecJson) {
       if (!goodsSpecJson) return '-';
       try {

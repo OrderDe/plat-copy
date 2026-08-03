@@ -52,6 +52,12 @@ const merchantRouter = {
         },
       ],
     },
+    {
+      path: 'roleTemplate',
+      name: 'RoleTemplate',
+      component: () => import('@/views/merchant/roleTemplate/index'),
+      meta: { title: '角色管理', icon: '' },
+    },
   ],
 };
 

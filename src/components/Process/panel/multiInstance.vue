@@ -196,7 +196,7 @@ export default {
     updateLoopTimeCycle(timeCycle) {
       const extensionElements = this.modelerStore.moddle.create("bpmn:ExtensionElements", {
         values: [
-          this.modelerStore.moddle.create(`flowable:FailedJobRetryTimeCycle`, {
+          this.modelerStore.moddle.create(`activiti:FailedJobRetryTimeCycle`, {
             body: timeCycle
           })
         ]

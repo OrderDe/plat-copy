@@ -88,6 +88,7 @@
                   :precision="0"
                   :step="1"
                   class="from-ipt-width"
+                  @change="onOneQuotaChange"
                 ></el-input-number>
                 <p class="desc mt10">
                   用户参与秒杀时，一次购买最大数量限制。例如设置为2，表示参与秒杀时，用户一次购买数量最大可选择2个，0为不限购
@@ -321,7 +322,7 @@ export default {
                 }
               });
             },
-            trigger: 'change,blur',
+            trigger: ['blur', 'change'],
           },
         ],
         allQuota: [
@@ -335,7 +336,7 @@ export default {
                 }
               });
             },
-            trigger: 'change,blur',
+            trigger: ['blur', 'change'],
           },
         ],
       },
@@ -435,7 +436,7 @@ export default {
             ...res,
             timeVal2: info.timeIntervals.split(',').map((item) => item * 1),
             timeVal: [info.startDate, info.endDate],
-            proCategorylist: info.proCategory !== '0' ? info.proCategory.split(',').map((item) => item * 1) : [],
+            proCategorylist: info.proCategory !== '0' ? info.proCategory.split(',').map((item) => item) : [],
           };
           this.getAttrValue(info.productList);
           this.loading = false;
@@ -543,6 +544,12 @@ export default {
     onAllQuotaChange() {
       this.$nextTick(() => {
         this.$refs.ruleForm.validateField('oneQuota');
+      });
+    },
+    // 单次限购变化时，重新校验活动限购
+    onOneQuotaChange() {
+      this.$nextTick(() => {
+        this.$refs.ruleForm.validateField('allQuota');
       });
     },
     // 具体日期

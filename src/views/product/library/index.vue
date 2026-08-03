@@ -73,6 +73,7 @@
 
 <script>
 import { GetIntegrateProductPage } from '@/api/product';
+import { checkPermi } from '@/utils/permission';
 
 export default {
   name: 'ProductLibrary',
@@ -93,6 +94,7 @@ export default {
     this.getList();
   },
   methods: {
+    checkPermi,
     getList() {
       this.loading = true;
       const { pageNum, pageSize, name, deleted } = this.queryForm;

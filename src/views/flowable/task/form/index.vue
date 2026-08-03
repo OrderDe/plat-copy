@@ -58,15 +58,15 @@
             type="text"
             icon="el-icon-edit"
             @click="handleUpdate(scope.row)"
-            v-hasPermi="['flowable:form:edit']"
-          >修改</el-button>
+            >修改</el-button>
+            <!-- v-hasPermi="['flowable:form:edit']" -->
           <el-button
             size="mini"
             type="text"
             icon="el-icon-delete"
             @click="handleDelete(scope.row)"
-            v-hasPermi="['flowable:form:remove']"
-          >删除</el-button>
+            >删除</el-button>
+            <!-- v-hasPermi="['flowable:form:remove']" -->
         </template>
       </el-table-column>
     </el-table>
@@ -100,7 +100,10 @@
 
     <!--表单详情-->
     <el-dialog :title="formTitle" :visible.sync="formRenderOpen" width="60%" append-to-body>
-        <v-form-render :form-data="formData" ref="vFormRef"/>
+      <v-form-render :form-data="formData" ref="vFormRef"/>
+      <div slot="footer" class="dialog-footer">
+        <el-button @click="formRenderOpen = false">关 闭</el-button>
+      </div>
     </el-dialog>
 
     <!--表单设计器-->
@@ -244,19 +247,22 @@ export default {
     handleDetail(row) {
       this.formRenderOpen = true;
       this.formTitle = "表单详情";
-      this.$nextTick(() => {
-        // 回显数据
-        this.$refs.vFormRef.setFormJson(JSON.parse(row.formContent))
+      getForm(row.formId).then(res => {
+        this.formData = JSON.parse(res.formContent);
         this.$nextTick(() => {
-          // 表单禁用
-          this.$refs.vFormRef.disableForm();
+          // 回显数据
+          this.$refs.vFormRef.setFormJson(this.formData)
+          this.$nextTick(() => {
+            // 表单禁用
+            this.$refs.vFormRef.disableForm();
+          })
         })
       })
     },
     /** 新增按钮操作 */
     handleAdd() {
       // this.dialogVisible = true;
-      this.$router.push({ path: '/flowable/task/flowForm/index'})
+      this.$router.push({ path: '/flowable/task/flowForm'})
     },
     // 保存表单数据
     saveFormJson() {
@@ -286,7 +292,7 @@ export default {
       //   // 加载表单json数据
       //   this.$refs.vfDesigner.setFormJson(JSON.parse(row.formContent))
       // })
-      this.$router.push({ path: '/flowable/task/flowForm/index', query: {formId: row.formId }})
+      this.$router.push({ path: '/flowable/task/flowForm', query: {formId: row.formId }})
 
     },
     /** 重置表单 */

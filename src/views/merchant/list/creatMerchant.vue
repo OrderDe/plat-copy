@@ -177,6 +177,12 @@
           inactive-text="否"
         ></el-switch>
       </el-form-item>
+      <el-form-item label="绑定角色：" v-if="merId > 0">
+        <span v-if="roleBound && roleBound.name">{{ roleBound.name }}</span>
+        <span v-else-if="roleLoaded">暂无</span>
+        <span v-else>加载中...</span>
+        <el-button v-if="roleBound && roleBound.id" type="text" @click="showRoleDetail" style="margin-left: 10px;">查看详情</el-button>
+      </el-form-item>
       <el-form-item label="商品审核：" class="inline">
         <el-switch
           v-model="dataForm.productSwitch"
@@ -188,6 +194,46 @@
         ></el-switch>
       </el-form-item>
     </el-form>
+
+    <!-- 角色详情弹窗 -->
+    <el-dialog
+      title="角色详情"
+      :visible.sync="roleDetailVisible"
+      width="700px"
+      append-to-body
+      :close-on-click-modal="false"
+    >
+      <div v-loading="roleDetailLoading" class="role-detail__body">
+        <el-form v-if="roleDetail" label-width="80px">
+          <el-form-item label="模板名称：">
+            <span>{{ roleDetail.name }}</span>
+          </el-form-item>
+          <el-form-item label="备注：">
+            <span>{{ roleDetail.remark || '-' }}</span>
+          </el-form-item>
+          <el-form-item label="状态：">
+            <el-tag :type="roleDetail.status === 1 ? 'success' : 'danger'">
+              {{ roleDetail.status === 1 ? '启用' : '停用' }}
+            </el-tag>
+          </el-form-item>
+          <el-form-item label="菜单权限：">
+            <!-- show-checkbox -->
+            <el-tree
+              class="tree-border"
+              :data="roleMenuOptions"
+              ref="roleMenuTree"
+              node-key="id"
+              default-expand-all
+              :default-checked-keys="roleCheckedKeys"
+              :props="roleMenuProps"
+            ></el-tree>
+          </el-form-item>
+        </el-form>
+      </div>
+      <div slot="footer" class="role-detail__footer">
+        <el-button @click="roleDetailVisible = false">关闭</el-button>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -195,6 +241,9 @@
  
 import * as merchant from '@/api/merchant';
 import * as areaApi from '@/api/area.js';
+import * as roleTemplateApi from '@/api/roleTemplate.js';
+import { menuMerListApi } from '@/api/merchant';
+import { handleTree } from '@/utils/parsing';
 import { mapGetters } from 'vuex';
 import Keyword from '../../../components/base/keyword';
 import { validatePhone } from '@/utils/toolsValidate';
@@ -269,12 +318,31 @@ export default {
       isCn: true,
       labelarr: [],
       merImg: require('@/assets/imgs/dianpu.png'),
+      // 绑定角色
+      roleBound: null,      // { id, name }
+      roleLoaded: false,
+      roleDetailVisible: false,
+      roleDetailLoading: false,
+      roleDetail: null,
+      roleMenuOptions: [],
+      roleCheckedKeys: [],
+      roleMenuProps: {
+        children: 'children',
+        label: 'name',
+      },
     };
   },
   watch: {
     merId: {
       handler: function (val) {
-        if (val > 0) this.onInfo();
+        if (val > 0) {
+          this.onInfo();
+        } else {
+          // 创建商户时重置角色详情弹窗状态
+          this.roleBound = null;
+          this.roleLoaded = false;
+          this.roleDetailVisible = false;
+        }
       },
       deep: true,
     },
@@ -310,12 +378,83 @@ export default {
       if (!this.merchantClassify.length) this.$store.dispatch('merchant/getMerchantClassify');
       if (!this.merchantType.length) this.$store.dispatch('merchant/getMerchantType');
       this.loadingFrom = true;
+      this.roleLoaded = false;
       const api = isPlatform ? merchant.merchantDetailApi : areaApi.areasMerchantDetailApi;
       api(this.merId).then((res) => {
         this.$set(res, 'sliderImages', res.qualificationPicture ? JSON.parse(res.qualificationPicture) : []);
         this.dataForm = res;
         this.labelarr = res.keywords.split(',') || [];
         this.loadingFrom = false;
+        // 查询绑定的角色
+        this.loadGrantedRole();
+      });
+    },
+    // 查询商户绑定的角色
+    loadGrantedRole() {
+      roleTemplateApi.getGrantedRole(this.merId).then((res) => {
+        if (res) {
+          // 再查详情获取 name
+          roleTemplateApi.getRoleTemplateInfo(res).then((info) => {
+            console.log(info, 'info');
+            this.roleBound = info;
+            this.roleLoaded = true;
+          }).catch(() => {
+            this.roleBound = { id: res, name: '-' };
+            this.roleLoaded = true;
+          });
+        } else {
+          this.roleBound = null;
+          this.roleLoaded = true;
+        }
+      }).catch(() => {
+        this.roleBound = null;
+        this.roleLoaded = true;
+      });
+    },
+    // 打开角色详情弹窗
+    showRoleDetail() {
+      this.roleDetailVisible = true;
+      this.roleDetailLoading = true;
+      this.roleDetail = null;
+      this.roleMenuOptions = [];
+      this.roleCheckedKeys = [];
+      // 并行加载菜单树和角色详情
+      Promise.all([
+        menuMerListApi({}),
+        roleTemplateApi.getRoleTemplateInfo(this.roleBound.id),
+      ]).then(([menuList, roleInfo]) => {
+        this.roleDetail = roleInfo;
+        // 构建菜单树（过滤隐藏）
+        const visibleList = menuList;
+        visibleList.forEach((item) => {
+          item.parentId = item.pid;
+        });
+        const tree = handleTree(visibleList, 'id', 'parentId', 'children');
+        this.roleMenuOptions = tree.filter((item) => item.isShow !== false);
+        // 解析权限规则
+        if (roleInfo.rules) {
+          this.roleCheckedKeys = roleInfo.rules.split(',').map((id) => Number(id));
+        }
+        // 禁用所有树节点（只读）
+        this.$nextTick(() => {
+          this.setTreeDisabled(this.roleMenuOptions);
+        });
+        this.roleDetailLoading = false;
+      }).catch(() => {
+        this.roleDetailLoading = false;
+      });
+    },
+    // 递归禁用树节点
+    setTreeDisabled(nodes) {
+      nodes.forEach((node) => {
+        this.$refs.roleMenuTree.setCurrentKey(node.id);
+        const treeNode = this.$refs.roleMenuTree.getNode(node.id);
+        if (treeNode) {
+          treeNode.disabled = true;
+        }
+        if (node.children && node.children.length) {
+          this.setTreeDisabled(node.children);
+        }
       });
     },
     // 点击商品图
@@ -454,5 +593,17 @@ export default {
   ::v-deep.el-select {
     width: 100%;
   }
+}
+</style>
+<!-- 角色详情弹窗样式（append-to-body，需要非 scoped） -->
+<style lang="scss">
+.role-detail__body {
+  max-height: calc(60vh - 100px);
+  overflow-y: auto;
+}
+.role-detail__footer {
+  padding: 12px 0 0;
+  border-top: 1px solid #e4e7ed;
+  text-align: right;
 }
 </style>

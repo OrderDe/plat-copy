@@ -61,6 +61,7 @@
 
 <script>
 import { GetOrderLogList } from '@/api/yytapi';
+import { checkPermi } from '@/utils/permission';
 
 export default {
   name: 'OrderLog',
@@ -81,6 +82,7 @@ export default {
     this.getList();
   },
   methods: {
+    checkPermi,
     getList() {
       this.listLoading = true;
       const params = {

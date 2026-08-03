@@ -24,7 +24,20 @@ module.exports = {
    * In most cases please use '/' !!!
    * Detail: https://cli.vuejs.org/config/#publicpath
    */
-  transpileDependencies: ['element-ui', 'vuex', 'js-cookie', '@babel', 'resize-detector'],
+  transpileDependencies: [
+    'element-ui',
+    'vuex',
+    'js-cookie',
+    '@babel',
+    'resize-detector',
+    'vform-builds',
+    /[\\/]node_modules[\\/]quill[\\/]/,
+    /[\\/]node_modules[\\/]bpmn-js[\\/]/,
+    /[\\/]node_modules[\\/]diagram-js[\\/]/,
+    /[\\/]node_modules[\\/]bpmn-js-properties-panel[\\/]/,
+    /[\\/]node_modules[\\/]camunda-bpmn-moddle[\\/]/,
+    /[\\/]node_modules[\\/]@bpmn-io[\\/]/
+  ],
   publicPath: '/',
   outputDir: 'dist',
   assetsDir: 'static',
@@ -45,6 +58,9 @@ module.exports = {
     resolve: {
       alias: {
         '@': resolve('src'),
+        '@bpmn-io/semver-compat': resolve('node_modules/@bpmn-io/semver-compat/dist/index.js'),
+        '@camunda/feel-builtins': resolve('node_modules/@camunda/feel-builtins/dist/index.cjs'),
+        mitt$: resolve('node_modules/@bpmn-io/feelers-editor/node_modules/mitt/dist/mitt.js'),
       },
     },
     // css: {

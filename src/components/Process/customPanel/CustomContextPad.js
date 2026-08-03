@@ -404,14 +404,14 @@ ContextPadProvider.prototype.getContextPadEntries = function(element) {
     });
   }
 
-  if (is(businessObject, 'bpmn:SequenceFlow')) {
-    assign(actions, {
-      'append.text-annotation': appendAction(
-        'bpmn:TextAnnotation',
-        'bpmn-icon-text-annotation'
-      )
-    });
-  }
+  // if (is(businessObject, 'bpmn:SequenceFlow')) {
+  //   assign(actions, {
+  //     'append.text-annotation': appendAction(
+  //       'bpmn:TextAnnotation',
+  //       'bpmn-icon-text-annotation'
+  //     )
+  //   });
+  // }
 
   if (
     isAny(businessObject, [
@@ -422,10 +422,10 @@ ContextPadProvider.prototype.getContextPadEntries = function(element) {
     ])
   ) {
     assign(actions, {
-      'append.text-annotation': appendAction(
-        'bpmn:TextAnnotation',
-        'bpmn-icon-text-annotation'
-      ),
+      // 'append.text-annotation': appendAction(
+      //   'bpmn:TextAnnotation',
+      //   'bpmn-icon-text-annotation'
+      // ),
 
       'connect': {
         group: 'connect',
@@ -458,7 +458,19 @@ ContextPadProvider.prototype.getContextPadEntries = function(element) {
       },
     });
   }
-
+  if (is(businessObject, 'bpmn:TextAnnotation')) {
+    assign(actions, {
+      'connect': {
+        group: 'connect',
+        className: 'bpmn-icon-connection-multi',
+        title: translate('Connect using Association'),
+        action: {
+          click: startConnect,
+          dragstart: startConnect,
+        },
+      },
+    });
+  }
   if (isAny(businessObject, [ 'bpmn:DataObjectReference', 'bpmn:DataStoreReference' ])) {
     assign(actions, {
       'connect': {

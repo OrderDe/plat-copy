@@ -1,5 +1,6 @@
 <template>
-  <div v-if="checkPermi(['platform:yyt:shipTemplate:list'])" class="divBox">
+  <!-- v-if="checkPermi(['platform:yyt:shipTemplate:list'])" -->
+  <div class="divBox">
     <pageHeader title="运费模板" backUrl="/yyt/goods/list" />
     <el-card class="box-card" shadow="never" :body-style="{ padding: '20px' }">
       <!-- 搜索 -->
@@ -111,6 +112,7 @@
 
 <script>
 import { GetShipTemplateList } from '@/api/yytapi';
+// import { checkPermi } from '@/utils/permission';
 
 export default {
   name: 'YytShipTemplate',
@@ -137,6 +139,7 @@ export default {
     this.getList();
   },
   methods: {
+    // checkPermi,
     // 获取列表
     async getList() {
       this.loading = true;

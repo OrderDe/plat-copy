@@ -26,7 +26,7 @@
       <el-table-column label="表达式内容" align="center" prop="expression" />
       <el-table-column label="表达式类型" align="center" prop="dataType" >
         <template slot-scope="scope">
-          <dict-tag :options="dict.type.exp_data_type" :value="scope.row.dataType"/>
+          <span>{{ getExpDataTypeLabel(scope.row.dataType) }}</span>
         </template>
       </el-table-column>
     </el-table>
@@ -49,7 +49,6 @@ import {StrUtil} from "@/utils/StrUtil";
 
 export default {
   name: "Expression",
-  dicts: ['sys_common_status','exp_data_type'],
   // 接受父组件的值
   props: {
     // 回显数据传值
@@ -61,6 +60,11 @@ export default {
   },
   data() {
     return {
+      // 本地字典数据（替代 dicts 系统）
+      expDataTypeOptions: [
+        { value: 'fixed', label: '固定值' },
+        { value: 'dynamic', label: '动态值' }
+      ],
       // 遮罩层
       loading: true,
       // 选中数组
@@ -104,6 +108,11 @@ export default {
     this.getList();
   },
   methods: {
+    /** 获取表达式数据类型标签 */
+    getExpDataTypeLabel(val) {
+      const item = this.expDataTypeOptions.find(o => o.value === val)
+      return item ? item.label : val
+    },
     /** 查询流程达式列表 */
     getList() {
       this.loading = true;

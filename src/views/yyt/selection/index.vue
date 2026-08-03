@@ -1,5 +1,6 @@
 <template>
-  <div v-if="checkPermi(['platform:yyt:selection:list'])" class="divBox relative">
+  <!-- v-if="checkPermi(['platform:yyt:selection:list'])" -->
+  <div class="divBox relative">
     <el-card :bordered="false" shadow="never" class="ivu-mt" :body-style="{ padding: '20px' }">
       <div class="mb15">
         <span class="page-title">选品列表</span>
@@ -50,16 +51,14 @@
           icon="el-icon-upload2"
           :disabled="selectedRows.length === 0"
           @click="onBatchImport"
-          v-hasPermi="['platform:yyt:selection:import']"
-        >批量导入（{{ selectedRows.length }}）</el-button>
+          ><!-- v-hasPermi="['platform:yyt:selection:import']" -->批量导入（{{ selectedRows.length }}）</el-button>
         <el-button
           type="danger"
           size="small"
           icon="el-icon-delete"
           :disabled="selectedRows.length === 0"
           @click="onBatchRemove"
-          v-hasPermi="['platform:yyt:selection:remove']"
-        >批量移除（{{ selectedRows.length }}）</el-button>
+          ><!-- v-hasPermi="['platform:yyt:selection:remove']" -->批量移除（{{ selectedRows.length }}）</el-button>
       </div>
 
       <!-- 表格 -->
@@ -101,8 +100,8 @@
         <el-table-column prop="addTime" label="添加时间" width="160" />
         <el-table-column label="操作" width="140" align="center" fixed="right">
           <template slot-scope="{ row }">
-            <el-button type="text" size="mini" @click="onReImport(row)" v-hasPermi="['platform:yyt:selection:reimport']">重新导入</el-button>
-            <el-button type="text" size="mini" style="color:#F56C6C" @click="onRemove(row)" v-hasPermi="['platform:yyt:selection:remove']">移除</el-button>
+            <el-button type="text" size="mini" @click="onReImport(row)"><!-- v-hasPermi="['platform:yyt:selection:reimport']" -->重新导入</el-button>
+            <el-button type="text" size="mini" style="color:#F56C6C" @click="onRemove(row)"><!-- v-hasPermi="['platform:yyt:selection:remove']" -->移除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -126,6 +125,7 @@
 
 <script>
 import { GetCategoryTree } from '@/api/yytapi';
+// import { checkPermi } from '@/utils/permission';
 
 export default {
   name: 'YytSelection',
@@ -154,6 +154,7 @@ export default {
     this.getList();
   },
   methods: {
+    // checkPermi,
     // 加载一级分类
     async loadCategoryTree() {
       const res = await GetCategoryTree({ pid: 0, level: 1 });

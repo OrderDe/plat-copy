@@ -227,7 +227,7 @@
         <el-table-column label="类型" align="center" prop="eventType"/>
         <el-table-column label="监听类型" align="center" prop="valueType">
           <template slot-scope="scope">
-            <dict-tag :options="dict.type.sys_listener_value_type" :value="scope.row.valueType"/>
+            <el-tag size="mini">{{ listenerValueTypeMap[scope.row.valueType] || scope.row.valueType }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="执行内容" align="center" prop="value" :show-overflow-tooltip="true"/>
@@ -250,7 +250,7 @@
   </div>
 </template>
 <script>
-import { listListener } from "@/api/flowable/listener";
+import { listListener } from "@/api/ryFlowAble/activiti/listener";
 import {
   changeListenerObject,
   createListenerObject,
@@ -262,8 +262,6 @@ import {StrUtil} from "@/utils/StrUtil";
 
 export default {
   name: "TaskListener",
-  // 内置监听器相关信息
-  dicts: ['sys_listener_value_type', 'sys_listener_event_type'],
   /** 组件传值  */
   props : {
     id: {
@@ -313,6 +311,12 @@ export default {
         pageSize: 10,
         type: 1,
       },
+      listenerValueTypeMap: {
+        // class: 'Java类',
+        // expression: '表达式',
+        // delegateExpression: '代理表达式',
+        // script: '脚本'
+      },
     }
   },
 
@@ -334,7 +338,7 @@ export default {
   methods: {
     resetListenersList() {
       this.bpmnElementListeners =
-        this.modelerStore.element.businessObject?.extensionElements?.values?.filter(ex => ex.$type === `flowable:TaskListener`) ?? [];
+        this.modelerStore.element.businessObject?.extensionElements?.values?.filter(ex => ex.$type === `activiti:TaskListener`) ?? [];
       this.elementListenersList = this.bpmnElementListeners.map(listener => this.initListenerType(listener));
       this.$emit('getTaskListenerCount', this.elementListenersList.length)
     },
@@ -417,7 +421,7 @@ export default {
     async saveListenerConfig() {
       let validateStatus = await this.$refs["listenerFormRef"].validate();
       if (!validateStatus) return; // 验证不通过直接返回
-      const listenerObject = createListenerObject(this.modelerStore.moddle, this.listenerForm, false, "flowable");
+      const listenerObject = createListenerObject(this.modelerStore.moddle, this.listenerForm, false, "activiti");
       if (this.editingListenerIndex === -1) {
         this.bpmnElementListeners.push(listenerObject);
         this.elementListenersList.push(this.listenerForm);
@@ -426,7 +430,7 @@ export default {
         this.elementListenersList.splice(this.editingListenerIndex, 1, this.listenerForm);
       }
       // 保存其他配置
-      this.otherExtensionList = this.modelerStore.element.businessObject?.extensionElements?.values?.filter(ex => ex.$type !== `flowable:TaskListener`) ?? [];
+      this.otherExtensionList = this.modelerStore.element.businessObject?.extensionElements?.values?.filter(ex => ex.$type !== `activiti:TaskListener`) ?? [];
       updateElementExtensions(this.modelerStore.moddle, this.modelerStore.modeling, this.modelerStore.element, this.otherExtensionList.concat(this.bpmnElementListeners));
       this.$emit('getTaskListenerCount', this.elementListenersList.length)
       // 4. 隐藏侧边栏
@@ -479,6 +483,7 @@ export default {
 
     /** 查询流程达式列表 */
     getList() {
+      return this.loading = false;
       this.loading = true;
       listListener(this.queryParams).then(response => {
         this.listenerList = response.rows;
@@ -500,10 +505,10 @@ export default {
       if (this.checkedListenerData.length > 0) {
         this.checkedListenerData.forEach(value => {
           // 保存其他配置
-          const listenerObject = createSystemListenerObject(this.modelerStore.moddle, value, true, "flowable");
+          const listenerObject = createSystemListenerObject(this.modelerStore.moddle, value, true, "activiti");
           this.bpmnElementListeners.push(listenerObject);
           this.elementListenersList.push(changeListenerObject(value));
-          this.otherExtensionList = this.modelerStore.element.businessObject?.extensionElements?.values?.filter(ex => ex.$type !== `flowable:TaskListener`) ?? [];
+          this.otherExtensionList = this.modelerStore.element.businessObject?.extensionElements?.values?.filter(ex => ex.$type !== `activiti:TaskListener`) ?? [];
           updateElementExtensions(this.modelerStore.moddle, this.modelerStore.modeling, this.modelerStore.element, this.otherExtensionList.concat(this.bpmnElementListeners));
         })
         // 回传显示数量

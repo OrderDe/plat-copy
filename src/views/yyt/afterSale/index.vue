@@ -1,5 +1,6 @@
 <template>
-  <div v-if="checkPermi(['platform:yyt:afterSale:list'])" class="divBox relative">
+  <div  class="divBox relative">
+    <!-- v-if="checkPermi(['platform:yyt:afterSale:list'])" -->
     <el-card :bordered="false" shadow="never" class="ivu-mt" :body-style="{ padding: '20px' }">
       <div class="mb15">
         <span class="page-title">怡亚通售后管理</span>
@@ -13,8 +14,8 @@
         <el-form-item label="售后单号">
           <el-input v-model="queryForm.returnSn" placeholder="请输入售后单号" clearable style="width:180px" />
         </el-form-item>
-        <el-form-item label="第三方退款单号">
-          <el-input v-model="queryForm.channelReturnSn" placeholder="请输入第三方退款单号" clearable style="width:200px" />
+        <el-form-item label="第三方订单单号">
+          <el-input v-model="queryForm.channelReturnSn" placeholder="请输入第三方订单单号" clearable style="width:200px" />
         </el-form-item>
         <el-form-item>
           <el-button type="primary" icon="el-icon-search" @click="onSearch">查询</el-button>
@@ -26,7 +27,7 @@
       <el-table v-loading="loading" :data="tableData" border size="mini">
         <el-table-column prop="orderSn" label="订单号" width="180" show-overflow-tooltip />
         <el-table-column prop="returnSn" label="售后单号" width="180" show-overflow-tooltip />
-        <el-table-column prop="channelReturnSn" label="第三方退款单号" min-width="180" show-overflow-tooltip />
+        <el-table-column prop="channelReturnSn" label="第三方订单单号" min-width="180" show-overflow-tooltip />
         <el-table-column prop="returnTypeName" label="售后类型" width="100" align="center" />
         <el-table-column prop="returnStatusName" label="售后状态" width="100" align="center">
           <template slot-scope="{ row }">
@@ -80,6 +81,7 @@
 <script>
 import { GetRefundList } from '@/api/yytapi';
 import RefundDetailDrawer from './components/RefundDetailDrawer.vue';
+// import { checkPermi } from '@/utils/permission';
 
 export default {
   name: 'YytAfterSale',
@@ -102,6 +104,7 @@ export default {
     this.getList();
   },
   methods: {
+    // checkPermi,
     getList() {
       this.loading = true;
       GetRefundList(this.queryForm)

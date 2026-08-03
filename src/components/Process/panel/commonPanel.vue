@@ -13,10 +13,10 @@
         <el-form-item label="流程分类" prop="processCategory">
           <el-select v-model="bpmnFormData.processCategory" placeholder="请选择流程分类" @change="updateElementTask('processCategory')">
             <el-option
-                v-for="dict in dict.type.sys_process_category"
-                :key="dict.value"
-                :label="dict.label"
-                :value="dict.value"
+                v-for="item in processCategoryList"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value"
             ></el-option>
           </el-select>
         </el-form-item>
@@ -41,7 +41,6 @@ import {StrUtil} from '@/utils/StrUtil'
 
 export default {
   name: "CommonPanel",
-  dicts: ['sys_process_category'],
   /** 组件传值  */
   props : {
     id: {
@@ -59,7 +58,17 @@ export default {
           { required: true, message: '节点名称不能为空', trigger: 'blur' },
         ],
       },
-      bpmnFormData: {}
+      bpmnFormData: {},
+      processCategoryList: [
+        // { label: '请假流程', value: 'leave' },
+        // { label: '报销流程', value: 'expense' },
+        // { label: '采购流程', value: 'purchase' },
+        // { label: '合同审批', value: 'contract' },
+        // { label: '人事流程', value: 'hr' },
+        // { label: '财务流程', value: 'finance' },
+        // { label: '行政流程', value: 'admin' },
+        // { label: '其他', value: 'other' }
+      ],
     }
   },
   /** 传值监听 */

@@ -209,6 +209,7 @@ export default {
      */
     setActivePath(state, path) {
       state.activePath = path;
+      console.log(path, 'path');
     },
     /**
      * @description 设置当前所在菜单的全部展开父菜单的 names 集合

@@ -17,7 +17,7 @@
 
 <script>
 
-import { listAllForm } from '@/api/flowable/form'
+import { listAllForm } from '@/api/ryFlowAble/activiti/form'
 import {StrUtil} from "@/utils/StrUtil";
 export default {
   name: "FormPanel",

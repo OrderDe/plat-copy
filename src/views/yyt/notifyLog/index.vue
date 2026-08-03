@@ -1,5 +1,6 @@
 <template>
-  <div v-if="checkPermi(['platform:yyt:notifyLog:list'])" class="divBox relative">
+  <!-- v-if="checkPermi(['platform:yyt:notifyLog:list'])" -->
+  <div class="divBox relative">
     <el-card :bordered="false" shadow="never" class="ivu-mt" :body-style="{ padding: '20px' }">
       <div class="mb15">
         <span class="page-title">怡亚通通知日志</span>
@@ -97,6 +98,7 @@
 
 <script>
 import { ConsumeMessagePool } from '@/api/yytapi';
+// import { checkPermi } from '@/utils/permission';
 
 export default {
   name: 'YytNotifyLog',
@@ -118,6 +120,7 @@ export default {
     this.getList();
   },
   methods: {
+    // checkPermi,
     getList() {
       this.loading = true;
       const { pageIndex, pageSize, messageType } = this.queryForm;

@@ -92,6 +92,8 @@
 </template>
 
 <script>
+import { checkPermi } from '@/utils/permission';
+
 export default {
   name: 'InvoiceManagement',
   data() {
@@ -121,6 +123,7 @@ export default {
     this.getList();
   },
   methods: {
+    checkPermi,
     statusLabel(status) {
       const map = { 0: '待开票', 1: '开票中', 2: '已开票', 3: '已拒绝' };
       return map[status] || '未知';

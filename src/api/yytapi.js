@@ -1,5 +1,14 @@
-import request from '@/utils/request';
+// import { param } from "@/utils";
 
+import request from '@/utils/request';
+// const request = ()=>{
+//   return {
+//     url: '',
+//     method: 'POST',
+//     data: {},
+//     param:{}
+//   }
+// }
 /**
  * 查询一体化分类详情
  * @description 获取指定分类ID的详细信息
