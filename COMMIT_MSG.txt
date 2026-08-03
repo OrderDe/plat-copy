@@ -1,7 +1,0 @@
-feat: 移植 ryFlowAble 商户审批模块至平台端并同步待提交改动
-
-- 新增 ryFlowAble 模块（views/components/api），包裹移植自 ruo-yi-activiti 的流程/系统/监控/工具功能（不含登录注册）
-- 补充 src/translate、src/utils/{ruoyi,dict,generator} 及 assets（pay.png/logo/icons）
-- vue.config.js 补充 bpmn 依赖 transpileDependencies；main.js/router 注册移植所需全局组件与原型方法
-- model/create、model/edit 改为跳转外部 /activiti/modeler，规避重型 bpmn 设计器打包依赖缺失问题
-- 同步平台端既有待提交改动（flowable/merchant/yyt/Process 等）
