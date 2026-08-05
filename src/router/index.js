@@ -24,6 +24,8 @@ import flowableRouter from './modules/flowable';
 import yytRouter from './modules/yyt';
 import invoiceRouter from './modules/invoice';
 import ryFlowAbleRouter from './modules/ryFlowAble';
+import approvalCenterRouter from './modules/approvalCenter';
+import warehouseRouter from './modules/warehouse';
 /**
  * Note: sub-menu only appear when route children.length >= 1
  * Detail see: https://panjiachen.github.io/vue-element-admin-site/guide/essentials/router-and-nav.html
@@ -82,6 +84,10 @@ export const constantRoutes = [
   // 从 ruo-yi-activiti 移植的流程/系统/监控/工具模块（包裹在 /ryFlowAble 下）
   ...ryFlowAbleRouter,
   // 源码版流程管理（独立路由，不覆盖原有 /flowable）
+  // 审批中心 (自研简易版)
+  approvalCenterRouter,
+  // 仓储物流
+  warehouseRouter,
   {
     path: '/404',
     component: () => import('@/views/error-page/404'),
