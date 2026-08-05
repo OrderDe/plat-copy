@@ -289,6 +289,51 @@ const actions = {
       const getMenuApi = isPlatform ? roleApi.menuListApi : areasGetMenusApi;
       let accessRoutes = await getMenuApi();
 
+      // ===== 手动注入 "审批中心" 菜单 (与 MenusResponse 结构对齐) =====
+      const approvalCenterMenu = {
+        id: 9001, pid: 0, title: '审批中心', icon: 'clipboard',
+        perms: '', path: '/approvalCenter', menuType: 'M', sort: 999,
+        children: [
+          { id: 9002, pid: 9001, title: '我的待办',    icon: '', perms: '', path: '/approvalCenter/todo', menuType: 'C', sort: 1, children: [] },
+          { id: 9003, pid: 9001, title: '我收到的抄送', icon: '', perms: '', path: '/approvalCenter/cc',   menuType: 'C', sort: 2, children: [] },
+          { id: 9004, pid: 9001, title: '我发起的',    icon: '', perms: '', path: '/approvalCenter/mine', menuType: 'C', sort: 3, children: [] },
+          { id: 9005, pid: 9001, title: '已办结',      icon: '', perms: '', path: '/approvalCenter/done', menuType: 'C', sort: 4, children: [] },
+          { id: 9006, pid: 9001, title: '审批统计',    icon: '', perms: '', path: '/approvalCenter/stat', menuType: 'C', sort: 5, children: [] },
+          { id: 9007, pid: 9001, title: '审批流配置',  icon: '', perms: '', path: '/approvalCenter/config', menuType: 'C', sort: 6, children: [] },
+          { id: 9008, pid: 9001, title: '审批场景配置', icon: '', perms: '', path: '/approvalCenter/scene',  menuType: 'C', sort: 7, children: [] },
+          { id: 9009, pid: 9001, title: '催办短信配置', icon: '', perms: '', path: '/approvalCenter/sms-config',  menuType: 'C', sort: 8, children: [] },
+        ],
+      };
+      if (Array.isArray(accessRoutes) && !accessRoutes.find(r => r && r.path === '/approvalCenter')) {
+        accessRoutes.push(approvalCenterMenu);
+      }
+
+      // ===== 手动注入 "仓储物流" 菜单 =====
+      const warehouseMenu = {
+        id: 9101, pid: 0, title: '仓库管理', icon: 'shopping',
+        perms: '', path: '/warehouse', menuType: 'M', sort: 998,
+        children: [
+          { id: 9102, pid: 9101, title: '仓库列表',     icon: '', perms: '', path: '/warehouse/warehouse-list', menuType: 'C', sort: 1, children: [] },
+          { id: 9103, pid: 9101, title: '入库管理',     icon: '', perms: '', path: '/warehouse/inbound',        menuType: 'C', sort: 2, children: [] },
+          { id: 9104, pid: 9101, title: '出库管理',     icon: '', perms: '', path: '/warehouse/outbound',       menuType: 'C', sort: 3, children: [] },
+          { id: 9105, pid: 9101, title: '物料列表',     icon: '', perms: '', path: '/warehouse/material',       menuType: 'C', sort: 4, children: [] },
+          { id: 9106, pid: 9101, title: '库存管理',     icon: '', perms: '', path: '/warehouse/stock',          menuType: 'C', sort: 5, children: [] },
+          { id: 9107, pid: 9101, title: '报损管理',     icon: '', perms: '', path: '/warehouse/damage',         menuType: 'C', sort: 6, children: [] },
+          { id: 9108, pid: 9101, title: '领用申请单',   icon: '', perms: '', path: '/warehouse/receive',        menuType: 'C', sort: 7, children: [] },
+          { id: 9109, pid: 9101, title: '调拨申请单',   icon: '', perms: '', path: '/warehouse/transfer',       menuType: 'C', sort: 8, children: [] },
+          { id: 9110, pid: 9101, title: '退库申请单',   icon: '', perms: '', path: '/warehouse/return',         menuType: 'C', sort: 9, children: [] },
+          { id: 9111, pid: 9101, title: '采购发货单',   icon: '', perms: '', path: '/warehouse/deliver',        menuType: 'C', sort: 10, children: [] },
+          { id: 9112, pid: 9101, title: '效期预警',     icon: '', perms: '', path: '/warehouse/expiry',         menuType: 'C', sort: 11, children: [] },
+          { id: 9113, pid: 9101, title: '购销存数据',   icon: '', perms: '', path: '/warehouse/pss',            menuType: 'C', sort: 12, children: [] },
+          { id: 9114, pid: 9101, title: '盘点列表',     icon: '', perms: '', path: '/warehouse/stock-check',    menuType: 'C', sort: 13, children: [] },
+          { id: 9115, pid: 9101, title: '统计管理',     icon: '', perms: '', path: '/warehouse/stats',          menuType: 'C', sort: 14, children: [] },
+        ],
+      };
+      if (Array.isArray(accessRoutes) && !accessRoutes.find(r => r && r.path === '/warehouse')) {
+        accessRoutes.push(warehouseMenu);
+      }
+      // ===== 注入结束 =====
+
       // let accessRoutes = formatRoutes(menusAll);
       // const accessRoutes = await dispatch('permission/generateRoutes', roles, { root: true });
       commit('SET_MENU_LIST', accessRoutes);
