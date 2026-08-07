@@ -1,4 +1,4 @@
-<template>
+  <template>
   <div class="divBox">
     <el-card
       :bordered="false"

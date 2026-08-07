@@ -19,7 +19,7 @@
               @keyup.enter.native="handleSearchList"
             />
           </el-form-item>
-          <el-form-item label="平台订单号：" label-width="90px">
+          <!-- <el-form-item label="平台订单号：" label-width="90px">
             <el-input
               v-model.trim="tableFrom.platOrderNo"
               placeholder="请输入平台订单号"
@@ -28,7 +28,7 @@
               clearable
               @keyup.enter.native="handleSearchList"
             />
-          </el-form-item>
+          </el-form-item> -->
           <el-form-item label="订单类型：">
             <el-select
               v-model="tableFrom.type"
@@ -54,6 +54,23 @@
               class="selWidth"
             />
           </el-form-item>
+          <el-form-item label="订单状态：">
+            <el-select
+              v-model="tableFrom.status"
+              clearable
+              size="small"
+              placeholder="请选择"
+              class="selWidth"
+              @change="handleSearchList"
+            >
+              <el-option
+                v-for="(item, i) in orderStatusOptions"
+                :key="i"
+                :label="item.label"
+                :value="item.value"
+              />
+            </el-select>
+          </el-form-item>
           <el-form-item label="用户搜索：" label-for="nickname">
             <UserSearchInput v-model="tableFrom" />
           </el-form-item>
@@ -74,16 +91,12 @@
       :bordered="false"
     >
       <el-tabs class="list-tabs" v-model="tableFrom.status" @tab-click="handleSearchList">
-        <el-tab-pane name="all" :label="`全部(${orderChartType.all || 0})`"></el-tab-pane>
-        <el-tab-pane name="unPaid" :label="`未支付(${orderChartType.unPaid || 0})`"></el-tab-pane>
-        <el-tab-pane name="notShipped" :label="`未发货(${orderChartType.notShipped || 0})`"></el-tab-pane>
-        <el-tab-pane name="spike" :label="`待收货(${orderChartType.spike || 0})`"></el-tab-pane>
-        <el-tab-pane name="awaitVerification" :label="`待使用(${orderChartType.verification || 0})`"></el-tab-pane>
-        <el-tab-pane name="receiving" :label="`已收货(${orderChartType.receiving || 0})`"></el-tab-pane>
-        <el-tab-pane name="complete" :label="`已完成(${orderChartType.complete || 0})`"></el-tab-pane>
-        <el-tab-pane name="refunded" :label="`已退款(${orderChartType.refunded || 0})`"></el-tab-pane>
-        <el-tab-pane name="cancel" :label="`已取消(${orderChartType.cancel || 0})`"></el-tab-pane>
-        <el-tab-pane name="deleted" :label="`已删除(${orderChartType.deleted || 0})`"></el-tab-pane>
+        <el-tab-pane
+          v-for="item in orderStatusOptions"
+          :key="item.value"
+          :name="item.value"
+          :label="`${item.label}(${orderChartType[statusChartKey(item.value)] || 0})`"
+        ></el-tab-pane>
       </el-tabs>
       <div class="mt5">
         <el-button size="small" @click="exports" v-hasPermi="['platform:export:order:excel']">导出</el-button>
@@ -118,11 +131,11 @@
             <span v-show="scope.row.isUserDel" class="colorPrompt" style="display: block">用户已删除</span>
           </template>
         </el-table-column>
-        <el-table-column prop="platOrderNo" label="平台订单号" min-width="150" v-if="checkedCities.includes('平台订单号')">
+        <!-- <el-table-column prop="platOrderNo" label="平台订单号" min-width="150" v-if="checkedCities.includes('平台订单号')">
           <template slot-scope="scope">
             <span> {{ scope.row.platOrderNo}}</span>
           </template>
-        </el-table-column>
+        </el-table-column> -->
         <el-table-column prop="merName" label="商户名称" min-width="150" v-if="checkedCities.includes('商户名称')">
           <template slot-scope="scope">
             <span> {{ scope.row.merName | filterEmpty }}</span>
@@ -143,20 +156,9 @@
         </el-table-column>
         <el-table-column label="订单状态" min-width="100" v-if="checkedCities.includes('订单状态')">
           <template slot-scope="scope">
-            <span class="textE93323 tag-background notStartTag tag-padding" v-if="scope.row.refundStatus === 3"
-              >已退款</span
-            >
-            <span
-              :class="scope.row.status < 5 ? 'doingTag' : 'endTag'"
-              class="tag-background tag-padding"
-              v-else-if="
-                scope.row.groupBuyRecordStatus == 99 || scope.row.status == 9 || scope.row.groupBuyRecordStatus == 10
-              "
-              >{{ scope.row.status | orderStatusFilter }}</span
-            >
-            <span class="textE93323 tag-background notStartTag tag-padding" v-else>{{
-              scope.row.groupBuyRecordStatus == 0 ? '拼团中' : '拼团失败'
-            }}</span>
+            <span :class="getBadgeClass(scope.row)" class="tag-background tag-padding">
+              {{ getBadgeText(scope.row) }}
+            </span>
           </template>
         </el-table-column>
         <el-table-column prop="createTime" label="下单时间" min-width="140" v-if="checkedCities.includes('下单时间')" />
@@ -215,6 +217,7 @@ import merchantName from '@/components/merchantName';
 import { isWriteOff } from '@/utils';
 import { checkPermi } from '@/utils/permission'; // 权限判断函数
 import { isPlatform } from '@/utils/settingMer';
+import { getOrderBadge, getBadgeClass } from '@/utils/orderBadge';
 export default {
   name: 'orderlistDetails',
   components: {
@@ -282,6 +285,21 @@ export default {
         { value: '1', text: '秒杀' },
         { value: '2', text: '拼团' },
       ],
+      orderStatusOptions: [
+        { value: 'all', label: '全部' },
+        { value: 'unPaid', label: '待付款' },
+        { value: 'notShipped', label: '待发货' },
+        { value: 'spike', label: '待收货' },
+        { value: 'receiving', label: '已收货' },
+        { value: 'complete', label: '已完成' },
+        { value: 'awaitVerification', label: '待核销' },
+        { value: 'refunded', label: '已退款' },
+        { value: 'cancel', label: '已取消' },
+        { value: 'groupIn', label: '拼团中' },
+        { value: 'groupFail', label: '拼团失败' },
+        { value: 'partialRefund', label: '部分退款' },
+        { value: 'deleted', label: '已删除' },
+      ],
       selectionList: [],
       ids: '',
       orderids: '',
@@ -291,8 +309,10 @@ export default {
       active: false,
       card_select_show: false,
       checkAll: true,
-      checkedCities: ['订单编号', '平台订单号','商户名称', '用户昵称', '实际支付', '支付方式', '订单状态', '下单时间'],
-      columnData: ['订单编号', '平台订单号', '商户名称', '用户昵称', '实际支付', '支付方式', '订单状态', '下单时间'],
+      // checkedCities: ['订单编号', '平台订单号','商户名称', '用户昵称', '实际支付', '支付方式', '订单状态', '下单时间'],
+      // columnData: ['订单编号', '平台订单号', '商户名称', '用户昵称', '实际支付', '支付方式', '订单状态', '下单时间'],
+      checkedCities: ['订单编号','商户名称', '用户昵称', '实际支付', '支付方式', '订单状态', '下单时间'],
+      columnData: ['订单编号', '商户名称', '用户昵称', '实际支付', '支付方式', '订单状态', '下单时间'],
       isIndeterminate: false,
     };
   },
@@ -302,6 +322,17 @@ export default {
   },
   methods: {
     checkPermi,
+    // 将 orderStatusOptions 的 value 映射到 orderChartType 的 key
+    // 仅 awaitVerification 对应 chart 中的 verification
+    statusChartKey(statusValue) {
+      return statusValue === 'awaitVerification' ? 'verification' : statusValue;
+    },
+    getBadgeText(row) {
+      return getOrderBadge(row).text;
+    },
+    getBadgeClass(row) {
+      return getBadgeClass(getOrderBadge(row));
+    },
     getMerId(id) {
       this.tableFrom.merId = id;
       this.handleSearchList();

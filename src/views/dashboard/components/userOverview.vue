@@ -74,6 +74,7 @@ export default {
           path: '/product/list',
           color: '#1890FF',
           bgColor: 'rgba(24, 144, 255, 0.08)',
+          perms: ['platform:product:page:list'],
         },
         {
           icon: 'icon-daishenheshangpin',
@@ -82,6 +83,7 @@ export default {
           path: '/product/list',
           color: '#A277FF',
           bgColor: 'rgba(162, 119, 255, 0.08)',
+          perms: ['platform:product:page:list'],
         },
         {
           icon: 'icon-daifahuo2',
@@ -90,6 +92,7 @@ export default {
           path: '/order/list',
           color: '#1890FF',
           bgColor: 'rgba(24, 144, 255, 0.08',
+          perms: ['platform:order:page:list'],
         },
         {
           icon: 'icon-daihexiao',
@@ -98,6 +101,7 @@ export default {
           path: '/order/list',
           color: '#1BBE6B',
           bgColor: 'rgba(27, 190, 107, 0.08)',
+          perms: ['platform:order:page:list'],
         },
         {
           icon: 'icon-daituikuan',
@@ -106,6 +110,7 @@ export default {
           path: '/order/refund',
           color: '#EF9C20',
           bgColor: 'rgba(239, 156, 32, 0.08)',
+          perms: ['platform:order:page:list'],
         },
       ],
     };
@@ -123,9 +128,13 @@ export default {
       return arr;
     },
     businessList: function () {
+      const menuPaths = this.getMenuPaths();
       let arr = [];
       this.statisticData.forEach((item) => {
-        arr.push(item);
+        // 双重校验：权限标识 + 菜单路径，同时满足才显示
+        if (this.checkPermi(item.perms) && menuPaths.has(item.path)) {
+          arr.push(item);
+        }
       });
       return arr;
     },
@@ -145,6 +154,25 @@ export default {
   },
   methods: {
     checkPermi,
+    /**
+     * 从菜单树中递归提取所有可访问的路径集合
+     * 菜单数据 = 后端返回的真实可访问路由
+     */
+    getMenuPaths() {
+      const menuList = this.$store.state.user.menuList;
+      if (!menuList || !Array.isArray(menuList)) return new Set();
+      const paths = new Set();
+      function traverse(items) {
+        items.forEach((item) => {
+          if (item.path) paths.add(item.path);
+          if (item.children && item.children.length) {
+            traverse(item.children);
+          }
+        });
+      }
+      traverse(menuList);
+      return paths;
+    },
     navigatorTo(path) {
       this.$router.push(isPlatform ? path : `/circle${path}`);
     },

@@ -1321,4 +1321,10 @@ export default {
   color: var(--prev-color-primary);
   border-right: 1px solid var(--prev-color-primary);
 }
+.footer_btn_fixed{
+  display: flex;
+  justify-content: center;
+
+  align-items: center;
+}
 </style>

@@ -12,7 +12,7 @@
       <el-form-item label="监听类型" prop="type">
         <el-select v-model="queryParams.type" placeholder="请选择监听类型" clearable>
           <el-option
-            v-for="dict in dict.type.sys_listener_type"
+            v-for="dict in listenerTypeOptions"
             :key="dict.value"
             :label="dict.label"
             :value="dict.value"
@@ -33,8 +33,8 @@
           icon="el-icon-plus"
           size="mini"
           @click="handleAdd"
-          v-hasPermi="['system:listener:add']"
-        >新增</el-button>
+          >新增</el-button>
+          <!-- v-hasPermi="['system:listener:add']" -->
       </el-col>
       <el-col :span="1.5">
         <el-button
@@ -44,8 +44,8 @@
           size="mini"
           :disabled="single"
           @click="handleUpdate"
-          v-hasPermi="['system:listener:edit']"
-        >修改</el-button>
+          >修改</el-button>
+          <!-- v-hasPermi="['system:listener:edit']" -->
       </el-col>
       <el-col :span="1.5">
         <el-button
@@ -55,8 +55,8 @@
           size="mini"
           :disabled="multiple"
           @click="handleDelete"
-          v-hasPermi="['system:listener:remove']"
-        >删除</el-button>
+          >删除</el-button>
+          <!-- v-hasPermi="['system:listener:remove']" -->
       </el-col>
       <el-col :span="1.5">
         <el-button
@@ -65,8 +65,8 @@
           icon="el-icon-download"
           size="mini"
           @click="handleExport"
-          v-hasPermi="['system:listener:export']"
-        >导出</el-button>
+          >导出</el-button>
+          <!-- v-hasPermi="['system:listener:export']" -->
       </el-col>
       <right-toolbar :showSearch.sync="showSearch" @queryTable="getList"></right-toolbar>
     </el-row>
@@ -76,13 +76,13 @@
       <el-table-column label="名称" align="center" prop="name" />
       <el-table-column label="监听类型" align="center" prop="type">
         <template slot-scope="scope">
-          <dict-tag :options="dict.type.sys_listener_type" :value="scope.row.type"/>
+          {{ getListenerTypeLabel(scope.row.type) }}
         </template>
       </el-table-column>
       <el-table-column label="事件类型" align="center" prop="eventType"/>
       <el-table-column label="值类型" align="center" prop="valueType">
         <template slot-scope="scope">
-          <dict-tag :options="dict.type.sys_listener_value_type" :value="scope.row.valueType"/>
+          {{ getListenerValueTypeLabel(scope.row.valueType) }}
         </template>
       </el-table-column>
       <el-table-column label="执行内容" align="center" prop="value" />
@@ -93,15 +93,15 @@
             type="text"
             icon="el-icon-edit"
             @click="handleUpdate(scope.row)"
-            v-hasPermi="['system:listener:edit']"
-          >修改</el-button>
+            >修改</el-button>
+            <!-- v-hasPermi="['system:listener:edit']" -->
           <el-button
             size="mini"
             type="text"
             icon="el-icon-delete"
             @click="handleDelete(scope.row)"
-            v-hasPermi="['system:listener:remove']"
-          >删除</el-button>
+            >删除</el-button>
+            <!-- v-hasPermi="['system:listener:remove']" -->
         </template>
       </el-table-column>
     </el-table>
@@ -123,7 +123,7 @@
         <el-form-item label="监听类型" prop="type">
           <el-select v-model="form.type" placeholder="请选择监听类型">
             <el-option
-              v-for="dict in dict.type.sys_listener_type"
+              v-for="dict in listenerTypeOptions"
               :key="dict.value"
               :label="dict.label"
               :value="dict.value"
@@ -153,7 +153,7 @@
         <el-form-item label="值类型" prop="valueType">
           <el-radio-group v-model="form.valueType">
             <el-radio
-              v-for="dict in dict.type.sys_listener_value_type"
+              v-for="dict in listenerValueTypeOptions"
               :key="dict.value"
               :label="dict.value"
             >{{dict.label}}</el-radio>
@@ -176,7 +176,6 @@ import { listListener, getListener, delListener, addListener, updateListener } f
 
 export default {
   name: "Listener",
-  dicts: ['sys_listener_value_type', 'sys_listener_type', 'common_status', 'sys_listener_event_type'],
   data() {
     return {
       // 遮罩层
@@ -214,15 +213,24 @@ export default {
       rules: {
       },
       taskListenerEventList: [
-        {label: 'create', value: 'create'},
-        {label: 'assignment', value: 'assignment'},
-        {label: 'complete', value: 'complete'},
-        {label: 'delete', value: 'delete'},
+        // {label: 'create', value: 'create'},
+        // {label: 'assignment', value: 'assignment'},
+        // {label: 'complete', value: 'complete'},
+        // {label: 'delete', value: 'delete'},
       ],
       executionListenerEventList: [
-        {label: 'start', value: 'start'},
-        {label: 'end', value: 'end'},
-        {label: 'take', value: 'take'},
+        // {label: 'start', value: 'start'},
+        // {label: 'end', value: 'end'},
+        // {label: 'take', value: 'take'},
+      ],
+      listenerTypeOptions: [
+        // { value: '1', label: '任务监听' },
+        // { value: '2', label: '执行监听' }
+      ],
+      listenerValueTypeOptions: [
+        // { value: 'class', label: '类' },
+        // { value: 'expression', label: '表达式' },
+        // { value: 'delegateExpression', label: '委托表达式' }
       ],
     };
   },
@@ -232,6 +240,7 @@ export default {
   methods: {
     /** 查询流程监听列表 */
     getList() {
+      return this.loading = false;
       this.loading = true;
       listListener(this.queryParams).then(response => {
         this.listenerList = response.rows;
@@ -289,7 +298,7 @@ export default {
       this.reset();
       const id = row.id || this.ids
       getListener(id).then(response => {
-        this.form = response.data;
+        this.form = response;
         this.open = true;
         this.title = "修改流程监听";
       });
@@ -323,6 +332,14 @@ export default {
         this.getList();
         this.$modal.msgSuccess("删除成功");
       }).catch(() => {});
+    },
+    getListenerTypeLabel(val) {
+      const item = this.listenerTypeOptions.find(d => d.value === val)
+      return item ? item.label : val
+    },
+    getListenerValueTypeLabel(val) {
+      const item = this.listenerValueTypeOptions.find(d => d.value === val)
+      return item ? item.label : val
     },
     /** 导出按钮操作 */
     handleExport() {

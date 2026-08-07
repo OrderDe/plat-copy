@@ -24,8 +24,7 @@
             <li class="item">
               <div class="title">订单状态</div>
               <div class="color-warning">
-                <span v-if="orderDatalist.refundStatus === 3">已退款</span>
-                <span v-else>{{ orderDatalist.status | orderStatusFilter }}</span>
+                <span>{{ getOrderBadge(orderDatalist).text }}</span>
               </div>
             </li>
             <li class="item">
@@ -380,6 +379,7 @@ import { checkPermi } from '@/utils/permission'; // 权限判断函数
 import { OrderSecondTypeEnum } from '@/enums/productEnums';
 import { isPlatform } from '@/utils/settingMer';
 import { areasOrderInfoApi } from '@/api/area.js';
+import { getOrderBadge } from '@/utils/orderBadge';
 import systemFromInfo from "@/views/order/components/systemFromInfo";
 export default {
   name: 'OrderDetail',
@@ -417,6 +417,7 @@ export default {
   },
   methods: {
     checkPermi,
+    getOrderBadge,
     tabClick(tab) {
       if (tab.name == 'orderList') {
         //this.getRecordList();

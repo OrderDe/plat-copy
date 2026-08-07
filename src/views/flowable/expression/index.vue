@@ -12,10 +12,10 @@
       <el-form-item label="状态" prop="status">
         <el-select v-model="queryParams.status" placeholder="请选择状态" clearable>
           <el-option
-            v-for="dict in dict.type.sys_common_status"
-            :key="dict.value"
-            :label="dict.label"
-            :value="dict.value"
+            v-for="item in commonStatusOptions"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
           />
         </el-select>
       </el-form-item>
@@ -33,8 +33,8 @@
           icon="el-icon-plus"
           size="mini"
           @click="handleAdd"
-          v-hasPermi="['system:expression:add']"
         >新增</el-button>
+        <!-- v-hasPermi="['system:expression:add']" -->
       </el-col>
       <el-col :span="1.5">
         <el-button
@@ -44,8 +44,8 @@
           size="mini"
           :disabled="single"
           @click="handleUpdate"
-          v-hasPermi="['system:expression:edit']"
         >修改</el-button>
+        <!-- v-hasPermi="['system:expression:edit']" -->
       </el-col>
       <el-col :span="1.5">
         <el-button
@@ -55,8 +55,8 @@
           size="mini"
           :disabled="multiple"
           @click="handleDelete"
-          v-hasPermi="['system:expression:remove']"
         >删除</el-button>
+        <!-- v-hasPermi="['system:expression:remove']" -->
       </el-col>
       <el-col :span="1.5">
         <el-button
@@ -65,10 +65,10 @@
           icon="el-icon-download"
           size="mini"
           @click="handleExport"
-          v-hasPermi="['system:expression:export']"
         >导出</el-button>
+        <!-- v-hasPermi="['system:expression:export']" -->
       </el-col>
-      <right-toolbar :showSearch.sync="showSearch" @queryTable="getList"></right-toolbar>
+      <!-- <right-toolbar :showSearch.sync="showSearch" @queryTable="getList"></right-toolbar> -->
     </el-row>
 
     <el-table v-loading="loading" :data="expressionList" @selection-change="handleSelectionChange">
@@ -78,7 +78,7 @@
       <el-table-column label="表达式内容" align="center" prop="expression" />
       <el-table-column label="指定类型" align="center" prop="dataType" >
         <template slot-scope="scope">
-          <dict-tag :options="dict.type.exp_data_type" :value="scope.row.dataType"/>
+          <span>{{ getExpDataTypeLabel(scope.row.dataType) }}</span>
         </template>
       </el-table-column>
       <el-table-column label="操作" align="center" class-name="small-padding fixed-width">
@@ -88,15 +88,15 @@
             type="text"
             icon="el-icon-edit"
             @click="handleUpdate(scope.row)"
-            v-hasPermi="['system:expression:edit']"
           >修改</el-button>
+          <!-- v-hasPermi="['system:expression:edit']" -->
           <el-button
             size="mini"
             type="text"
             icon="el-icon-delete"
             @click="handleDelete(scope.row)"
-            v-hasPermi="['system:expression:remove']"
           >删除</el-button>
+          <!-- v-hasPermi="['system:expression:remove']" -->
         </template>
       </el-table-column>
     </el-table>
@@ -121,19 +121,19 @@
         <el-form-item label="指定类型" prop="dataType">
           <el-radio-group v-model="form.dataType">
             <el-radio
-              v-for="dict in dict.type.exp_data_type"
-              :key="dict.value"
-              :label="dict.value"
-            >{{dict.label}}</el-radio>
+              v-for="item in expDataTypeOptions"
+              :key="item.value"
+              :label="item.value"
+            >{{ item.label }}</el-radio>
           </el-radio-group>
         </el-form-item>
         <el-form-item label="状态" prop="status">
           <el-radio-group v-model="form.status">
             <el-radio
-              v-for="dict in dict.type.sys_common_status"
-              :key="dict.value"
-              :label="parseInt(dict.value)"
-            >{{dict.label}}</el-radio>
+              v-for="item in commonStatusOptions"
+              :key="item.value"
+              :label="Number(item.value)"
+            >{{ item.label }}</el-radio>
           </el-radio-group>
         </el-form-item>
         <el-form-item label="备注" prop="remark">
@@ -153,9 +153,17 @@ import { listExpression, getExpression, delExpression, addExpression, updateExpr
 
 export default {
   name: "FlowExp",
-  dicts: ['sys_common_status','exp_data_type'],
   data() {
     return {
+      // 本地字典数据（替代 dicts 系统）
+      commonStatusOptions: [
+        { value: '0', label: '启用' },
+        { value: '1', label: '停用' }
+      ],
+      expDataTypeOptions: [
+        // { value: 'fixed', label: '固定值' },
+        // { value: 'dynamic', label: '动态值' }
+      ],
       // 遮罩层
       loading: true,
       // 选中数组
@@ -195,6 +203,11 @@ export default {
     this.getList();
   },
   methods: {
+    /** 获取表达式数据类型标签 */
+    getExpDataTypeLabel(val) {
+      const item = this.expDataTypeOptions.find(o => o.value === val)
+      return item ? item.label : val
+    },
     /** 查询流程达式列表 */
     getList() {
       this.loading = true;
@@ -251,7 +264,7 @@ export default {
       this.reset();
       const id = row.id || this.ids
       getExpression(id).then(response => {
-        this.form = response.data;
+        this.form = response;
         this.open = true;
         this.title = "修改流程达式";
       });

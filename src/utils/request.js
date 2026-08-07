@@ -24,7 +24,8 @@ service.interceptors.request.use(
       config.params = config.params || {};
       config.params.temp = Date.parse(new Date()) / 1000;
     }
-    console.log(config)
+    // console.log(config)
+    // debugger
     if(!config.baseURL){
       config.baseURL = SettingMer.apiBaseURL;
     }
@@ -42,7 +43,8 @@ service.interceptors.response.use(
     if (response.config.responseType === 'blob') {
       return response;
     }
-    const res = response.data;
+    // console.log(response)
+    const res = response.data ;
     // if the custom code is not 20000, it is judged as an error.
     if (res.code === 401) {
       // to re-login
@@ -67,7 +69,7 @@ service.interceptors.response.use(
       });
       return Promise.reject();
     } else {
-      return res.data;
+      return res.data || res;
     }
   },
   (error) => {

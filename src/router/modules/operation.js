@@ -180,6 +180,24 @@ const operationRouter = {
           hidden: false,
         },
         {
+          path: 'orderLog',
+          name: 'OrderLog',
+          component: () => import('@/views/maintain/orderLog/index'),
+          meta: {
+            title: '订单日志',
+            noCache: true,
+          },
+        },
+        {
+          path: 'operationLog',
+          name: 'OperationLog',
+          component: () => import('@/views/maintain/operationLog/index'),
+          meta: {
+            title: '全局操作日志',
+            noCache: true,
+          },
+        },
+        {
           path: 'user/:type?',
           name: 'MaintainUser',
           component: () => import('@/views/maintain/user'),

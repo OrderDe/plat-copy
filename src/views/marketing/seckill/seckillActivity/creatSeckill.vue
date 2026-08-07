@@ -62,27 +62,33 @@
                   选择商品开始时间段，该时间段内用户可参与购买；其它时间段会显示活动未开始或已结束，可多选
                 </p>
               </el-form-item>
-              <el-form-item label="活动限购:">
+              <el-form-item label="活动限购:" prop="allQuota">
                 <el-input-number
                   :disabled="pageType"
                   v-model="ruleForm.allQuota"
                   controls-position="right"
                   :min="0"
                   :max="99999"
+                  :precision="0"
+                  :step="1"
                   class="from-ipt-width"
+                  @change="onAllQuotaChange"
                 ></el-input-number>
                 <p class="desc mt10">
                   活动有效期内每个用户可购买该商品总数限制。例如设置为4，表示本次活动有效期内，每个用户最多可购买总数4个，0为不限购
                 </p>
               </el-form-item>
-              <el-form-item label="单次限购:">
+              <el-form-item label="单次限购:" prop="oneQuota">
                 <el-input-number
                   :disabled="pageType"
                   v-model="ruleForm.oneQuota"
                   controls-position="right"
                   :min="0"
                   :max="99999"
+                  :precision="0"
+                  :step="1"
                   class="from-ipt-width"
+                  @change="onOneQuotaChange"
                 ></el-input-number>
                 <p class="desc mt10">
                   用户参与秒杀时，一次购买最大数量限制。例如设置为2，表示参与秒杀时，用户一次购买数量最大可选择2个，0为不限购
@@ -172,6 +178,7 @@
                       v-model="scope.row.quota"
                       :precision="0"
                       :min="0"
+                      :step="1"
                       :max="scope.row.stock"
                       :controls="false"
                       class="input_width"
@@ -231,18 +238,15 @@
       <el-card dis-hover class="fixed-card box-card" :bordered="false" shadow="never">
         <div class="acea-row row-center-wrapper">
           <el-button v-show="activeName == 'first'" size="small" type="primary" @click="activeName = 'second'"
-            >下一步</el-button
-          >
-          <el-button
+            >下一步</el-button><el-button
             v-show="activeName == 'second' && !pageType"
             size="small"
             class="priamry_border"
             @click="activeName = 'first'"
             >上一步</el-button
           >
-          {{ ruleForm.status }}
+          <!-- :disabled="ruleForm.status == 2" -->
           <el-button
-            :disabled="ruleForm.status == 2"
             v-show="
               (activeName == 'second' || (activeName == 'first' && isEdit && !pageType)) &&
               checkPermi(['platform:seckill:activity:add', 'platform:seckill:activity:update'])
@@ -306,6 +310,35 @@ export default {
         discount: [{ required: true, message: '请选择优惠方式' }],
         timeVal2: [{ type: 'array', required: true, message: '请选择秒杀场次', trigger: 'change' }],
         merStars: [{ required: true, message: '请选择商户星级', trigger: 'change' }],
+        oneQuota: [
+          {
+            validator: (rule, value, callback) => {
+              this.$nextTick(() => {
+                const allQuota = this.ruleForm.allQuota;
+                if (allQuota > 0 && value > allQuota) {
+                  callback(new Error('单次限购数不能大于活动限购数'));
+                } else {
+                  callback();
+                }
+              });
+            },
+            trigger: ['blur', 'change'],
+          },
+        ],
+        allQuota: [
+          {
+            validator: (rule, value, callback) => {
+              this.$nextTick(() => {
+                if (value > 0 && this.ruleForm.oneQuota > value) {
+                  callback(new Error('活动限购数不能小于单次限购数'));
+                } else {
+                  callback();
+                }
+              });
+            },
+            trigger: ['blur', 'change'],
+          },
+        ],
       },
       pickerOptions: {
         disabledDate(time) {
@@ -403,7 +436,7 @@ export default {
             ...res,
             timeVal2: info.timeIntervals.split(',').map((item) => item * 1),
             timeVal: [info.startDate, info.endDate],
-            proCategorylist: info.proCategory !== '0' ? info.proCategory.split(',').map((item) => item * 1) : [],
+            proCategorylist: info.proCategory !== '0' ? info.proCategory.split(',').map((item) => item) : [],
           };
           this.getAttrValue(info.productList);
           this.loading = false;
@@ -506,6 +539,18 @@ export default {
     // 具体日期
     onchangeTime2(e) {
       this.ruleForm.timeIntervals = e.toString();
+    },
+    // 活动限购变化时，重新校验单次限购
+    onAllQuotaChange() {
+      this.$nextTick(() => {
+        this.$refs.ruleForm.validateField('oneQuota');
+      });
+    },
+    // 单次限购变化时，重新校验活动限购
+    onOneQuotaChange() {
+      this.$nextTick(() => {
+        this.$refs.ruleForm.validateField('allQuota');
+      });
     },
     // 具体日期
     onchangeTime(e) {

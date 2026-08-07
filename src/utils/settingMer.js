@@ -9,9 +9,11 @@ const SettingMer = {
   // 服务器地址
   httpUrl: VUE_APP_API_URL,
   // 接口请求地址
-  apiBaseURL: VUE_APP_API_URL + '/api/',
-  apiBaseURL2: VUE_APP_API_URL2 + '/',
-  apiBaseURL3: VUE_APP_API_URL3 + '/',
+  // apiBaseURL: VUE_APP_API_URL + '/admin/api/',
+  // apiBaseURL2: VUE_APP_API_URL + '/flowable',
+  apiBaseURL: VUE_APP_API_URL + 'admin/api/',
+  apiBaseURL2: VUE_APP_API_URL2 + '/flowable/',
+  apiBaseURL3: VUE_APP_API_URL3 + '/warehouse/',
   // socket连接
   wsSocketUrl: VUE_APP_WS_URL,
   // 是否为平台端

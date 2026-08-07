@@ -567,3 +567,23 @@ export function productMarketingListApi(params) {
     params,
   });
 }
+
+/**
+ * 商品库分页列表
+ * @description 获取一体化商品库分页列表
+ * @param {Object} params 查询参数 {pageNum, pageSize, name, deleted}
+ * @returns {Promise}
+ */
+export function GetIntegrateProductPage(params) {
+  return request({
+    url: '/admin/thirdParty/integrateProduct/page',
+    method: 'POST',
+    data: params
+  });
+}
+
+// 别名函数（兼容商户端迁移过来的 platguarantee 页面调用）
+export const guaranteePlatAddApi = guaranteeAddApi;
+export const guaranteePlatUpdateApi = guaranteeUpdateApi;
+export const guaranteePlatDeleteApi = guaranteeDeleteApi;
+export const guaranteePlatShowApi = guaranteeShowApi;

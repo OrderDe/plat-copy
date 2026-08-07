@@ -77,6 +77,15 @@ const financeRouter = {
         },
       ],
     },
+    {
+      path: 'invoice',
+      name: 'FinanceInvoice',
+      meta: {
+        title: '开票管理',
+        noCache: true,
+      },
+      component: () => import('@/views/finance/invoice/index'),
+    },
   ],
 };
 

@@ -138,9 +138,10 @@ export default {
     getList() {
       this.loading = true;
       finishedList(this.queryParams).then(response => {
-        this.finishedList = response.data.records;
-        this.total = response.data.total;
+        console.log(response)
         this.loading = false;
+        this.finishedList = response.records;
+        this.total = response.total;
       });
     },
     // 取消按钮

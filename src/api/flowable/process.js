@@ -1,5 +1,4 @@
-import request from '@/utils/request'
-import da from "element-ui/src/locale/lang/da";
+import request from './request';
 
 // 我的发起的流程
 export function myProcessList(query) {

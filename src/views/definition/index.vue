@@ -351,6 +351,10 @@ export default {
   methods: {
     /** 查询流程定义列表 */
     getList() {
+      return new Promise((resolve, reject) => {
+        this.loading = false;
+        resolve()
+      })
       this.loading = true;
       listDefinition(this.queryParams).then(data => {
         this.definitionList = data.records;

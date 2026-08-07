@@ -69,10 +69,10 @@ export default {
       this.otherExtensionList = []; // 其他扩展配置
       this.bpmnElementProperties =
         this.bpmnElement.businessObject?.extensionElements?.values?.filter(ex => {
-          if (ex.$type !== `flowable:Properties`) {
+          if (ex.$type !== `activiti:Properties`) {
             this.otherExtensionList.push(ex);
           }
-          return ex.$type === `flowable:Properties`;
+          return ex.$type === `activiti:Properties`;
         }) ?? [];
 
       // 保存所有的 扩展属性字段
@@ -97,7 +97,7 @@ export default {
           this.elementPropertyList.splice(index, 1);
           this.bpmnElementPropertyList.splice(index, 1);
           // 新建一个属性字段的保存列表
-          const propertiesObject = this.modelerStore.moddle.create(`flowable:Properties`, {
+          const propertiesObject = this.modelerStore.moddle.create(`activiti:Properties`, {
             values: this.bpmnElementPropertyList
           });
           this.updateElementExtensions(propertiesObject);
@@ -115,9 +115,9 @@ export default {
         });
       } else {
         // 新建属性字段
-        const newPropertyObject = this.modelerStore.moddle.create(`flowable:Property`, { name, value });
+        const newPropertyObject = this.modelerStore.moddle.create(`activiti:Property`, { name, value });
         // 新建一个属性字段的保存列表
-        const propertiesObject = this.modelerStore.moddle.create(`flowable:Properties`, {
+        const propertiesObject = this.modelerStore.moddle.create(`activiti:Properties`, {
           values: this.bpmnElementPropertyList.concat([newPropertyObject])
         });
         this.updateElementExtensions(propertiesObject);

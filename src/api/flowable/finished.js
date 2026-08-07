@@ -1,5 +1,4 @@
-import request from '@/utils/request'
-import da from "element-ui/src/locale/lang/da";
+import request from './request';
 
 // 查询已办任务列表
 export function finishedList(query) {

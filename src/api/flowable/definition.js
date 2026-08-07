@@ -1,14 +1,10 @@
-import request from '@/utils/request'
-import SettingMer from '@/utils/settingMer';
-console.log(SettingMer,'definition.js')
-let baseURL = SettingMer.apiBaseURL2;
+import request from './request'
 // 查询流程定义列表
 export function listDefinition(query) {
   return request({
     url: '/flowable/definition/list',
     method: 'get',
     params: query,
-    baseURL: baseURL
   })
 }
 
@@ -18,7 +14,6 @@ export function definitionStart(procDefId, data) {
     url: '/flowable/definition/start/' + procDefId,
     method: 'post',
     data: data,
-    baseURL: baseURL
   })
 }
 
@@ -27,7 +22,6 @@ export function getProcessVariables(taskId) {
   return request({
     url: '/flowable/task/processVariables/' + taskId,
     method: 'get',
-    baseURL: baseURL
   })
 }
 
@@ -37,7 +31,6 @@ export function updateState(params) {
     url: '/flowable/definition/updateState',
     method: 'put',
     params: params,
-    baseURL: baseURL
   })
 }
 
@@ -47,7 +40,6 @@ export function userList(query) {
     url: '/flowable/definition/userList',
     method: 'get',
     params: query,
-    baseURL: baseURL
   })
 }
 
@@ -57,7 +49,6 @@ export function roleList(query) {
     url: '/flowable/definition/roleList',
     method: 'get',
     params: query,
-    baseURL: baseURL
   })
 }
 
@@ -67,7 +58,6 @@ export function expList(query) {
     url: '/flowable/definition/expList',
     method: 'get',
     params: query,
-    baseURL: baseURL
   })
 }
 
@@ -76,7 +66,6 @@ export function readXml(deployId) {
   return request({
     url: '/flowable/definition/readXml/' + deployId,
     method: 'get',
-    baseURL: baseURL
   })
 }
 
@@ -85,7 +74,6 @@ export function readImage(deployId) {
   return request({
     url: '/flowable/definition/readImage/' + deployId,
     method: 'get',
-    baseURL: baseURL
   })
 }
 
@@ -94,7 +82,6 @@ export function getFlowViewer(procInsId, executionId) {
   return request({
     url: '/flowable/task/flowViewer/' + procInsId + '/' + executionId,
     method: 'get',
-    baseURL: baseURL
   })
 }
 
@@ -104,7 +91,6 @@ export function flowXmlAndNode(query) {
     url: '/flowable/task/flowXmlAndNode',
     method: 'get',
     params: query,
-    baseURL: baseURL
   })
 }
 
@@ -114,7 +100,6 @@ export function saveXml(data) {
     url: '/flowable/definition/save',
     method: 'post',
     data: data,
-    baseURL: baseURL
   })
 }
 
@@ -124,7 +109,6 @@ export function addDeployment(data) {
     url: '/system/deployment',
     method: 'post',
     data: data,
-    baseURL: baseURL
   })
 }
 
@@ -134,7 +118,6 @@ export function updateDeployment(data) {
     url: '/system/deployment',
     method: 'put',
     data: data,
-    baseURL: baseURL
   })
 }
 
@@ -143,7 +126,6 @@ export function delDeployment(deployId) {
   return request({
     url: '/flowable/definition/' + deployId,
     method: 'delete',
-    baseURL: baseURL
   })
 }
 
@@ -154,6 +136,5 @@ export function exportDeployment(query) {
     method: 'get',
     params: query,
     responseType: 'blob',
-    baseURL: baseURL
   })
 }

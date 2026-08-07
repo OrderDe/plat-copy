@@ -1671,7 +1671,7 @@ var checkNodeUser = function () {
       }
 
       const buttons = node.extensionElements?.values?.filter(ex => {
-        return ex.$type === `flowable:Buttons`;
+        return ex.$type === `activiti:Buttons`;
       }) ?? [];
       const selectButtons = buttons.reduce((pre, current) => pre.concat(current.values), []);
       if (buttons.length === 0 || selectButtons.length === 0) {

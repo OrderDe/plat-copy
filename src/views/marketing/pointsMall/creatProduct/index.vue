@@ -366,8 +366,8 @@ export default {
       multiples: true,
       productType: [
         { tit: '普通商品', id: 0, tit2: '实体货物' },
-        { tit: '云盘商品', id: 5, tit2: '同一链接发货' },
-        { tit: '卡密商品', id: 6, tit2: '不同充值码发货' },
+        // { tit: '云盘商品', id: 5, tit2: '同一链接发货' },
+        // { tit: '卡密商品', id: 6, tit2: '不同充值码发货' },
       ],
       upload: {
         videoIng: false, // 是否显示进度条；

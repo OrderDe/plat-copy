@@ -49,22 +49,22 @@ export function useProduct() {
       label: '普通商品',
       value: 0,
     },
-    {
-      label: '虚拟商品',
-      value: 2,
-    },
-    {
-      label: '云盘商品',
-      value: 5,
-    },
-    {
-      label: '卡密商品',
-      value: 6,
-    },
-    {
-      label: '预约商品',
-      value: 7,
-    },
+    // {
+    //   label: '虚拟商品',
+    //   value: 2,
+    // },
+    // {
+    //   label: '云盘商品',
+    //   value: 5,
+    // },
+    // {
+    //   label: '卡密商品',
+    //   value: 6,
+    // },
+    // {
+    //   label: '预约商品',
+    //   value: 7,
+    // },
   ];
   return {
     productTypeList,

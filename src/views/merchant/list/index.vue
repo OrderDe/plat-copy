@@ -118,16 +118,16 @@
             <div v-else>{{ scope.row.isRecommend ? '是' : '否' }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="160" fixed="right">
+        <el-table-column label="操作" width="230" fixed="right">
           <template slot-scope="scope">
-            <!-- <a @click="handleLoginMer(scope.row.id)" v-hasPermi="['platform:merchant:detail']">登录 </a> -->
-            <!-- <el-divider direction="vertical"></el-divider> -->
             <a
               @click="handleEdit(scope.row.id, 1, 'info')"
               v-hasPermi="['platform:merchant:detail', 'circle:merchant:detail']"
               >详情
             </a>
             <el-divider direction="vertical"></el-divider>
+            <a v-if="scope.row.isSwitch" @click="handleBindRole(scope.row)">绑定角色</a>
+            <el-divider v-if="scope.row.isSwitch" direction="vertical"></el-divider>
             <el-dropdown
               trigger="click"
               v-if="
@@ -198,11 +198,41 @@
         @onChangeEdit="onChangeEdit"
       ></creat-merchant>
     </el-drawer>
+
+    <!-- 绑定角色弹窗 -->
+    <el-dialog
+      title="绑定角色"
+      :visible.sync="roleDialogVisible"
+      width="450px"
+      :close-on-click-modal="false"
+      append-to-body
+    >
+      <el-form ref="roleForm" :model="roleForm" label-width="80px">
+        <el-form-item label="商户：">
+          <span>{{ roleForm.merName }}</span>
+        </el-form-item>
+        <el-form-item label="角色模板：" prop="templateId" :rules="[{ required: true, message: '请选择角色模板', trigger: 'change' }]">
+          <el-select v-model="roleForm.templateId" placeholder="请选择角色模板" style="width: 100%;">
+            <el-option
+              v-for="item in roleTemplateList"
+              :key="item.id"
+              :label="item.name"
+              :value="item.id"
+            />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <span slot="footer">
+        <el-button @click="roleDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="roleLoading" @click="submitBindRole">确定</el-button>
+      </span>
+    </el-dialog>
   </div>
 </template>
 <script>
 import * as merchant from '@/api/merchant';
 import * as areaApi from '@/api/area.js';
+import * as roleTemplateApi from '@/api/roleTemplate.js';
 import creatMerchant from './creatMerchant';
 import { mapGetters } from 'vuex';
 import { checkPermi } from '@/utils/permission'; // 权限判断函数
@@ -252,6 +282,15 @@ export default {
       isDisabled: false,
       indexKey: 0,
       handleType: '', //操作类型，编辑、详情
+      // 绑定角色
+      roleDialogVisible: false,
+      roleLoading: false,
+      roleForm: {
+        merId: null,
+        merName: '',
+        templateId: null,
+      },
+      roleTemplateList: [],
     };
   },
   computed: {
@@ -515,6 +554,35 @@ export default {
             this.loading = false;
           });
       }
+    },
+    // 打开绑定角色弹窗
+    handleBindRole(row) {
+      this.roleForm.merId = row.id;
+      this.roleForm.merName = row.name;
+      this.roleForm.templateId = null;
+      this.roleDialogVisible = true;
+      // 查询已启用的角色模板
+      roleTemplateApi.getEnabledRoleTemplates().then((res) => {
+        this.roleTemplateList = res || [];
+      });
+    },
+    // 提交绑定角色
+    submitBindRole() {
+      this.$refs.roleForm.validate((valid) => {
+        if (!valid) return;
+        this.roleLoading = true;
+        const data = {
+          merId: this.roleForm.merId,
+          templateId: this.roleForm.templateId,
+        };
+        roleTemplateApi.grantRoleTemplate(data).then(() => {
+          this.$message.success('绑定角色成功');
+          this.roleDialogVisible = false;
+          this.roleLoading = false;
+        }).catch(() => {
+          this.roleLoading = false;
+        });
+      });
     },
   },
 };

@@ -8,7 +8,7 @@
     ></i>
     <el-breadcrumb class="layout-navbars-breadcrumb-hide" v-if="isShowcrumb" :style="{ display: isShowBreadcrumb }">
       <transition-group name="breadcrumb" mode="out-in">
-        <el-breadcrumb-item v-for="(v, k) in [...breadCrumbList, ...crumbPast]" :key="v.path">
+        <el-breadcrumb-item v-for="(v, k) in crumbMergedList" :key="v.path + '_' + k">
           <span v-if="k == 1" class="layout-navbars-breadcrumb-span">
             <i :class="v.icon" class="ivu-icon" v-if="getThemeConfig.isBreadcrumbIcon" />{{ v.title }}
           </span>
@@ -66,6 +66,16 @@ export default {
         });
       }
       return selectMenu;
+    },
+    crumbMergedList() {
+      const merged = [...this.breadCrumbList, ...this.crumbPast];
+      const seen = new Map();
+      return merged.filter((item) => {
+        if (!item.path) return false;
+        if (seen.has(item.path)) return false;
+        seen.set(item.path, true);
+        return true;
+      });
     },
     // 获取布局配置信息
     getThemeConfig() {

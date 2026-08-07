@@ -167,8 +167,8 @@ export default {
     addBox() {
       if (this.configData.list.length == 0) {
         this.lastObj.img = '';
-        this.lastObj.info[0].value = '';
-        this.lastObj.info[1].value = '';
+        this.lastObj.info && (this.lastObj.info[0].value = '');
+        this.lastObj.info && (this.lastObj.info[1].value = '');
         this.configData.list.push(this.lastObj);
       } else {
         let obj = JSON.parse(JSON.stringify(this.configData.list[this.configData.list.length - 1]));
