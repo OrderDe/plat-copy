@@ -8,13 +8,17 @@
     :empty-item="emptyItem"
     :rules="rules"
   >
-    <template #extra-columns>
-      <el-table-column prop="warehouseId" label="仓库ID" width="80" />
+    <template #extra-columns="{ warehouseText }">
+      <el-table-column label="仓库" width="180">
+        <template slot-scope="{row}">{{ warehouseText(row.warehouseId) }}</template>
+      </el-table-column>
       <el-table-column prop="reason" label="报损原因" min-width="160" show-overflow-tooltip />
     </template>
-    <template #form-fields="{ form }">
-      <el-form-item label="仓库ID" prop="warehouseId">
-        <el-input v-model.number="form.warehouseId" type="number" />
+    <template #form-fields="{ form, warehouseList }">
+      <el-form-item label="仓库" prop="warehouseId">
+        <el-select v-model="form.warehouseId" filterable placeholder="请选择仓库" style="width:100%">
+          <el-option v-for="w in warehouseList" :key="w.id" :label="`${w.code} / ${w.name}`" :value="w.id" />
+        </el-select>
       </el-form-item>
       <el-form-item label="报损原因" prop="reason">
         <el-input v-model="form.reason" />
@@ -33,10 +37,10 @@ export default {
   data() {
     return {
       api: damageApi,
-      emptyForm: () => ({ warehouseId: null, reason: '', applyUserName: '', remark: '', items: [] }),
+      emptyForm: () => ({ warehouseId: null, reason: '', applyUserId: null, applyUserName: '', applyUserPhone: '', remark: '', items: [] }),
       emptyItem: () => ({ productId: null, platformType: 0, goodsName: '', damageNum: 0 }),
       rules: {
-        warehouseId: [{ required: true, message: '请输入仓库ID', trigger: 'blur' }],
+        warehouseId: [{ required: true, message: '请选择仓库', trigger: 'change' }],
         reason: [{ required: true, message: '请输入报损原因', trigger: 'blur' }],
       },
     };

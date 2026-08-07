@@ -9,12 +9,32 @@ import { Loading } from 'element-ui';
 import * as roleApi from '@/api/roleApi.js';
 import { formatFlatteningRoutes } from '@/utils/system.js';
 import { isPlatform } from '@/utils/settingMer';
+
+// 过滤已下线的菜单项（物料列表、购销存数据、统计管理）
+function removeHiddenMenus(routes) {
+  if (!Array.isArray(routes)) return routes;
+  const hiddenTitles = ['物料列表', '购销存数据', '统计管理'];
+  const hiddenPaths = ['/warehouse/material', 'warehouse/material', 'material', '/material'];
+  return routes.reduce((result, route) => {
+    if (!route || hiddenTitles.includes(route.title) || hiddenPaths.includes(route.path)) {
+      return result;
+    }
+    const nextRoute = { ...route };
+    if (Array.isArray(route.children)) {
+      nextRoute.children = removeHiddenMenus(route.children);
+    }
+    result.push(nextRoute);
+    return result;
+  }, []);
+}
+
 function getMenusName() {
-  return isPlatform
+  const raw = isPlatform
     ? JSON.parse(localStorage.getItem('MerPlatAdmin_MenuList')) || []
     : localStorage.getItem('Circle_Admin_MenuList')
     ? JSON.parse(localStorage.getItem('Circle_Admin_MenuList'))
     : [];
+  return removeHiddenMenus(raw);
 }
 const state = {
   token: getToken(),
@@ -308,25 +328,83 @@ const actions = {
         accessRoutes.push(approvalCenterMenu);
       }
 
-      // ===== 手动注入 "仓储物流" 菜单 =====
+      // 过滤已下线的菜单（物料列表、购销存数据、统计管理）
+      accessRoutes = removeHiddenMenus(accessRoutes);
+
       const warehouseMenu = {
         id: 9101, pid: 0, title: '仓库管理', icon: 'shopping',
         perms: '', path: '/warehouse', menuType: 'M', sort: 998,
         children: [
-          { id: 9102, pid: 9101, title: '仓库列表',     icon: '', perms: '', path: '/warehouse/warehouse-list', menuType: 'C', sort: 1, children: [] },
-          { id: 9103, pid: 9101, title: '入库管理',     icon: '', perms: '', path: '/warehouse/inbound',        menuType: 'C', sort: 2, children: [] },
-          { id: 9104, pid: 9101, title: '出库管理',     icon: '', perms: '', path: '/warehouse/outbound',       menuType: 'C', sort: 3, children: [] },
-          { id: 9105, pid: 9101, title: '物料列表',     icon: '', perms: '', path: '/warehouse/material',       menuType: 'C', sort: 4, children: [] },
-          { id: 9106, pid: 9101, title: '库存管理',     icon: '', perms: '', path: '/warehouse/stock',          menuType: 'C', sort: 5, children: [] },
-          { id: 9107, pid: 9101, title: '报损管理',     icon: '', perms: '', path: '/warehouse/damage',         menuType: 'C', sort: 6, children: [] },
-          { id: 9108, pid: 9101, title: '领用申请单',   icon: '', perms: '', path: '/warehouse/receive',        menuType: 'C', sort: 7, children: [] },
-          { id: 9109, pid: 9101, title: '调拨申请单',   icon: '', perms: '', path: '/warehouse/transfer',       menuType: 'C', sort: 8, children: [] },
-          { id: 9110, pid: 9101, title: '退库申请单',   icon: '', perms: '', path: '/warehouse/return',         menuType: 'C', sort: 9, children: [] },
-          { id: 9111, pid: 9101, title: '采购发货单',   icon: '', perms: '', path: '/warehouse/deliver',        menuType: 'C', sort: 10, children: [] },
-          { id: 9112, pid: 9101, title: '效期预警',     icon: '', perms: '', path: '/warehouse/expiry',         menuType: 'C', sort: 11, children: [] },
-          { id: 9113, pid: 9101, title: '购销存数据',   icon: '', perms: '', path: '/warehouse/pss',            menuType: 'C', sort: 12, children: [] },
-          { id: 9114, pid: 9101, title: '盘点列表',     icon: '', perms: '', path: '/warehouse/stock-check',    menuType: 'C', sort: 13, children: [] },
-          { id: 9115, pid: 9101, title: '统计管理',     icon: '', perms: '', path: '/warehouse/stats',          menuType: 'C', sort: 14, children: [] },
+          // ============ 基础配置 ============
+          {
+            id: 9140, pid: 9101, title: '基础配置', icon: 'setting', perms: '',
+            path: '/warehouse/basic', menuType: 'M', sort: 1, children: [
+              { id: 9102, pid: 9140, title: '仓库列表',     icon: '', perms: '', path: '/warehouse/warehouse-list', menuType: 'C', sort: 1, children: [] },
+              { id: 9120, pid: 9140, title: '货架管理',     icon: '', perms: '', path: '/warehouse/shelf',          menuType: 'C', sort: 2, children: [] },
+              { id: 9121, pid: 9140, title: '批次管理',     icon: '', perms: '', path: '/warehouse/batch',          menuType: 'C', sort: 3, children: [] },
+              { id: 9136, pid: 9140, title: '单据编号规则', icon: '', perms: '', path: '/warehouse/no-rule',        menuType: 'C', sort: 4, children: [] },
+              { id: 9137, pid: 9140, title: '打印模板',     icon: '', perms: '', path: '/warehouse/print',          menuType: 'C', sort: 5, children: [] },
+            ],
+          },
+          // ============ 入库业务 ============
+          {
+            id: 9141, pid: 9101, title: '入库业务', icon: 'download', perms: '',
+            path: '/warehouse/in', menuType: 'M', sort: 2, children: [
+              { id: 9111, pid: 9141, title: '采购发货单', icon: '', perms: '', path: '/warehouse/deliver', menuType: 'C', sort: 1, children: [] },
+              { id: 9103, pid: 9141, title: '入库管理',   icon: '', perms: '', path: '/warehouse/inbound', menuType: 'C', sort: 2, children: [] },
+              { id: 9123, pid: 9141, title: '质检管理',   icon: '', perms: '', path: '/warehouse/inspect', menuType: 'C', sort: 3, children: [] },
+            ],
+          },
+          // ============ 出库业务 ============
+          {
+            id: 9142, pid: 9101, title: '出库业务', icon: 'upload', perms: '',
+            path: '/warehouse/out', menuType: 'M', sort: 3, children: [
+              { id: 9104, pid: 9142, title: '出库管理', icon: '', perms: '', path: '/warehouse/outbound', menuType: 'C', sort: 1, children: [] },
+              { id: 9125, pid: 9142, title: '波次管理', icon: '', perms: '', path: '/warehouse/wave',    menuType: 'C', sort: 2, children: [] },
+              { id: 9126, pid: 9142, title: '拣货管理', icon: '', perms: '', path: '/warehouse/pick',    menuType: 'C', sort: 3, children: [] },
+              { id: 9127, pid: 9142, title: '复核管理', icon: '', perms: '', path: '/warehouse/review',  menuType: 'C', sort: 4, children: [] },
+              { id: 9128, pid: 9142, title: '装箱管理', icon: '', perms: '', path: '/warehouse/package', menuType: 'C', sort: 5, children: [] },
+            ],
+          },
+          // ============ 库内作业 ============
+          {
+            id: 9143, pid: 9101, title: '库内作业', icon: 'operation', perms: '',
+            path: '/warehouse/operation', menuType: 'M', sort: 4, children: [
+              { id: 9122, pid: 9143, title: '上架/移库/补货', icon: '', perms: '', path: '/warehouse/relocate', menuType: 'C', sort: 1, children: [] },
+              { id: 9124, pid: 9143, title: '智能补货',       icon: '', perms: '', path: '/warehouse/replenish', menuType: 'C', sort: 2, children: [] },
+              { id: 9129, pid: 9143, title: '智能分仓',       icon: '', perms: '', path: '/warehouse/allocate', menuType: 'C', sort: 3, children: [] },
+            ],
+          },
+          // ============ 库存与盘点 ============
+          {
+            id: 9144, pid: 9101, title: '库存与盘点', icon: 'list', perms: '',
+            path: '/warehouse/stock-group', menuType: 'M', sort: 5, children: [
+              { id: 9106, pid: 9144, title: '库存管理',       icon: '', perms: '', path: '/warehouse/stock',            menuType: 'C', sort: 1, children: [] },
+              { id: 9114, pid: 9144, title: '盘点列表',       icon: '', perms: '', path: '/warehouse/stock-check',      menuType: 'C', sort: 2, children: [] },
+              { id: 9130, pid: 9144, title: '循环盘点计划',   icon: '', perms: '', path: '/warehouse/stock-check-plan', menuType: 'C', sort: 3, children: [] },
+            ],
+          },
+          // ============ 单据审批 ============
+          {
+            id: 9145, pid: 9101, title: '单据审批', icon: 'document', perms: '',
+            path: '/warehouse/apply', menuType: 'M', sort: 6, children: [
+              { id: 9107, pid: 9145, title: '报损管理',   icon: '', perms: '', path: '/warehouse/damage',   menuType: 'C', sort: 1, children: [] },
+              { id: 9108, pid: 9145, title: '领用申请单', icon: '', perms: '', path: '/warehouse/receive',  menuType: 'C', sort: 2, children: [] },
+              { id: 9109, pid: 9145, title: '调拨申请单', icon: '', perms: '', path: '/warehouse/transfer', menuType: 'C', sort: 3, children: [] },
+              { id: 9110, pid: 9145, title: '退库申请单', icon: '', perms: '', path: '/warehouse/return',   menuType: 'C', sort: 4, children: [] },
+            ],
+          },
+          // ============ 统计分析 ============
+          {
+            id: 9146, pid: 9101, title: '统计分析', icon: 'chart', perms: '',
+            path: '/warehouse/report', menuType: 'M', sort: 7, children: [
+              { id: 9131, pid: 9146, title: '总览看板',   icon: '', perms: '', path: '/warehouse/dashboard',   menuType: 'C', sort: 1, children: [] },
+              { id: 9132, pid: 9146, title: '库龄分析',   icon: '', perms: '', path: '/warehouse/aging',       menuType: 'C', sort: 2, children: [] },
+              { id: 9133, pid: 9146, title: '呆滞库存',   icon: '', perms: '', path: '/warehouse/slow-moving', menuType: 'C', sort: 3, children: [] },
+              { id: 9134, pid: 9146, title: '周转率分析', icon: '', perms: '', path: '/warehouse/turnover',    menuType: 'C', sort: 4, children: [] },
+              { id: 9135, pid: 9146, title: '成本核算',   icon: '', perms: '', path: '/warehouse/cost',        menuType: 'C', sort: 5, children: [] },
+            ],
+          },
         ],
       };
       if (Array.isArray(accessRoutes) && !accessRoutes.find(r => r && r.path === '/warehouse')) {

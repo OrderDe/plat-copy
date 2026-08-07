@@ -1,6 +1,6 @@
 <template>
   <div class="app-container">
-    <!-- 搜索栏 -->
+    <!-- 搜索栏-->
     <el-form :inline="true" :model="query" size="small" class="filter-container">
       <el-form-item label="仓库名称">
         <el-input v-model="query.name" placeholder="请输入" clearable @keyup.enter.native="onSearch" />
@@ -10,9 +10,8 @@
       </el-form-item>
       <el-form-item label="类型">
         <el-select v-model="query.type" clearable placeholder="全部" style="width:120px">
-          <el-option label="城市仓" :value="0" />
-          <el-option label="物业仓" :value="1" />
-          <el-option label="门店仓" :value="2" />
+          <el-option label="实体仓" :value="0" />
+          <el-option label="虚拟仓" :value="1" />
         </el-select>
       </el-form-item>
       <el-form-item label="状态">
@@ -40,6 +39,19 @@
           <el-tag size="mini">{{ typeText(row.type) }}</el-tag>
         </template>
       </el-table-column>
+      <el-table-column label="层级" width="90">
+        <template slot-scope="{row}">
+          <el-tag size="mini" :type="({0:'danger',1:'',2:'success'})[row.level == null ? 1 : row.level]">
+            {{ ({0:'总仓',1:'区域仓', 2:'前置仓'})[row.level == null ? 1 : row.level] }}
+          </el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column label="分仓" width="90">
+        <template slot-scope="{row}">
+          <el-tag v-if="row.allocEnabled === 0" type="info" size="mini">不参与</el-tag>
+          <span v-else>优先级 {{ row.priority || 0 }}</span>
+        </template>
+      </el-table-column>
       <el-table-column prop="contactName" label="联系人" width="100" />
       <el-table-column prop="contactPhone" label="电话" width="130" />
       <el-table-column label="地址" min-width="200" show-overflow-tooltip>
@@ -54,7 +66,9 @@
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="createTime" label="创建时间" width="160" />
+      <el-table-column label="创建时间" width="160">
+        <template slot-scope="{row}">{{ row.createTime ? row.createTime.replace('T', ' ').substring(0, 19) : '' }}</template>
+      </el-table-column>
       <el-table-column label="操作" width="170" fixed="right">
         <template slot-scope="{row}">
           <el-button type="text" @click="openDialog(row)">编辑</el-button>
@@ -74,40 +88,66 @@
       @current-change="loadPage"
     />
 
-    <!-- 新增/编辑对话框 -->
+    <!-- 新增/编辑对话框-->
     <el-dialog :title="form.id ? '编辑仓库' : '新增仓库'" :visible.sync="dialogVisible" width="640px" @closed="resetForm">
       <el-form ref="formRef" :model="form" :rules="rules" label-width="100px" size="small">
         <el-form-item label="仓库编码" prop="code">
-          <el-input v-model="form.code" placeholder="唯一编码" />
+          <el-input v-model="form.code" placeholder="唯一编码" :readonly="!form.id" />
         </el-form-item>
         <el-form-item label="仓库名称" prop="name">
           <el-input v-model="form.name" />
         </el-form-item>
         <el-form-item label="类型" prop="type">
           <el-select v-model="form.type" style="width:100%">
-            <el-option label="城市仓" :value="0" />
-            <el-option label="物业仓" :value="1" />
-            <el-option label="门店仓" :value="2" />
+            <el-option label="实体仓" :value="0" />
+            <el-option label="虚拟仓" :value="1" />
           </el-select>
         </el-form-item>
         <el-form-item label="联系人">
           <el-input v-model="form.contactName" />
         </el-form-item>
-        <el-form-item label="联系电话">
-          <el-input v-model="form.contactPhone" />
+        <el-form-item label="联系电话" prop="contactPhone">
+          <el-input v-model="form.contactPhone" maxlength="11" />
         </el-form-item>
-        <el-form-item label="省">
-          <el-input v-model="form.province" />
-        </el-form-item>
-        <el-form-item label="市">
-          <el-input v-model="form.city" />
-        </el-form-item>
-        <el-form-item label="区">
-          <el-input v-model="form.region" />
+        <el-form-item label="所在地区" prop="regionIds">
+          <el-cascader
+            v-model="form.regionIds"
+            :options="cityOptions"
+            :props="cascaderProps"
+            style="width:100%"
+            placeholder="请选择省/市/区"
+            clearable
+            @change="onRegionChange"
+          />
         </el-form-item>
         <el-form-item label="详细地址">
           <el-input v-model="form.detailAddress" type="textarea" :rows="2" />
         </el-form-item>
+        <el-divider content-position="left">多结算单同配配置</el-divider>
+        <el-form-item label="仓库层级">
+          <el-select v-model="form.level" style="width:100%">
+            <el-option label="总仓" :value="0" />
+            <el-option label="区域仓" :value="1" />
+            <el-option label="前置仓（分仓时最优先）" :value="2" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="覆盖省份">
+          <el-input v-model="form.coverProvinceCodes" placeholder="如：广东省,广西 —— 逗号分隔，留空 = 全国可发" />
+          <div class="form-tips">
+            推荐直接填省份名称。订单只存一整串收货地址、没有行政区编码，
+            填名称才能命中；也支持填编码，两种可混用。
+          </div>
+        </el-form-item>
+        <el-form-item label="覆盖城市">
+          <el-input v-model="form.coverCityCodes" placeholder="如：深圳市,广州市 —— 选填，比省份更精确" />
+        </el-form-item>
+        <el-form-item label="分仓优先级">
+          <el-input-number v-model="form.priority" :min="0" :max="999" style="width:100%" />
+        </el-form-item>
+        <el-form-item label="参与智能分仓">
+          <el-switch v-model="form.allocEnabled" :active-value="1" :inactive-value="0" />
+        </el-form-item>
+        <el-divider />
         <el-form-item label="状态">
           <el-radio-group v-model="form.status">
             <el-radio :label="1">启用</el-radio>
@@ -128,6 +168,10 @@
 
 <script>
 import { warehouseApi } from '@/api/warehouse';
+import request from '@/utils/request';
+import { validatePhone } from '@/utils/toolsValidate';
+
+const cityListTree = () => request({ url: '/admin/merchant/city/region/city/tree', method: 'get' });
 
 export default {
   name: 'WarehouseList',
@@ -140,30 +184,70 @@ export default {
       query: { page: 1, limit: 20, name: '', code: '', type: null, status: null },
       dialogVisible: false,
       form: this.emptyForm(),
+      cityOptions: [],
+      cascaderProps: { value: 'id', label: 'name', children: 'child', checkStrictly: false, emitPath: true },
       rules: {
-        code: [{ required: true, message: '请输入仓库编码', trigger: 'blur' }],
-        name: [{ required: true, message: '请输入仓库名称', trigger: 'blur' }],
+        code: [{ required: true, message: '请输入结算库编码', trigger: 'blur' }],
+        name: [{ required: true, message: '请输入结算库名称', trigger: 'blur' }],
         type: [{ required: true, message: '请选择类型', trigger: 'change' }],
+        contactPhone: [{ validator: this.validateContactPhone, trigger: 'blur' }],
       },
     };
   },
   created() {
     this.loadPage();
+    // 存下 promise：编辑弹窗可能在树加载完成前打开，届时直接 await 它而不是重复请求
+    this.cityTreeReady = this.loadCityTree();
   },
   methods: {
     emptyForm() {
       return { id: null, code: '', name: '', type: 0, contactName: '', contactPhone: '',
-        province: '', city: '', region: '', detailAddress: '', status: 1, remark: '' };
+        province: '', city: '', region: '', regionIds: [], detailAddress: '', status: 1, remark: '',
+        level: 1, coverProvinceCodes: '', coverCityCodes: '', priority: 0, allocEnabled: 1 };
     },
     typeText(t) {
-      return ({ 0: '城市仓', 1: '物业仓', 2: '门店仓' })[t] || '-';
+      return ({ 0: '实体仓', 1: '虚拟仓' })[t] || '-';
+    },
+    genWarehouseCode() {
+      const d = new Date();
+      const pad = (n) => String(n).padStart(2, '0');
+      const ts = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+      const rand = String(Math.floor(Math.random() * 1000)).padStart(3, '0');
+      return `W${ts}${rand}`;
+    },
+    validateContactPhone(rule, value, callback) {
+      if (!value) return callback();
+      validatePhone(rule, value, callback);
+    },
+    async loadCityTree() {
+      try {
+        const res = await cityListTree();
+        const list = Array.isArray(res) ? res : (res && res.list) || [];
+        this.cityOptions = this.normalizeTree(list);
+      } catch (e) { /* ignore */ }
+    },
+    /**
+     * 只保留省/市/区三级。接口的城市树带第四级（街道/乡镇），
+     * 而级联选择器是 checkStrictly:false —— 非叶子节点选不中，
+     * 区级下面若还挂着子节点，选到区就只是高亮展开、输入框还是空的。
+     */
+    normalizeTree(list, depth = 1) {
+      if (!Array.isArray(list)) return [];
+      return list.map(n => {
+        const children = n.child || n.children;
+        const item = { id: n.regionId != null ? n.regionId : n.id, name: n.regionName || n.name };
+        if (depth < 3 && Array.isArray(children) && children.length) {
+          item.child = this.normalizeTree(children, depth + 1);
+        }
+        return item;
+      });
     },
     async loadPage() {
       this.loading = true;
       try {
         const res = await warehouseApi.page(this.query);
-        this.tableData = res.data.list || [];
-        this.total = res.data.total || 0;
+        this.tableData = (res && res.list) || [];
+        this.total = (res && res.total) || 0;
       } finally {
         this.loading = false;
       }
@@ -176,21 +260,105 @@ export default {
       this.query = { page: 1, limit: 20, name: '', code: '', type: null, status: null };
       this.loadPage();
     },
-    openDialog(row) {
-      this.form = row ? { ...row } : this.emptyForm();
+    async openDialog(row) {
+      if (row) {
+        this.form = { ...this.emptyForm(), ...row, regionIds: [] };
+        // 库里只存了省市区名称、没存行政区ID，编辑时要按名称反查出级联路径，
+        // 否则「所在地区」永远是空的，一保存就把原地区清掉了
+        if (!this.cityOptions.length) await (this.cityTreeReady || this.loadCityTree());
+        this.form.regionIds = this.resolveRegionIds(row.province, row.city, row.region);
+      } else {
+        this.form = this.emptyForm();
+        this.form.code = this.genWarehouseCode();
+      }
       this.dialogVisible = true;
+    },
+    /**
+     * 按省/市/区名称在城市树里逐层反查出 ID 路径。
+     * 匹配到哪层就返回到哪层——名称对不上时给出部分路径，好过整个落空。
+     */
+    resolveRegionIds(province, city, region) {
+      const ids = [];
+      const p = this.matchRegion(this.cityOptions, province);
+      if (!p) return ids;
+      ids.push(p.id);
+      const c = this.matchRegion(p.child, city);
+      if (!c) return ids;
+      ids.push(c.id);
+      const r = this.matchRegion(c.child, region);
+      if (r) ids.push(r.id);
+      return ids;
+    },
+    /**
+     * 三层匹配，逐级放宽：
+     *  1. 名称完全相同
+     *  2. 去掉行政区后缀后相同 —— 容忍「北京」与「北京市」
+     *  3. 互相包含 —— 容忍「北京市市辖区」与「市辖区」
+     * 只在同一父节点的子集里比较，放宽到 includes 也不易误命中。
+     */
+    matchRegion(nodes, name) {
+      if (!Array.isArray(nodes) || !name) return null;
+      const target = String(name).trim();
+      if (!target) return null;
+
+      const exact = nodes.find(n => n.name === target);
+      if (exact) return exact;
+
+      const strip = (s) => String(s || '').replace(/(省|市|区|县|自治区|自治州|特别行政区|市辖区)$/g, '');
+      const key = strip(target);
+      if (key) {
+        const stripped = nodes.find(n => strip(n.name) === key);
+        if (stripped) return stripped;
+      }
+
+      return nodes.find(n => {
+        const nm = String(n.name || '');
+        return nm && (nm.includes(target) || target.includes(nm));
+      }) || null;
+    },
+    onRegionChange(ids) {
+      const cascader = this.findCascader();
+      if (cascader) {
+        const nodes = cascader.getCheckedNodes();
+        if (nodes && nodes.length) {
+          const path = nodes[0].pathLabels || [];
+          this.form.province = path[0] || '';
+          this.form.city = path[1] || '';
+          this.form.region = path[2] || '';
+          return;
+        }
+      }
+      this.form.province = '';
+      this.form.city = '';
+      this.form.region = '';
+    },
+    findCascader() {
+      const walk = (children) => {
+        for (const c of children) {
+          if (c.$options && c.$options.name === 'ElCascader') return c;
+          if (c.$children && c.$children.length) {
+            const r = walk(c.$children);
+            if (r) return r;
+          }
+        }
+        return null;
+      };
+      return this.$refs.formRef ? walk(this.$refs.formRef.$children) : null;
     },
     resetForm() {
       this.$refs.formRef && this.$refs.formRef.resetFields();
+      this.form = this.emptyForm();
     },
     async onSubmit() {
       await this.$refs.formRef.validate();
       this.saving = true;
       try {
-        if (this.form.id) {
-          await warehouseApi.edit(this.form);
+        const payload = { ...this.form };
+        delete payload.regionIds;
+        if (payload.id) {
+          await warehouseApi.edit(payload);
         } else {
-          await warehouseApi.add(this.form);
+          await warehouseApi.add(payload);
         }
         this.$message.success('保存成功');
         this.dialogVisible = false;
@@ -200,7 +368,7 @@ export default {
       }
     },
     onDelete(row) {
-      this.$confirm(`确定删除仓库「${row.name}」?`, '提示', { type: 'warning' })
+      this.$confirm(`确认畾删除仓库「${row.name}」`, '提示', { type: 'warning' })
         .then(async () => {
           await warehouseApi.del(row.id);
           this.$message.success('删除成功');
@@ -215,4 +383,5 @@ export default {
 <style scoped>
 .filter-container { margin-bottom: 12px; }
 .danger-text { color: #f56c6c; }
+.form-tips { color: #909399; font-size: 12px; line-height: 1.5; margin-top: 4px; }
 </style>

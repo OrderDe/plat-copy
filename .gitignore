@@ -21,4 +21,5 @@ selenium-debug.log
 
 package-lock.json
 yarn.lock
-/.claude/settings.local.json
+/.claude/
+chk2.js

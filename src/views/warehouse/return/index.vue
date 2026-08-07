@@ -8,17 +8,17 @@
     :empty-item="emptyItem"
     :rules="rules"
   >
-    <template #extra-columns>
-      <el-table-column prop="warehouseId" label="退回仓库" width="90" />
-      <el-table-column prop="relatedCode" label="关联单据" width="150" />
+    <template #extra-columns="{ warehouseText }">
+      <el-table-column label="退回仓库" width="180">
+        <template slot-scope="{row}">{{ warehouseText(row.warehouseId) }}</template>
+      </el-table-column>
       <el-table-column prop="returnReason" label="退库原因" min-width="160" show-overflow-tooltip />
     </template>
-    <template #form-fields="{ form }">
+    <template #form-fields="{ form, warehouseList }">
       <el-form-item label="退回仓库" prop="warehouseId">
-        <el-input v-model.number="form.warehouseId" type="number" />
-      </el-form-item>
-      <el-form-item label="关联单据">
-        <el-input v-model="form.relatedCode" />
+        <el-select v-model="form.warehouseId" filterable placeholder="请选择仓库" style="width:100%">
+          <el-option v-for="w in warehouseList" :key="w.id" :label="`${w.code} / ${w.name}`" :value="w.id" />
+        </el-select>
       </el-form-item>
       <el-form-item label="退库原因" prop="returnReason">
         <el-input v-model="form.returnReason" />
@@ -37,10 +37,10 @@ export default {
   data() {
     return {
       api: returnApi,
-      emptyForm: () => ({ warehouseId: null, relatedCode: '', returnReason: '', applyUserName: '', remark: '', items: [] }),
+      emptyForm: () => ({ warehouseId: null, returnReason: '', applyUserId: null, applyUserName: '', applyUserPhone: '', remark: '', items: [] }),
       emptyItem: () => ({ productId: null, platformType: 0, goodsName: '', returnNum: 0 }),
       rules: {
-        warehouseId: [{ required: true, message: '请输入仓库ID', trigger: 'blur' }],
+        warehouseId: [{ required: true, message: '请选择仓库', trigger: 'change' }],
         returnReason: [{ required: true, message: '请输入退库原因', trigger: 'blur' }],
       },
     };
