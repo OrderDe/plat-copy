@@ -1,5 +1,5 @@
 <template>
-  <div class="app-container" v-loading="loading">
+  <div class="app-container approval-center-page" v-loading="loading">
     <div class="page-header">
       <div class="page-title">催办短信配置</div>
       <div class="page-sub">配置阿里云短信参数,超时催办时自动发送给审批人</div>
@@ -61,11 +61,13 @@
         </el-form-item>
 
         <el-form-item>
-          <el-button type="primary" @click="save">保存</el-button>
-          <el-button @click="load">重置</el-button>
-          <el-divider direction="vertical" />
-          <el-input v-model="testPhone" placeholder="测试手机号" size="small" style="width: 180px; margin-right: 8px;" />
-          <el-button type="success" @click="sendTest" :disabled="!testPhone">发送测试短信</el-button>
+          <div class="approval-toolbar-actions sms-actions">
+            <el-button class="approval-toolbar-btn" type="primary" icon="el-icon-check" @click="save">保存</el-button>
+            <el-button class="approval-toolbar-btn" icon="el-icon-refresh-left" @click="load">重置</el-button>
+            <el-divider direction="vertical" />
+            <el-input v-model="testPhone" placeholder="测试手机号" size="small" style="width: 180px;" />
+            <el-button class="approval-toolbar-btn" type="success" icon="el-icon-message" @click="sendTest" :disabled="!testPhone">发送测试短信</el-button>
+          </div>
         </el-form-item>
       </el-form>
     </el-card>
@@ -130,5 +132,7 @@ export default {
 .page-title { font-size: 20px; font-weight: 500; margin-bottom: 4px; }
 .page-sub { font-size: 13px; color: #86909c; }
 .tip { color: #909399; font-size: 12px; margin-left: 8px; }
+.sms-actions { align-items: center; }
+.sms-actions >>> .el-divider--vertical { margin: 0 4px; }
 code { background: #f2f3f5; color: #606266; padding: 1px 6px; border-radius: 3px; font-size: 12px; }
 </style>

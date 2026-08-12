@@ -201,3 +201,36 @@ export function getTencentMapKeyApi() {
     method: 'get',
   });
 }
+
+/**
+ * 字典(系统配置)列表
+ * @param params { keyword, page, limit }
+ */
+export function dictListApi(params) {
+  return request({
+    url: '/admin/platform/system/config/dict/list',
+    method: 'GET',
+    params,
+  });
+}
+
+/**
+ * 新增/修改字典
+ */
+export function dictSaveApi(data) {
+  return request({
+    url: '/admin/platform/system/config/dict/save',
+    method: 'POST',
+    data,
+  });
+}
+
+/**
+ * 删除字典
+ */
+export function dictDeleteApi(id) {
+  return request({
+    url: `/admin/platform/system/config/dict/delete/${id}`,
+    method: 'POST',
+  });
+}

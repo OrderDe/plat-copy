@@ -107,13 +107,6 @@
         <el-button
           size="small"
           :disabled="!checkedIds.length"
-          @click.native="handlebatchAudit"
-          v-if="tableFrom.type === ProductTypeEnum.Audit && checkPermi(['platform:product:batch:audit'])"
-          >批量审核</el-button
-        >
-        <el-button
-          size="small"
-          :disabled="!checkedIds.length"
           @click.native="handleBatchSales()"
           v-if="
             (Number(tableFrom.type) < 4 || Number(tableFrom.type) === 6) &&
@@ -121,6 +114,48 @@
           "
           >增加初始销量</el-button
         >
+        <el-button
+          size="small"
+          :disabled="!checkedIds.length"
+          @click.native="handleBatchAppShowForbid(true)"
+          v-if="checkPermi(['platform:product:app:show:forbid'])"
+          >禁止App展示</el-button
+        >
+        <el-button
+          size="small"
+          :disabled="!checkedIds.length"
+          @click.native="handleBatchAppShowForbid(false)"
+          v-if="checkPermi(['platform:product:app:show:forbid'])"
+          >解除App禁展</el-button
+        >
+        <el-button
+          size="small"
+          :disabled="!checkedIds.length"
+          @click.native="handleBatchWmsManaged(true)"
+          v-if="checkPermi(['platform:product:wms:managed'])"
+          >纳入仓储管理</el-button
+        >
+        <el-button
+          size="small"
+          :disabled="!checkedIds.length"
+          @click.native="handleBatchWmsManaged(false)"
+          v-if="checkPermi(['platform:product:wms:managed'])"
+          >取消仓储纳管</el-button
+        >
+        <span v-if="checkPermi(['platform:product:wms:managed'])" class="wms-selectable-switch">
+          <el-tooltip
+            effect="dark"
+            placement="top"
+            content="开启后：商户新增商品时可自己勾选「是否入仓」。勾选走审核+仓储(入仓后自动上架)，不勾选只走审核、通过后落到「仓库中商品」由商户自行上架。关闭则商户端不显示该项，商品流程保持原样。">
+            <span class="wms-switch-label">商户可自选是否入仓<i class="el-icon-question"></i></span>
+          </el-tooltip>
+          <el-switch
+            v-model="wmsManagedSelectable"
+            :loading="wmsSwitchLoading"
+            active-text="开"
+            inactive-text="关"
+            @change="handleWmsSelectableChange" />
+        </span>
       </div>
       <el-table
         v-loading="listLoading"
@@ -193,6 +228,27 @@
         </el-table-column>
         <el-table-column prop="sales" label="销量" v-if="checkedCities.includes('销量')" min-width="100" />
         <el-table-column prop="stock" label="库存" min-width="70" v-if="checkedCities.includes('库存')" />
+        <el-table-column label="库存来源" min-width="110" v-if="checkedCities.includes('库存来源')">
+          <template slot-scope="scope">
+            <el-tag v-if="scope.row.wmsManaged" size="mini" type="warning">仓储管理</el-tag>
+            <el-tag v-else size="mini" type="info">商户维护</el-tag>
+            <!-- 纳管但从没入过仓：后端不允许上架，标出来便于平台跟进入仓进度 -->
+            <el-tag
+              v-if="scope.row.wmsManaged && Number(scope.row.wmsInboundStatus || 0) === 0"
+              size="mini"
+              type="danger"
+              style="margin-left: 4px;"
+              >待入仓</el-tag
+            >
+          </template>
+        </el-table-column>
+        <el-table-column label="App展示" min-width="90" v-if="checkedCities.includes('App展示')">
+          <template slot-scope="scope">
+            <el-tag v-if="scope.row.appShowForbid" size="mini" type="danger">平台已禁展</el-tag>
+            <el-tag v-else-if="scope.row.appShow === false" size="mini" type="info">商户未开启</el-tag>
+            <el-tag v-else size="mini" type="success">展示中</el-tag>
+          </template>
+        </el-table-column>
         <el-table-column label="审核状态" min-width="80" fixed="right" v-if="checkedCities.includes('审核状态')">
           <template slot-scope="scope">
             <span>{{ scope.row.auditStatus | auditStatusFilter }}</span>
@@ -206,10 +262,6 @@
             <template v-if="tableFrom.type === '1'">
               <el-divider direction="vertical"></el-divider>
               <a @click="handlePreview(scope.row.id)">预览</a>
-            </template>
-            <template v-if="tableFrom.type === '6' && checkPermi(['platform:product:audit'])">
-              <el-divider direction="vertical"></el-divider>
-              <a @click="handleAudit(scope.row.id, true)">审核</a>
             </template>
             <template v-if="Number(tableFrom.type) < 7 && checkPermi(['platform:product:update'])">
               <el-divider direction="vertical"></el-divider>
@@ -282,7 +334,6 @@
       </span>
     </el-dialog>
 
-    <batch-audit :idList="checkedIds" ref="refBatchAudit" @subBatchAuditSuccess="subBatchAuditSuccess"></batch-audit>
   </div>
 </template>
 
@@ -296,6 +347,10 @@ import {
   productExcelApi,
   updateProductApi,
   productBatchVirtualSalesApi,
+  setAppShowForbidApi,
+  setWmsManagedApi,
+  getWmsManagedSelectableApi,
+  setWmsManagedSelectableApi,
 } from '@/api/product';
 import * as areaApi from '@/api/area.js';
 import { isPlatform } from '@/utils/settingMer';
@@ -306,7 +361,6 @@ import previewBox from './previewBox';
 import { mapGetters } from 'vuex';
 import Debounce from '@/libs/debounce';
 import { ProductTypeEnum } from '@/enums/productEnums';
-import BatchAudit from '@/views/product/batchAudit.vue';
 import { handleDeleteTable } from '@/libs/public';
 import { useProduct } from '@/hooks/use-product';
 import product from '@/mixins/product';
@@ -328,16 +382,23 @@ const headerName = [
     name: '审核未通过商品',
     type: 7,
   },
+  {
+    // 平台仓履约但实物还没到仓，上架被门禁拦着。已从「仓库中商品」里排除，两者不重叠
+    name: '待入仓商品',
+    type: 9,
+  },
 ];
 const { productTypeList } = useProduct();
 export default {
   name: 'ProductList',
-  components: { BatchAudit, infoFrom, merchantName, previewBox },
+  components: { infoFrom, merchantName, previewBox },
   mixins: [product],
   data() {
     return {
       productTypeList: productTypeList, //商品类型
       componentKey: 0,
+      wmsManagedSelectable: false, // 商户是否可自选入仓
+      wmsSwitchLoading: false,
       isAtud: false,
       isShow: false,
       productId: 0,
@@ -382,8 +443,8 @@ export default {
       dialogVisible: false,
       card_select_show: false,
       checkAll: true,
-      checkedCities: ['ID', '商品图', '商品名称', '商品售价', '商户名称', '商户类别', '销量', '库存', '审核状态'],
-      columnData: ['ID', '商品图', '商品名称', '商品售价', '商户名称', '商户类别', '销量', '库存', '审核状态'],
+      checkedCities: ['ID', '商品图', '商品名称', '商品售价', '商户名称', '商户类别', '销量', '库存', '库存来源', 'App展示', '审核状态'],
+      columnData: ['ID', '商品图', '商品名称', '商品售价', '商户名称', '商户类别', '销量', '库存', '库存来源', 'App展示', '审核状态'],
       isIndeterminate: false,
       merchantList: [],
       search: {
@@ -406,6 +467,7 @@ export default {
     if (checkPermi(['platform:product:tabs:headers', 'circle:product:tabs'])) this.goodHeade();
     if (!localStorage.getItem('merPlatProductClassify')) this.$store.dispatch('product/getAdminProductClassify');
     if (checkPermi(['platform:product:page:list', 'circle:product:list'])) this.getList(1);
+    if (checkPermi(['platform:product:wms:managed'])) this.loadWmsSelectable();
     this.checkedCities = this.$cache.local.has('goods_stroge')
       ? this.$cache.local.getJSON('goods_stroge')
       : this.checkedCities;
@@ -431,15 +493,6 @@ export default {
     handleSeachList() {
       this.getList(1);
       this.goodHeade();
-    },
-    //批量审核
-    handlebatchAudit() {
-      if (this.checkedIds.length === 0) return this.$message.warning('请先选择商品');
-      this.$refs.refBatchAudit.dialogVisible = true;
-    },
-    //批量审核提交成功回调
-    subBatchAuditSuccess() {
-      this.subSuccess();
     },
     //详情关闭
     onCloseInfo() {
@@ -498,6 +551,46 @@ export default {
         });
       });
     },
+    // 批量设置App展示权限
+    handleBatchAppShowForbid(forbid) {
+      if (this.checkedIds.length === 0) return this.$message.warning('请先选择商品');
+      this.$modalSure(forbid ? '禁止这些商品在App展示吗' : '解除这些商品的App禁展吗').then(() => {
+        setAppShowForbidApi({
+          ids: this.checkedIds.toString(),
+          forbid,
+        }).then(() => {
+          this.$message({
+            type: 'success',
+            message: '提交成功',
+          });
+          this.subSuccess();
+        });
+      });
+    },
+    // 批量设置仓储纳管
+    handleBatchWmsManaged(managed) {
+      if (this.checkedIds.length === 0) return this.$message.warning('请先选择商品');
+      const tip = managed
+        ? '纳入仓储管理后，这些商品的库存将以仓库实际数量为准，商户不能再自行编辑库存。仓库里已有库存的会按仓库数量同步并保持在售；仓库里没有库存的会被下架并转入「待入仓」，完成入库后自动上架。确定继续吗？'
+        : '取消纳管后，这些商品的库存将恢复由商户自行维护，仓储出入库不再同步其库存。确定继续吗？';
+      this.$modalSure(tip).then(() => {
+        setWmsManagedApi({
+          ids: this.checkedIds.toString(),
+          managed,
+        }).then((res) => {
+          // 后端返回结果摘要：几个已同步、几个转入待入仓。
+          // 只提示「提交成功」的话，操作者会以为待入仓该有数据却没有，误判成 bug。
+          const data = res && (res.data !== undefined ? res.data : res);
+          const message = (data && data.message) || '提交成功';
+          if (data && data.waitingInboundCount > 0) {
+            this.$alert(message, '设置完成', { type: 'warning', confirmButtonText: '知道了' });
+          } else {
+            this.$message({ type: 'success', message, duration: 4000 });
+          }
+          this.subSuccess();
+        });
+      });
+    },
     handleSelectionChange(val) {
       this.checkedIds = selectionCheckedIds(val)
     },
@@ -535,6 +628,31 @@ export default {
       this.getList(1);
       this.goodHeade();
       this.dialogVisibleInfo = false;
+    },
+    /** 读「商户可自选是否入仓」开关，无权限或未配置时按关闭处理 */
+    loadWmsSelectable() {
+      getWmsManagedSelectableApi()
+        .then((res) => {
+          const data = res && (res.data !== undefined ? res.data : res);
+          this.wmsManagedSelectable = data === true || data === 1 || data === '1';
+        })
+        .catch(() => {
+          this.wmsManagedSelectable = false;
+        });
+    },
+    handleWmsSelectableChange(val) {
+      this.wmsSwitchLoading = true;
+      setWmsManagedSelectableApi(val)
+        .then(() => {
+          this.$message.success(val ? '已开启：商户新增商品时可自选是否入仓' : '已关闭：商户端不再显示该项');
+        })
+        .catch((e) => {
+          this.wmsManagedSelectable = !val; // 失败回滚开关，别让界面显示成已生效
+          this.$message.error('设置失败: ' + (e.message || e));
+        })
+        .finally(() => {
+          this.wmsSwitchLoading = false;
+        });
     },
     handleAudit(id, c) {
       //this.getProductInfo(id)
@@ -765,4 +883,8 @@ export default {
 ::v-deep .el-checkbox__input.is-checked + .el-checkbox__label {
   color: #606266;
 }
+
+.wms-selectable-switch { display: inline-flex; align-items: center; gap: 8px; margin-left: 16px; }
+.wms-switch-label { color: #606266; font-size: 13px; cursor: help; }
+.wms-switch-label i { margin-left: 3px; color: #909399; }
 </style>

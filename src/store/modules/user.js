@@ -10,11 +10,34 @@ import * as roleApi from '@/api/roleApi.js';
 import { formatFlatteningRoutes } from '@/utils/system.js';
 import { isPlatform } from '@/utils/settingMer';
 
-// 过滤已下线的菜单项（物料列表、购销存数据、统计管理）
+// 过滤已下线的菜单项
 function removeHiddenMenus(routes) {
   if (!Array.isArray(routes)) return routes;
-  const hiddenTitles = ['物料列表', '购销存数据', '统计管理'];
-  const hiddenPaths = ['/warehouse/material', 'warehouse/material', 'material', '/material'];
+  const hiddenTitles = ['物料列表', '购销存数据', '统计管理', '装箱管理', '智能补货', '智能分仓', '循环盘点计划', '质检管理', '采购发货单'];
+  const hiddenPaths = [
+    '/warehouse/material',
+    'warehouse/material',
+    'material',
+    '/material',
+    '/warehouse/jdl-logistics',
+    '/warehouse/package',
+    'warehouse/package',
+    '/warehouse/replenish',
+    'warehouse/replenish',
+    '/warehouse/allocate',
+    'warehouse/allocate',
+    '/warehouse/stock-check-plan',
+    'warehouse/stock-check-plan',
+    '/warehouse/inspect',
+    'warehouse/inspect',
+    '/warehouse/deliver',
+    'warehouse/deliver',
+    // 已下线的流程模型、审批案例、消息事件、信号事件页面。
+    '/ryFlowAble/activiti',
+    '/ryFlowAble/activiti/leave',
+    '/ryFlowAble/activiti/message',
+    '/ryFlowAble/activiti/signal',
+  ];
   return routes.reduce((result, route) => {
     if (!route || hiddenTitles.includes(route.title) || hiddenPaths.includes(route.path)) {
       return result;
@@ -318,14 +341,27 @@ const actions = {
           { id: 9003, pid: 9001, title: '我收到的抄送', icon: '', perms: '', path: '/approvalCenter/cc',   menuType: 'C', sort: 2, children: [] },
           { id: 9004, pid: 9001, title: '我发起的',    icon: '', perms: '', path: '/approvalCenter/mine', menuType: 'C', sort: 3, children: [] },
           { id: 9005, pid: 9001, title: '已办结',      icon: '', perms: '', path: '/approvalCenter/done', menuType: 'C', sort: 4, children: [] },
-          { id: 9006, pid: 9001, title: '审批统计',    icon: '', perms: '', path: '/approvalCenter/stat', menuType: 'C', sort: 5, children: [] },
-          { id: 9007, pid: 9001, title: '审批流配置',  icon: '', perms: '', path: '/approvalCenter/config', menuType: 'C', sort: 6, children: [] },
-          { id: 9008, pid: 9001, title: '审批场景配置', icon: '', perms: '', path: '/approvalCenter/scene',  menuType: 'C', sort: 7, children: [] },
-          { id: 9009, pid: 9001, title: '催办短信配置', icon: '', perms: '', path: '/approvalCenter/sms-config',  menuType: 'C', sort: 8, children: [] },
+          { id: 9010, pid: 9001, title: '审批记录',    icon: '', perms: '', path: '/approvalCenter/records', menuType: 'C', sort: 5, children: [] },
+          { id: 9006, pid: 9001, title: '审批统计',    icon: '', perms: '', path: '/approvalCenter/stat', menuType: 'C', sort: 6, children: [] },
+          { id: 9007, pid: 9001, title: '审批配置',    icon: '', perms: '', path: '/approvalCenter/config', menuType: 'C', sort: 7, children: [] },
+          { id: 9009, pid: 9001, title: '催办短信配置', icon: '', perms: '', path: '/approvalCenter/sms-config',  menuType: 'C', sort: 9, children: [] },
         ],
       };
       if (Array.isArray(accessRoutes) && !accessRoutes.find(r => r && r.path === '/approvalCenter')) {
         accessRoutes.push(approvalCenterMenu);
+      }
+
+      // ===== 手动注入「字典列表」到「设置」菜单下 =====
+      // eb_system_config 里有一批不属于任何设置表单的开关，之前只能改库，这里给个可维护入口
+      const settingMenu = Array.isArray(accessRoutes)
+        ? accessRoutes.find((r) => r && r.path === '/operation')
+        : null;
+      if (settingMenu && Array.isArray(settingMenu.children)
+        && !settingMenu.children.find((c) => c && c.path === '/operation/dict')) {
+        settingMenu.children.push({
+          id: 9201, pid: settingMenu.id, title: '字典列表', icon: '',
+          perms: '', path: '/operation/dict', menuType: 'C', sort: 900, children: [],
+        });
       }
 
       // 过滤已下线的菜单（物料列表、购销存数据、统计管理）
@@ -344,15 +380,14 @@ const actions = {
               { id: 9121, pid: 9140, title: '批次管理',     icon: '', perms: '', path: '/warehouse/batch',          menuType: 'C', sort: 3, children: [] },
               { id: 9136, pid: 9140, title: '单据编号规则', icon: '', perms: '', path: '/warehouse/no-rule',        menuType: 'C', sort: 4, children: [] },
               { id: 9137, pid: 9140, title: '打印模板',     icon: '', perms: '', path: '/warehouse/print',          menuType: 'C', sort: 5, children: [] },
+              { id: 9138, pid: 9140, title: '仓储字典',     icon: '', perms: '', path: '/warehouse/dict',           menuType: 'C', sort: 6, children: [] },
             ],
           },
           // ============ 入库业务 ============
           {
             id: 9141, pid: 9101, title: '入库业务', icon: 'download', perms: '',
             path: '/warehouse/in', menuType: 'M', sort: 2, children: [
-              { id: 9111, pid: 9141, title: '采购发货单', icon: '', perms: '', path: '/warehouse/deliver', menuType: 'C', sort: 1, children: [] },
               { id: 9103, pid: 9141, title: '入库管理',   icon: '', perms: '', path: '/warehouse/inbound', menuType: 'C', sort: 2, children: [] },
-              { id: 9123, pid: 9141, title: '质检管理',   icon: '', perms: '', path: '/warehouse/inspect', menuType: 'C', sort: 3, children: [] },
             ],
           },
           // ============ 出库业务 ============
@@ -360,10 +395,11 @@ const actions = {
             id: 9142, pid: 9101, title: '出库业务', icon: 'upload', perms: '',
             path: '/warehouse/out', menuType: 'M', sort: 3, children: [
               { id: 9104, pid: 9142, title: '出库管理', icon: '', perms: '', path: '/warehouse/outbound', menuType: 'C', sort: 1, children: [] },
-              { id: 9125, pid: 9142, title: '波次管理', icon: '', perms: '', path: '/warehouse/wave',    menuType: 'C', sort: 2, children: [] },
-              { id: 9126, pid: 9142, title: '拣货管理', icon: '', perms: '', path: '/warehouse/pick',    menuType: 'C', sort: 3, children: [] },
+              { id: 9125, pid: 9142, title: '波次与拣货', icon: '', perms: '', path: '/warehouse/wave',    menuType: 'C', sort: 2, children: [] },
               { id: 9127, pid: 9142, title: '复核管理', icon: '', perms: '', path: '/warehouse/review',  menuType: 'C', sort: 4, children: [] },
-              { id: 9128, pid: 9142, title: '装箱管理', icon: '', perms: '', path: '/warehouse/package', menuType: 'C', sort: 5, children: [] },
+              { id: 9147, pid: 9142, title: '出库交接', icon: '', perms: '', path: '/warehouse/handover', menuType: 'C', sort: 6, children: [] },
+              { id: 9148, pid: 9142, title: '交接异常', icon: '', perms: '', path: '/warehouse/handover-exception', menuType: 'C', sort: 7, children: [] },
+              { id: 9149, pid: 9142, title: '仓储同步异常', icon: '', perms: '', path: '/warehouse/sync-fail', menuType: 'C', sort: 8, children: [] },
             ],
           },
           // ============ 库内作业 ============
@@ -371,8 +407,6 @@ const actions = {
             id: 9143, pid: 9101, title: '库内作业', icon: 'operation', perms: '',
             path: '/warehouse/operation', menuType: 'M', sort: 4, children: [
               { id: 9122, pid: 9143, title: '上架/移库/补货', icon: '', perms: '', path: '/warehouse/relocate', menuType: 'C', sort: 1, children: [] },
-              { id: 9124, pid: 9143, title: '智能补货',       icon: '', perms: '', path: '/warehouse/replenish', menuType: 'C', sort: 2, children: [] },
-              { id: 9129, pid: 9143, title: '智能分仓',       icon: '', perms: '', path: '/warehouse/allocate', menuType: 'C', sort: 3, children: [] },
             ],
           },
           // ============ 库存与盘点 ============
@@ -381,7 +415,6 @@ const actions = {
             path: '/warehouse/stock-group', menuType: 'M', sort: 5, children: [
               { id: 9106, pid: 9144, title: '库存管理',       icon: '', perms: '', path: '/warehouse/stock',            menuType: 'C', sort: 1, children: [] },
               { id: 9114, pid: 9144, title: '盘点列表',       icon: '', perms: '', path: '/warehouse/stock-check',      menuType: 'C', sort: 2, children: [] },
-              { id: 9130, pid: 9144, title: '循环盘点计划',   icon: '', perms: '', path: '/warehouse/stock-check-plan', menuType: 'C', sort: 3, children: [] },
             ],
           },
           // ============ 单据审批 ============
@@ -409,6 +442,61 @@ const actions = {
       };
       if (Array.isArray(accessRoutes) && !accessRoutes.find(r => r && r.path === '/warehouse')) {
         accessRoutes.push(warehouseMenu);
+      }
+
+      // ===== 京东物流：从“仓库管理/出库业务”迁移为平台一级父目录 =====
+      const jdlLogisticsMenu = {
+        id: 9250, pid: 0, title: '京东物流', icon: 'shopping',
+        perms: '', path: '/jdl-logistics', menuType: 'M', sort: 996,
+        children: [
+          { id: 9251, pid: 9250, title: '物流工作台', icon: '', perms: '', path: '/jdl-logistics/workbench', menuType: 'C', sort: 1, children: [] },
+        ],
+      };
+      if (Array.isArray(accessRoutes) && !accessRoutes.find(r => r && r.path === '/jdl-logistics')) {
+        accessRoutes.push(jdlLogisticsMenu);
+      }
+
+      // ===== 手动注入 "推荐管理" 菜单 =====
+      // 和审批中心、仓库管理一样：后端菜单表里没有这几项，菜单接口自然不会返回，
+      // 只加 router/modules 里的静态路由的话页面能直接访问但侧边栏看不到。
+      const recommendMenu = {
+        id: 9201, pid: 0, title: '推荐管理', icon: 'clipboard',
+        perms: '', path: '/recommend', menuType: 'M', sort: 997,
+        children: [
+          { id: 9202, pid: 9201, title: '猜你喜欢设置', icon: '', perms: '', path: '/recommend/config', menuType: 'C', sort: 1, children: [] },
+        ],
+      };
+      if (Array.isArray(accessRoutes) && !accessRoutes.find(r => r && r.path === '/recommend')) {
+        accessRoutes.push(recommendMenu);
+      }
+
+      // ===== 手动注入 "发货记录" 到订单菜单下 =====
+      // 同上：静态路由只保证 /order/shipRecord 能直接访问，侧边栏得自己挂。
+      // 挂在订单菜单下而不是顶级——它记录的是订单的发货决策，不是仓储作业。
+      if (Array.isArray(accessRoutes)) {
+        const shipRecordItem = {
+          id: 9301, pid: 0, title: '发货记录', icon: '',
+          perms: 'platform:order:ship:record:list',
+          path: '/order/shipRecord', menuType: 'C', sort: 99, children: [],
+        };
+        const flat = [];
+        accessRoutes.forEach(r => { flat.push(r); (r && r.children || []).forEach(c => flat.push(c)); });
+        if (!flat.find(m => m && m.path === '/order/shipRecord')) {
+          // 订单菜单的 path 由后端菜单表决定，匹配不到就退而挂成顶级，
+          // 宁可位置不理想，也好过菜单静默消失
+          const orderMenu = accessRoutes.find(r => r && (r.path === '/order' || r.title === '订单'));
+          if (orderMenu) {
+            if (!Array.isArray(orderMenu.children)) orderMenu.children = [];
+            shipRecordItem.pid = orderMenu.id;
+            orderMenu.children.push(shipRecordItem);
+          } else {
+            accessRoutes.push({
+              id: 9300, pid: 0, title: '发货记录', icon: 'clipboard',
+              perms: '', path: '/order', menuType: 'M', sort: 996,
+              children: [shipRecordItem],
+            });
+          }
+        }
       }
       // ===== 注入结束 =====
 

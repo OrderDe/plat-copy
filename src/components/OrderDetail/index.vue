@@ -134,6 +134,23 @@
                 </li>
               </ul>
             </div>
+            <div v-if="managedOrderDetails.length" class="detailSection">
+              <div class="title">仓储定位</div>
+              <div v-for="item in managedOrderDetails" :key="item.id" class="order-warehouse-item">
+                <div class="order-warehouse-item__product">
+                  <span>{{ item.productName }}</span>
+                  <span class="color-909399">规格：{{ item.sku || '-' }}</span>
+                </div>
+                <div v-if="item.warehouseLocations && item.warehouseLocations.length" class="order-warehouse-item__locations">
+                  <div v-for="(location, index) in item.warehouseLocations" :key="`${item.id}-summary-${index}`">
+                    <span>{{ location.warehouseName || '未命名仓库' }}</span>
+                    <span>货架：{{ formatShelf(location) }}</span>
+                    <span>库位：{{ location.locationCode || '待分配' }}</span>
+                  </div>
+                </div>
+                <div v-else class="color-909399">已纳入仓库，暂无定位</div>
+              </div>
+            </div>
             <div class="detailSection">
               <div class="title">买家留言</div>
               <ul class="list">
@@ -203,6 +220,31 @@
                       {{ scope.row.deliveryNum }}
                     </div>
                   </div>
+                </template>
+              </el-table-column>
+              <el-table-column label="仓储定位" min-width="240">
+                <template slot-scope="scope">
+                  <template v-if="scope.row.wmsManaged">
+                    <div
+                      v-for="(location, index) in scope.row.warehouseLocations || []"
+                      :key="`${scope.row.id}-${index}`"
+                      class="warehouse-location"
+                    >
+                      <div class="warehouse-location__title">
+                        {{ location.warehouseName || '未命名仓库' }}
+                      </div>
+                      <div class="warehouse-location__detail">
+                        货架：{{ formatShelf(location) }}
+                      </div>
+                      <div class="warehouse-location__detail">
+                        库位：{{ location.locationCode || '待分配' }}
+                      </div>
+                    </div>
+                    <span v-if="!scope.row.warehouseLocations || !scope.row.warehouseLocations.length" class="color-909399">
+                      已纳入仓库，暂无定位
+                    </span>
+                  </template>
+                  <span v-else class="color-909399">未纳入仓库</span>
                 </template>
               </el-table-column>
               <el-table-column label="售后数量" min-width="90">
@@ -411,6 +453,12 @@ export default {
       reservationInfo: {} //订单信息，预约信息
     };
   },
+  computed: {
+    managedOrderDetails() {
+      const details = (this.orderDatalist && this.orderDatalist.orderDetailList) || [];
+      return details.filter((item) => item.wmsManaged);
+    },
+  },
   watch: {},
   mounted() {
     this.activeName = 'detail';
@@ -418,6 +466,13 @@ export default {
   methods: {
     checkPermi,
     getOrderBadge,
+    formatShelf(location) {
+      if (!location) return '待分配';
+      const code = location.shelfCode || '';
+      const name = location.shelfName || '';
+      if (code && name) return `${code}（${name}）`;
+      return code || name || '待分配';
+    },
     tabClick(tab) {
       if (tab.name == 'orderList') {
         //this.getRecordList();
@@ -587,6 +642,57 @@ export default {
   .el-image {
     width: 50px;
     height: 50px;
+  }
+}
+
+.warehouse-location {
+  padding: 7px 0;
+  line-height: 1.6;
+  border-bottom: 1px dashed #e4e7ed;
+
+  &:last-child {
+    border-bottom: 0;
+  }
+
+  &__title {
+    color: #303133;
+    font-weight: 500;
+  }
+
+  &__detail {
+    color: #606266;
+    word-break: break-all;
+  }
+}
+
+.order-warehouse-item {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.8fr) minmax(360px, 2fr);
+  gap: 24px;
+  padding: 14px 20px;
+  border-bottom: 1px dashed #ebeef5;
+
+  &:last-child {
+    border-bottom: 0;
+  }
+
+  &__product {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  &__locations > div {
+    display: grid;
+    grid-template-columns: minmax(100px, 0.8fr) minmax(150px, 1fr) minmax(150px, 1.2fr);
+    gap: 16px;
+    padding-bottom: 6px;
+    color: #606266;
+
+    &:last-child {
+      padding-bottom: 0;
+    }
   }
 }
 

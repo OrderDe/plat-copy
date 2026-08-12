@@ -1,13 +1,13 @@
 import { warehouseApi } from '@/api/warehouse';
 import { merchantListApi } from '@/api/merchant';
-import UserPickerDialog from './UserPickerDialog.vue';
+import AdminPickerDialog from './AdminPickerDialog.vue';
 import ProductPickerDialog from './ProductPickerDialog.vue';
 
 /**
  * 仓储单据表单公用逻辑：仓库/店铺下拉；申请人与商品选择走弹窗选择器。
  */
 export default {
-  components: { UserPickerDialog, ProductPickerDialog },
+  components: { AdminPickerDialog, ProductPickerDialog },
   data() {
     return {
       warehouseList: [],
@@ -39,12 +39,19 @@ export default {
         this.merchantList = (res && res.list) || (res && res.records) || [];
       } catch (e) { /* ignore */ }
     },
+    /** 申请人是仓库内部作业人员，选后台管理员而不是商城会员 */
     async pickApplyUser() {
-      const u = await this.$refs.userPicker.open();
+      const u = await this.$refs.adminPicker.open();
       if (!u) return;
-      this.$set(this.form, 'applyUserId', u.uid != null ? u.uid : u.id);
-      this.$set(this.form, 'applyUserName', u.nickname || u.username || u.phone || '');
+      this.$set(this.form, 'applyUserId', u.id);
+      this.$set(this.form, 'applyUserName', u.realName || u.account || '');
       this.$set(this.form, 'applyUserPhone', u.phone || '');
+      // 输入框绑的是 applyUserName，改 applyUserId 不会触发它的校验，手动清一次报错
+      this.$nextTick(() => {
+        if (this.$refs.formRef && this.$refs.formRef.clearValidate) {
+          this.$refs.formRef.clearValidate('applyUserId');
+        }
+      });
     },
     /**
      * 选商品 → 选规格。仓储按 SKU 记账，一行明细对应一个 attrValueId。
@@ -52,7 +59,13 @@ export default {
      * 免得操作员为同一商品的 5 个规格手点 5 次「添加行 + 选商品」。
      */
     async pickProduct(row) {
-      const res = await this.$refs.productPicker.open({ merId: row.merId });
+      // productPickerRequireStock 由使用本 mixin 的页面自行声明：
+      // 出库方向(出库单、报损、领用、调拨、退库)要从仓里取货，现有库存 0 会做不下去；
+      // 入库方向(入库单、采购发货单)和盘点则相反，0 库存是常态，不该标红吓人。
+      const res = await this.$refs.productPicker.open({
+        merId: row.merId,
+        requireStock: this.productPickerRequireStock === true,
+      });
       if (!res || !res.product) return;
       const { product, skus } = res;
       const list = skus && skus.length ? skus : [null];

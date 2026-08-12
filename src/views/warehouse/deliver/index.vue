@@ -26,6 +26,18 @@
       </el-form-item>
     </el-form>
 
+    <el-alert type="info" show-icon :closable="false" style="margin-bottom:12px">
+      <template slot="title">
+        采购发货单：供应商针对采购单实际发货的记录单据（一张采购单可分批发多次货）。
+      </template>
+      <div style="line-height:22px">
+        用于登记本次发出的商品与数量、目标仓库、快递公司及运单号，跟踪货物在途情况；
+        货到后由发货单直接生成入库单，进入收货质检与上架流程，从而实现"采购 → 发货 → 在途 → 入库"全链路可追溯。
+        <br>
+        状态流转：待发货（已创建、尚未交运）→ 已发货（在途）→ 已入库（收货完成）；未入库前可取消。
+      </div>
+    </el-alert>
+
     <div style="margin-bottom:12px">
       <el-button type="primary" icon="el-icon-plus" size="small" @click="openDialog()">新建发货单</el-button>
     </div>
@@ -109,16 +121,16 @@
         <el-divider content-position="left">发货明细</el-divider>
         <el-button v-if="dialogMode === 'add'" size="mini" icon="el-icon-plus" @click="addItem">添加行</el-button>
         <div class="deliver-items-scroller">
-          <el-table :data="form.items" border style="margin-top:8px" size="mini">
+          <el-table :data="form.items" border size="mini" max-height="360">
             <el-table-column type="index" width="50" fixed="left" />
-            <el-table-column label="店铺" width="180">
+            <el-table-column label="店铺" width="180" fixed="left">
               <template slot-scope="{row}">
                 <el-select v-model="row.merId" filterable size="mini" style="width:100%" placeholder="选择店铺" @change="onShopChange(row)">
                   <el-option v-for="m in merchantList" :key="m.id" :label="m.name" :value="m.id" />
                 </el-select>
               </template>
             </el-table-column>
-            <el-table-column label="商品名称" min-width="220">
+            <el-table-column label="商品名称" min-width="220" fixed="left">
               <template slot-scope="{row}">
                 <el-input v-model="row.goodsName" size="mini" readonly placeholder="点击选择商品">
                   <el-button slot="append" size="mini" icon="el-icon-search" @click="pickProduct(row)" />
@@ -155,7 +167,7 @@
       </div>
     </el-dialog>
 
-    <user-picker-dialog ref="userPicker" />
+    <admin-picker-dialog ref="adminPicker" title="选择申请人" />
     <product-picker-dialog ref="productPicker" />
 
     <el-dialog title="标记发货" :visible.sync="deliverVisible" width="440px">
@@ -274,13 +286,5 @@ export default {
 .sku-missing { color: #f56c6c; font-size: 12px; }
 .deliver-items-scroller {
   margin-top: 8px;
-  max-height: 360px;
-  overflow-y: auto;
-  overflow-x: auto;
-  border: 1px solid #ebeef5;
-  border-radius: 4px;
-}
-.deliver-items-scroller >>> .el-table {
-  min-width: 960px;
 }
 </style>

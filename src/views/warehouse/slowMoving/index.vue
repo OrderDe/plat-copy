@@ -24,7 +24,9 @@
       <el-table-column label="仓库" min-width="200"><template slot-scope="{row}">{{ warehouseText(row.warehouseId) }}</template></el-table-column>
       <el-table-column prop="productId" label="商品ID" min-width="110" />
       <el-table-column prop="currentStock" label="当前库存" min-width="110" />
-      <el-table-column prop="lastOutboundTime" label="最后出库时间" min-width="180" />
+      <el-table-column label="最后出库时间" min-width="180">
+        <template slot-scope="{row}">{{ formatDateTime(row.lastOutboundTime) }}</template>
+      </el-table-column>
       <el-table-column label="无出库天数" min-width="130">
         <template slot-scope="{row}">
           <el-tag :type="row.daysSinceLastOut > 180 ? 'danger' : (row.daysSinceLastOut > 90 ? 'warning' : 'info')" size="mini">
@@ -44,6 +46,7 @@
 
 <script>
 import { reportApi, warehouseApi } from '@/api/warehouse';
+import { formatDateTime } from '../components/dateTime';
 
 export default {
   name: 'WarehouseSlowMoving',
@@ -55,6 +58,7 @@ export default {
   },
   created() { this.loadWarehouses(); this.load(); },
   methods: {
+    formatDateTime,
     warehouseText(id) { const w = this.warehouseList.find(x => x.id === id); return w ? `${w.code} / ${w.name}` : id || '-'; },
     async loadWarehouses() { try { const r = await warehouseApi.page({ page: 1, limit: 999 }); this.warehouseList = (r && r.list) || []; } catch (e) {} },
     async load() {

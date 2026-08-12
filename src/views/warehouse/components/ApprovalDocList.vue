@@ -66,9 +66,11 @@
       width="960px"
       @closed="resetForm"
     >
-      <el-form ref="formRef" :model="form" :rules="rules" label-width="100px" size="small" :disabled="dialogMode === 'view'">
+      <el-form ref="formRef" :model="form" :rules="mergedRules" label-width="100px" size="small" :disabled="dialogMode === 'view'">
         <slot name="form-fields" :form="form" :warehouse-list="warehouseList" />
-        <el-form-item label="申请人">
+        <!-- 校验 applyUserId 而不是 applyUserName：审批流按用户ID派人，只有名字没有ID
+             照样会在 flowable 侧炸掉 -->
+        <el-form-item label="申请人" prop="applyUserId">
           <el-input v-model="form.applyUserName" placeholder="点击选择申请人" readonly>
             <el-button slot="append" icon="el-icon-user" @click="pickApplyUser">选择</el-button>
           </el-input>
@@ -83,15 +85,15 @@
         <el-divider content-position="left">明细</el-divider>
         <el-button v-if="dialogMode === 'add'" size="mini" icon="el-icon-plus" @click="addItem">添加行</el-button>
         <el-table :data="form.items" border style="margin-top:8px" size="mini">
-          <el-table-column type="index" width="40" />
-          <el-table-column label="店铺" width="180">
+          <el-table-column type="index" width="40" fixed="left" />
+          <el-table-column label="店铺" width="180" fixed="left">
             <template slot-scope="{row}">
               <el-select v-model="row.merId" filterable size="mini" style="width:100%" placeholder="选择店铺" @change="onShopChange(row)">
                 <el-option v-for="m in merchantList" :key="m.id" :label="m.name" :value="m.id" />
               </el-select>
             </template>
           </el-table-column>
-          <el-table-column label="商品名称" min-width="220">
+          <el-table-column label="商品名称" min-width="220" fixed="left">
             <template slot-scope="{row}">
               <el-input v-model="row.goodsName" size="mini" readonly placeholder="点击选择商品">
                 <el-button slot="append" size="mini" icon="el-icon-search" @click="pickProduct(row)" />
@@ -127,7 +129,7 @@
       </div>
     </el-dialog>
 
-    <user-picker-dialog ref="userPicker" />
+    <admin-picker-dialog ref="adminPicker" title="选择申请人" />
     <product-picker-dialog ref="productPicker" />
   </div>
 </template>
@@ -150,10 +152,27 @@ export default {
   data() {
     return {
       loading: false, saving: false, total: 0, tableData: [],
+      // 报损/领用/调拨/退库都是把货从仓里拿走，没库存做不下去
+      productPickerRequireStock: true,
       query: { page: 1, limit: 20, code: '', warehouseId: null, approvalStatus: null },
       dialogVisible: false, dialogMode: 'add',
       form: this.emptyForm(),
     };
+  },
+  computed: {
+    /**
+     * 申请人必填由本组件统一兜底，不交给四个业务页各自声明 —— 漏配一个就会存下
+     * applyUserId 为空的单据，提交审批时在 flowable 侧报 For input string: "null"。
+     */
+    mergedRules() {
+      return {
+        ...this.rules,
+        applyUserId: [
+          { required: true, message: '请选择申请人', trigger: 'change' },
+          ...((this.rules && this.rules.applyUserId) || []),
+        ],
+      };
+    },
   },
   created() { this.loadPage(); },
   methods: {

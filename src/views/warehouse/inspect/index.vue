@@ -13,6 +13,12 @@
           <el-option label="草稿" :value="0" /><el-option label="已完成" :value="1" /><el-option label="已作废" :value="2" />
         </el-select>
       </el-form-item>
+      <el-form-item label="质检结果">
+        <el-select v-model="query.result" clearable placeholder="全部" style="width:140px" @change="onSearch">
+          <el-option label="全部合格" :value="1" />
+          <el-option label="存在不合格" :value="2" />
+        </el-select>
+      </el-form-item>
       <el-form-item>
         <el-button type="primary" @click="onSearch">查询</el-button>
         <el-button @click="onReset">重置</el-button>
@@ -20,7 +26,7 @@
     </el-form>
 
     <div style="margin-bottom:12px">
-      <el-button type="primary" icon="el-icon-plus" size="small" @click="openDialog">新建璐ㄦ鍗</el-button>
+      <el-button type="primary" icon="el-icon-plus" size="small" @click="openDialog">新建质检单</el-button>
     </div>
 
     <el-table v-loading="loading" :data="tableData" border stripe>
@@ -35,13 +41,28 @@
           <el-tag :type="({0:'info',1:'success',2:'danger'})[row.status]" size="mini">{{ ({0:'草稿',1:'已完成', 2:'已作废'})[row.status] }}</el-tag>
         </template>
       </el-table-column>
+      <el-table-column label="质检结果" width="110">
+        <template slot-scope="{row}">
+          <el-tag :type="resultTagType(row)" size="mini">{{ resultText(row) }}</el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column label="送检 / 合格 / 不合格" width="170" align="center">
+        <template slot-scope="{row}">
+          <span>{{ row.totalReceived || 0 }}</span>
+          <span class="qty-pass"> / {{ row.totalPass || 0 }}</span>
+          <span :class="(row.totalFail || 0) > 0 ? 'qty-fail' : ''"> / {{ row.totalFail || 0 }}</span>
+        </template>
+      </el-table-column>
       <el-table-column prop="inspectorName" label="质检员" width="120" />
+      <el-table-column prop="inspectorPhone" label="联系方式" width="130" />
       <el-table-column label="创建时间" width="160">
         <template slot-scope="{row}">{{ row.createTime ? row.createTime.replace('T', ' ').substring(0, 19) : '' }}</template>
       </el-table-column>
-      <el-table-column label="操作" width="240" fixed="right">
+      <el-table-column label="操作" width="330" fixed="right">
         <template slot-scope="{row}">
           <el-button type="text" @click="openDetail(row.id)">详情</el-button>
+          <el-button type="text" icon="el-icon-printer" @click="onPrint(row)">打印</el-button>
+          <el-button v-if="row.status===0" type="text" @click="openEdit(row)">修改</el-button>
           <el-button v-if="row.status===0" type="text" @click="onSubmit(row)">提交生效</el-button>
           <el-button v-if="row.status===0" type="text" class="danger-text" @click="onCancel(row)">作废</el-button>
         </template>
@@ -57,9 +78,16 @@
       @current-change="loadPage"
     />
 
-    <el-dialog :title="dialogMode==='view'?'质检单详情'+(form.code||''):'新建质检单'" :visible.sync="dialogVisible" width="1080px" @closed="resetForm">
-      <el-form ref="formRef" :model="form" :rules="rules" label-width="120px" size="small" :disabled="dialogMode==='view'">
-        <el-row :gutter="16">
+    <el-dialog
+      :title="dialogTitle"
+      :visible.sync="dialogVisible"
+      width="1200px"
+      top="5vh"
+      custom-class="warehouse-inspect-dialog"
+      @closed="resetForm"
+    >
+      <el-form ref="formRef" class="inspect-form" :model="form" :rules="rules" label-width="120px" size="small" :disabled="dialogMode==='view'">
+        <el-row class="inspect-form-grid" :gutter="20">
           <el-col :span="8">
             <el-form-item label="仓库" prop="warehouseId">
               <el-select v-model="form.warehouseId" filterable style="width:100%" @change="onWarehouseChange">
@@ -67,29 +95,66 @@
               </el-select>
             </el-form-item>
           </el-col>
-          <el-col :span="8"><el-form-item label="关联入库单ID"><el-input v-model.number="form.inboundId" type="number" /></el-form-item></el-col>
-          <el-col :span="8"><el-form-item label="关联入库单号"><el-input v-model="form.inboundCode" /></el-form-item></el-col>
-          <el-col :span="12">
+          <el-col :span="16">
+            <el-form-item label="关联入库单">
+              <el-select
+                v-if="dialogMode==='add'"
+                v-model="form.inboundId"
+                filterable
+                clearable
+                remote
+                :remote-method="loadInboundOptions"
+                :loading="inboundLoading"
+                placeholder="选择已生效且未生成质检单的入库单"
+                style="width:100%"
+                @change="onInboundChange"
+              >
+                <el-option
+                  v-for="ib in inboundOptions"
+                  :key="ib.id"
+                  :label="`${ib.code}${ib.applyUserName ? ' / ' + ib.applyUserName : ''}`"
+                  :value="ib.id"
+                />
+              </el-select>
+              <el-input v-else :value="form.inboundCode || '-'" readonly />
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
             <el-form-item label="质检员">
               <el-input v-model="form.inspectorName" readonly>
                 <el-button slot="append" icon="el-icon-user" @click="pickInspector">选择</el-button>
               </el-input>
             </el-form-item>
           </el-col>
-          <el-col :span="12">
+          <el-col :span="8">
+            <el-form-item label="联系方式">
+              <el-input v-model="form.inspectorPhone" maxlength="32" placeholder="选择质检员后自动带出" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
             <el-form-item label="不合格区货架">
-              <el-select v-model="form.ngShelfId" filterable clearable style="width:100%" placeholder="不合格品统一入这个货架?(鍙┖)">
+              <el-select v-model="form.ngShelfId" filterable clearable style="width:100%" placeholder="不合格品统一入这个货架(可空)" @change="onNgShelfChange">
                 <el-option v-for="s in shelfCache" :key="s.id" :label="`${s.code} (${typeMap[s.type]||''})`" :value="s.id" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="不合格区库位">
+              <el-select v-model="form.ngLocationId" filterable clearable :disabled="!form.ngShelfId" style="width:100%" placeholder="不填则取该货架首个可用库位">
+                <el-option v-for="l in (locationCache[form.ngShelfId]||[])" :key="l.id" :label="ngLocationLabel(l)" :value="l.id" />
               </el-select>
             </el-form-item>
           </el-col>
           <el-col :span="24"><el-form-item label="备注"><el-input v-model="form.remark" type="textarea" :rows="2" /></el-form-item></el-col>
         </el-row>
 
-        <el-divider content-position="left">璐ㄦ明细</el-divider>
-        <el-button v-if="dialogMode==='add'" size="mini" icon="el-icon-plus" @click="addItem">添加行</el-button>
-        <div class="dialog-table-scroller">
-          <el-table :data="form.items" border size="mini">
+        <el-divider class="inspect-section-divider" content-position="left">质检明细</el-divider>
+        <div class="inspect-detail-toolbar">
+          <div class="inspect-detail-hint">逐行填写送检数量、合格数量及处置方式</div>
+          <el-button v-if="editable" size="mini" type="primary" plain icon="el-icon-plus" @click="addItem">添加行</el-button>
+        </div>
+        <div class="dialog-table-scroller inspect-table-wrapper">
+          <el-table class="inspect-detail-table" :data="form.items" border size="mini" max-height="360">
             <el-table-column type="index" width="50" fixed="left" />
             <el-table-column label="商品" min-width="200">
               <template slot-scope="{row}">
@@ -126,14 +191,14 @@
                 </el-select>
               </template>
             </el-table-column>
-            <el-table-column label="合格入库-货架" width="140">
+            <el-table-column label="合格品存放-货架" width="140">
               <template slot-scope="{row}">
                 <el-select v-model="row.passShelfId" size="mini" filterable clearable @change="onShelfChange(row)" style="width:100%">
                   <el-option v-for="s in shelfCache" :key="s.id" :label="s.code" :value="s.id" />
                 </el-select>
               </template>
             </el-table-column>
-            <el-table-column label="合格入库-库位" width="170">
+            <el-table-column label="合格品存放-库位" width="170">
               <template slot-scope="{row}">
                 <el-select v-model="row.passLocationId" size="mini" filterable clearable :disabled="!row.passShelfId" style="width:100%">
                   <el-option v-for="l in (locationCache[row.passShelfId]||[])" :key="l.id" :label="l.code" :value="l.id" />
@@ -143,42 +208,51 @@
             <el-table-column label="不合格原因" width="170">
               <template slot-scope="{row}"><el-input v-model="row.failReason" size="mini" /></template>
             </el-table-column>
-            <el-table-column v-if="dialogMode==='add'" label="操作" width="80" fixed="right">
+            <el-table-column v-if="editable" label="操作" width="80" fixed="right">
               <template slot-scope="{$index}"><el-button type="text" class="danger-text" @click="form.items.splice($index,1)">删除</el-button></template>
             </el-table-column>
           </el-table>
         </div>
       </el-form>
 
-      <div v-if="dialogMode==='add'" slot="footer">
+      <div v-if="editable" slot="footer" class="inspect-dialog-footer">
         <el-button size="small" @click="dialogVisible=false">取消</el-button>
         <el-button type="primary" size="small" :loading="saving" @click="onSaveForm">保存</el-button>
       </div>
     </el-dialog>
 
-    <user-picker-dialog ref="userPicker" />
+    <admin-picker-dialog ref="adminPicker" title="选择质检员" />
     <product-picker-dialog ref="productPicker" />
   </div>
 </template>
 
 <script>
-import { inspectApi, warehouseApi, shelfApi, locationApi } from '@/api/warehouse';
-import UserPickerDialog from '../components/UserPickerDialog.vue';
+import { inspectApi, inboundApi, warehouseApi, shelfApi, locationApi } from '@/api/warehouse';
+import { doPrint } from '@/views/warehouse/components/printUtil';
+import AdminPickerDialog from '../components/AdminPickerDialog.vue';
 import ProductPickerDialog from '../components/ProductPickerDialog.vue';
 
 export default {
   name: 'WarehouseInspect',
-  components: { UserPickerDialog, ProductPickerDialog },
+  components: { AdminPickerDialog, ProductPickerDialog },
   data() {
     return {
       loading: false, saving: false, total: 0, tableData: [],
       warehouseList: [], shelfCache: [], locationCache: {},
-      query: { page: 1, limit: 20, code: '', warehouseId: null, inboundId: null, status: null },
+      inboundOptions: [], inboundLoading: false,
+      query: { page: 1, limit: 20, code: '', warehouseId: null, inboundId: null, status: null, result: null },
       dialogVisible: false, dialogMode: 'add',
       form: this.emptyForm(),
       typeMap: { 0: '普通', 1: '托盘', 2: '零散', 3: '退货', 4: '不合格', 5: '冷藏', 6: '冷冻' },
       rules: { warehouseId: [{ required: true, message: '请选择仓库', trigger: 'change' }] },
     };
+  },
+  computed: {
+    editable() { return this.dialogMode === 'add' || this.dialogMode === 'edit'; },
+    dialogTitle() {
+      if (this.dialogMode === 'add') return '新建质检单';
+      return (this.dialogMode === 'edit' ? '编辑质检单 ' : '质检单详情') + (this.form.code || '');
+    },
   },
   created() {
     if (this.$route.query.inboundId) this.query.inboundId = Number(this.$route.query.inboundId);
@@ -186,34 +260,95 @@ export default {
     this.loadPage();
   },
   methods: {
-    emptyForm() { return { warehouseId: null, inboundId: null, inboundCode: '', inspectorId: null, inspectorName: '', ngShelfId: null, remark: '', items: [] }; },
+    emptyForm() { return { warehouseId: null, inboundId: null, inboundCode: '', inspectorId: null, inspectorName: '', inspectorPhone: '', ngShelfId: null, ngLocationId: null, remark: '', items: [] }; },
+    /** 有不合格数即判为「存在不合格」，草稿还没填结果时不下结论 */
+    resultText(row) {
+      if ((row.totalReceived || 0) === 0) return '未填写';
+      return (row.totalFail || 0) > 0 ? '存在不合格' : '全部合格';
+    },
+    resultTagType(row) {
+      if ((row.totalReceived || 0) === 0) return 'info';
+      return (row.totalFail || 0) > 0 ? 'danger' : 'success';
+    },
     warehouseText(id) { const w = this.warehouseList.find(x => x.id === id); return w ? `${w.code} / ${w.name}` : id || '-'; },
     async loadWarehouses() { try { const r = await warehouseApi.page({ page: 1, limit: 999 }); this.warehouseList = (r && r.list) || []; } catch (e) {} },
     async loadPage() { this.loading = true; try { const r = await inspectApi.page(this.query); this.tableData = (r && r.list) || []; this.total = (r && r.total) || 0; } finally { this.loading = false; } },
     onSearch() { this.query.page = 1; this.loadPage(); },
-    onReset() { this.query = { page: 1, limit: 20, code: '', warehouseId: null, inboundId: null, status: null }; this.loadPage(); },
-    async openDialog() { this.form = this.emptyForm(); this.dialogMode = 'add'; this.dialogVisible = true; },
-    async openDetail(id) { const d = await inspectApi.detail(id); this.form = d || this.emptyForm(); if (!this.form.items) this.form.items = []; this.dialogMode = 'view'; this.dialogVisible = true; await this.onWarehouseChange(); },
+    onReset() { this.query = { page: 1, limit: 20, code: '', warehouseId: null, inboundId: null, status: null, result: null }; this.loadPage(); },
+    async openDialog() { this.form = this.emptyForm(); this.dialogMode = 'add'; this.dialogVisible = true; this.loadInboundOptions(); },
+    async openDetail(id) { await this.openDoc(id, 'view'); },
+    async onPrint(row) {
+      try { await doPrint('QC', row.id); }
+      catch (e) { this.$message.error(e.message || '打印失败'); }
+    },
+    /** 草稿才可编辑，状态判断以后端为准，这里只做入口控制 */
+    async openEdit(row) {
+      if (row.status !== 0) return this.$message.warning('只有草稿状态的质检单可以修改');
+      await this.openDoc(row.id, 'edit');
+    },
+    async openDoc(id, mode) {
+      const d = await inspectApi.detail(id);
+      this.form = d || this.emptyForm();
+      if (!this.form.items) this.form.items = [];
+      this.dialogMode = mode;
+      this.dialogVisible = true;
+      await this.onWarehouseChange();
+      await this.loadNgLocations();
+      // 明细里已选的货架要把库位选项带出来，否则编辑时库位下拉是空的
+      for (const it of this.form.items) { if (it.passShelfId) await this.ensureLocations(it.passShelfId); }
+    },
     resetForm() { this.$refs.formRef && this.$refs.formRef.resetFields(); },
     async onWarehouseChange() {
       if (!this.form.warehouseId) { this.shelfCache = []; this.locationCache = {}; return; }
       try { const r = await shelfApi.page({ page: 1, limit: 999, warehouseId: this.form.warehouseId, status: 1 }); this.shelfCache = (r && r.list) || []; } catch (e) {}
       this.locationCache = {};
     },
+    /** 只列已生效(status=1)且未生成质检单(inspectStatus=0)的入库单，避免选到重复质检的单 */
+    async loadInboundOptions(keyword) {
+      this.inboundLoading = true;
+      try {
+        const r = await inboundApi.page({ page: 1, limit: 50, status: 1, inspectStatus: 0, code: keyword || '' });
+        this.inboundOptions = (r && r.list) || [];
+      } catch (e) { this.inboundOptions = []; } finally { this.inboundLoading = false; }
+    },
+    /** 选定入库单后带出单号与仓库，仓库变化要重新拉货架 */
+    async onInboundChange(id) {
+      const ib = this.inboundOptions.find(x => x.id === id);
+      if (!ib) { this.form.inboundCode = ''; return; }
+      this.form.inboundCode = ib.code;
+      if (ib.warehouseId && ib.warehouseId !== this.form.warehouseId) {
+        this.form.warehouseId = ib.warehouseId;
+        await this.onWarehouseChange();
+      }
+    },
+    async loadNgLocations() { await this.ensureLocations(this.form.ngShelfId); },
+    ngLocationLabel(l) {
+      const rc = [l.rowNo, l.colNo, l.layerNo].filter(v => v != null && v !== '');
+      return rc.length ? `${l.code}（${rc.join('-')}）` : l.code;
+    },
+    async onNgShelfChange() {
+      this.form.ngLocationId = null;
+      await this.ensureLocations(this.form.ngShelfId);
+    },
+    async ensureLocations(shelfId) {
+      if (!shelfId || this.locationCache[shelfId]) return;
+      try { const list = await locationApi.list(shelfId) || []; this.$set(this.locationCache, shelfId, list.filter(l => l.status === 1)); } catch (e) {}
+    },
     async onShelfChange(row) {
       row.passLocationId = null;
-      if (!row.passShelfId || this.locationCache[row.passShelfId]) return;
-      try { const list = await locationApi.list(row.passShelfId) || []; this.$set(this.locationCache, row.passShelfId, list.filter(l => l.status === 1)); } catch (e) {}
+      await this.ensureLocations(row.passShelfId);
     },
     addItem() { this.form.items.push({ productId: null, attrValueId: null, sku: '', barCode: '', platformType: 0, goodsName: '', batchId: null, qtyReceived: 0, qtyPass: 0, qtyFail: 0, disposition: 0, passShelfId: null, passLocationId: null, ngLocationId: null, failReason: '' }); },
     async pickInspector() {
-      const u = await this.$refs.userPicker.open();
+      const u = await this.$refs.adminPicker.open();
       if (!u) return;
-      this.form.inspectorId = u.uid != null ? u.uid : u.id;
-      this.form.inspectorName = u.nickname || u.username || u.phone || '';
+      this.form.inspectorId = u.id;
+      this.form.inspectorName = u.realName || u.account || '';
+      this.form.inspectorPhone = u.phone || '';
     },
     async pickProduct(row) {
-      const res = await this.$refs.productPicker.open();
+      // 质检是对仓内实物抽检，没库存无从检起
+      const res = await this.$refs.productPicker.open({ requireStock: true });
       if (!res || !res.product) return;
       // 质检一行对应一个批次的收货实物，只取第一个规格，不展开多行
       const sku = res.skus && res.skus.length ? res.skus[0] : null;
@@ -227,12 +362,22 @@ export default {
       await this.$refs.formRef.validate();
       if (!this.form.items.length) return this.$message.warning('请至少添加一行明细');
       this.saving = true;
-      try { await inspectApi.add(this.form); this.$message.success('保存成功'); this.dialogVisible = false; this.loadPage(); }
+      try {
+        if (this.dialogMode === 'edit') { await inspectApi.update(this.form); this.$message.success('修改成功'); }
+        else { await inspectApi.add(this.form); this.$message.success('保存成功'); }
+        this.dialogVisible = false; this.loadPage();
+      }
       finally { this.saving = false; }
     },
     async onSubmit(row) {
       await this.$confirm('提交后将按处置策略入库，不可撤销。继续', '确认', { type: 'warning' });
-      await inspectApi.submit(row.id);
+      // 入库单自动生成的质检单没有质检员，用当前登录用户补写
+      const u = this.$store.getters.userInfo || {};
+      await inspectApi.submit(row.id, {
+        inspectorId: u.id,
+        inspectorName: u.realName || u.account || this.$store.getters.name,
+        inspectorPhone: u.phone,
+      });
       this.$message.success('已完成'); this.loadPage();
     },
     async onCancel(row) { await this.$confirm(`作废单据「{row.code}」`, '提示', { type: 'warning' }); await inspectApi.cancel(row.id); this.$message.success('已作废'); this.loadPage(); },
@@ -244,15 +389,165 @@ export default {
 .filter-container { margin-bottom: 12px; }
 .danger-text { color: #f56c6c; }
 .sku-missing { color: #f56c6c; font-size: 12px; }
+.qty-pass { color: #67c23a; }
+.qty-fail { color: #f56c6c; font-weight: 600; }
 .dialog-table-scroller {
   margin-top: 8px;
-  max-height: 360px;
-  overflow-y: auto;
-  overflow-x: auto;
-  border: 1px solid #ebeef5;
-  border-radius: 4px;
 }
-.dialog-table-scroller >>> .el-table {
-  min-width: 1300px;
+</style>
+
+<style>
+.warehouse-inspect-dialog {
+  display: flex;
+  flex-direction: column;
+  width: 1200px;
+  max-width: calc(100vw - 48px);
+  max-height: 90vh;
+  margin-bottom: 0 !important;
+  overflow: hidden;
+  border: 1px solid #e6ebf2;
+  border-radius: 12px;
+  box-shadow: 0 16px 46px rgba(27, 46, 74, 0.22);
+}
+
+.warehouse-inspect-dialog .el-dialog__header {
+  flex: 0 0 auto;
+  padding: 18px 24px 16px;
+  border-bottom: 1px solid #edf0f5;
+  background: linear-gradient(180deg, #fbfdff 0%, #ffffff 100%);
+}
+
+.warehouse-inspect-dialog .el-dialog__title {
+  color: #1f2d3d;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.warehouse-inspect-dialog .el-dialog__headerbtn {
+  top: 18px;
+  right: 22px;
+}
+
+.warehouse-inspect-dialog .el-dialog__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 22px 24px 18px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  background: #fff;
+}
+
+.warehouse-inspect-dialog .el-dialog__footer {
+  flex: 0 0 auto;
+  padding: 12px 24px;
+  border-top: 1px solid #edf0f5;
+  background: #fafbfd;
+}
+
+.warehouse-inspect-dialog .inspect-form-grid {
+  padding: 18px 16px 2px;
+  border: 1px solid #e8edf5;
+  border-radius: 9px;
+  background: #fbfcff;
+}
+
+.warehouse-inspect-dialog .inspect-form-grid .el-form-item {
+  margin-bottom: 16px;
+}
+
+.warehouse-inspect-dialog .inspect-form-grid .el-form-item__label {
+  color: #5c6b7e;
+  font-weight: 500;
+}
+
+.warehouse-inspect-dialog .el-input__inner,
+.warehouse-inspect-dialog .el-textarea__inner,
+.warehouse-inspect-dialog .el-select .el-input__inner {
+  border-color: #dce4ef;
+  border-radius: 6px;
+}
+
+.warehouse-inspect-dialog .el-input.is-disabled .el-input__inner,
+.warehouse-inspect-dialog .el-textarea.is-disabled .el-textarea__inner,
+.warehouse-inspect-dialog .el-select .el-input.is-disabled .el-input__inner {
+  color: #64748b;
+  background: #f5f7fb;
+  border-color: #dce4ef;
+}
+
+.warehouse-inspect-dialog .inspect-section-divider {
+  margin: 22px 0 12px;
+}
+
+.warehouse-inspect-dialog .inspect-section-divider .el-divider__text {
+  padding: 0 14px 0 0;
+  color: #25364d;
+  font-size: 15px;
+  font-weight: 600;
+  background: #fff;
+}
+
+.warehouse-inspect-dialog .inspect-detail-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 30px;
+  margin-bottom: 8px;
+}
+
+.warehouse-inspect-dialog .inspect-detail-hint {
+  color: #8a97a8;
+  font-size: 12px;
+}
+
+.warehouse-inspect-dialog .inspect-table-wrapper {
+  margin-top: 0;
+  overflow: hidden;
+  border: 1px solid #e4eaf3;
+  border-radius: 8px;
+}
+
+.warehouse-inspect-dialog .inspect-detail-table {
+  color: #3f4d60;
+}
+
+.warehouse-inspect-dialog .inspect-detail-table th {
+  color: #41526b;
+  font-weight: 600;
+  background: #eef4ff;
+}
+
+.warehouse-inspect-dialog .inspect-detail-table td,
+.warehouse-inspect-dialog .inspect-detail-table th {
+  border-color: #e7edf5;
+}
+
+.warehouse-inspect-dialog .inspect-detail-table .el-table__row:hover > td {
+  background: #f7faff;
+}
+
+.warehouse-inspect-dialog .inspect-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+@media (max-width: 768px) {
+  .warehouse-inspect-dialog {
+    max-width: calc(100vw - 24px);
+    max-height: 94vh;
+  }
+
+  .warehouse-inspect-dialog .el-dialog__body {
+    padding: 16px;
+  }
+
+  .warehouse-inspect-dialog .inspect-form-grid {
+    padding: 14px 10px 0;
+  }
+
+  .warehouse-inspect-dialog .inspect-detail-hint {
+    display: none;
+  }
 }
 </style>

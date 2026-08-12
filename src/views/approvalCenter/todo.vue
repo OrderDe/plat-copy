@@ -1,5 +1,5 @@
 <template>
-  <div class="app-container">
+  <div class="app-container approval-center-page">
     <div class="page-header">
       <div class="page-title">我的待办</div>
       <div class="page-sub">共 {{ list.length }} 条待处理审批</div>
@@ -13,9 +13,9 @@
         <el-form-item label="关键字">
           <el-input v-model="filter.keyword" placeholder="标题/发起人" clearable style="width: 200px;" />
         </el-form-item>
-        <el-form-item>
-          <el-button type="primary" icon="el-icon-search" @click="loadList">刷新</el-button>
-          <el-button @click="resetFilter">重置</el-button>
+        <el-form-item class="approval-toolbar-actions">
+          <el-button class="approval-toolbar-btn" type="primary" icon="el-icon-refresh" @click="loadList">刷新</el-button>
+          <el-button class="approval-toolbar-btn" icon="el-icon-refresh-left" @click="resetFilter">重置</el-button>
         </el-form-item>
       </el-form>
     </el-card>
@@ -33,11 +33,15 @@
           <el-tag size="small" type="warning">{{ row.taskName }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="提交时间" prop="submitTime" width="160" />
-      <el-table-column label="操作" width="200">
+      <el-table-column label="提交时间" width="160">
+        <template slot-scope="{ row }">{{ formatDateTime(row.submitTime) }}</template>
+      </el-table-column>
+      <el-table-column label="操作" width="230" align="center">
         <template slot-scope="{ row }">
-          <el-button type="text" @click.stop="goDetail(row)">审批</el-button>
-          <el-button type="text" @click.stop="quickApprove(row)">一键通过</el-button>
+          <div class="approval-action-group">
+            <el-button class="approval-action-btn" type="primary" plain size="mini" icon="el-icon-edit-outline" @click.stop="goDetail(row)">审批</el-button>
+            <el-button class="approval-action-btn" type="success" plain size="mini" icon="el-icon-check" @click.stop="quickApprove(row)">一键通过</el-button>
+          </div>
         </template>
       </el-table-column>
     </el-table>
@@ -93,6 +97,10 @@ export default {
     },
     resetFilter() {
       this.filter = { bizType: '', keyword: '' };
+    },
+    formatDateTime(value) {
+      if (!value) return '-';
+      return String(value).replace('T', ' ').substring(0, 19);
     },
     goDetail(row) {
       this.$router.push({ path: `/approvalCenter/detail/${row.instanceId}`, query: { taskId: row.taskId } });

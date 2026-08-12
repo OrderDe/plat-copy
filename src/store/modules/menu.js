@@ -19,6 +19,18 @@ import router from '@/router';
 
 // import { includeArray } from '@/utils/system.js';
 const homeName = 'Dashboard';
+const disabledTagPaths = [
+  '/warehouse/package',
+  '/warehouse/replenish',
+  '/warehouse/allocate',
+  '/warehouse/stock-check-plan',
+  '/warehouse/inspect',
+  '/warehouse/deliver',
+];
+
+function filterDisabledTags(tags) {
+  return Array.isArray(tags) ? tags.filter((item) => item && !disabledTagPaths.includes(item.path)) : [];
+}
 // 根据 menu 配置的权限，过滤菜单
 function filterMenu(menuList, access, lastList) {
   menuList.forEach((menu) => {
@@ -103,7 +115,7 @@ export default {
     openNames: [],
     //----------------------------------------------------------------
     breadCrumbList: [],
-    tagNavList: getTagNavListFromLocalstorage() || [],
+    tagNavList: filterDisabledTags(getTagNavListFromLocalstorage()),
     homeRoute: {},
     local: localRead('local'),
     errorList: [],
@@ -235,7 +247,7 @@ export default {
     setTagNavList(state, list) {
       let tagList = [];
       if (list.length) {
-        tagList = [...list];
+        tagList = filterDisabledTags(list);
       }
       state.tagNavList = tagList;
       setTagNavListInLocalstorage([...tagList]);

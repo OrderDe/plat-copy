@@ -32,6 +32,12 @@ const approvalCenterRouter = {
       meta: { title: '已办结', noCache: true },
     },
     {
+      path: 'records',
+      name: 'ApprovalRecords',
+      component: () => import('@/views/approvalCenter/records'),
+      meta: { title: '审批记录', noCache: true },
+    },
+    {
       path: 'stat',
       name: 'ApprovalStat',
       component: () => import('@/views/approvalCenter/stat'),
@@ -41,7 +47,7 @@ const approvalCenterRouter = {
       path: 'config',
       name: 'ApprovalConfig',
       component: () => import('@/views/approvalCenter/config'),
-      meta: { title: '审批流配置', noCache: true },
+      meta: { title: '审批配置', noCache: true },
     },
     {
       path: 'config/detail/:flowKey',
@@ -51,10 +57,11 @@ const approvalCenterRouter = {
       meta: { title: '流程设计', noCache: true, activeMenu: '/approvalCenter/config' },
     },
     {
+      // 场景配置已合并进「审批配置」，旧地址重定向，避免收藏/历史链接失效
       path: 'scene',
-      name: 'ApprovalScene',
-      component: () => import('@/views/approvalCenter/scene'),
-      meta: { title: '审批场景配置', noCache: true },
+      redirect: '/approvalCenter/config',
+      hidden: true,
+      meta: { title: '审批配置', noCache: true, activeMenu: '/approvalCenter/config' },
     },
     {
       path: 'sms-config',

@@ -1,0 +1,69 @@
+/* 审批中心按钮规范：仅作用于带 approval-center-page 的页面。 */
+.approval-center-page {
+  .approval-action-group {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: nowrap;
+    gap: 8px;
+    white-space: nowrap;
+  }
+
+  .approval-action-btn.el-button {
+    min-width: 64px;
+    margin: 0 !important;
+    padding: 7px 11px !important;
+    border-radius: 6px;
+    font-weight: 500 !important;
+    transition: transform .15s ease, box-shadow .15s ease, background-color .15s ease;
+  }
+
+  .approval-action-btn.el-button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(31, 35, 41, .10);
+  }
+
+  .approval-action-btn.el-button:active {
+    transform: translateY(0);
+    box-shadow: none;
+  }
+
+  .approval-toolbar-actions {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .approval-toolbar-actions .el-button,
+  .approval-toolbar-btn.el-button,
+  .approval-dialog-actions .el-button {
+    margin: 0 !important;
+    border-radius: 6px;
+    font-weight: 500 !important;
+    transition: transform .15s ease, box-shadow .15s ease;
+  }
+
+  .approval-toolbar-actions .el-button:hover,
+  .approval-toolbar-btn.el-button:hover,
+  .approval-dialog-actions .el-button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(31, 35, 41, .09);
+  }
+
+  .approval-toolbar-actions.el-form-item .el-form-item__content {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .approval-dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .approval-dialog-actions .el-button {
+    min-width: 78px;
+  }
+}

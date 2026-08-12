@@ -22,6 +22,15 @@ const operationRouter = {
       },
     },
     {
+      path: 'dict',
+      name: 'SystemDict',
+      component: () => import('@/views/systemSetting/dict'),
+      meta: {
+        title: '字典列表',
+        icon: 'clipboard',
+      },
+    },
+    {
       path: 'agreement',
       name: 'OperationAgreement',
       component: () => import('@/views/systemSetting/agreement'),

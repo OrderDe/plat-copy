@@ -388,8 +388,10 @@ export default {
   mounted() {
     //监听事件
     document.addEventListener('keydown', this.saveDiy, { passive: true });
-    this.pageId = Number(this.$route.params.id);
-    this.pageType = this.$route.params.type;
+    const rawId = this.$route.params.id;
+    const parsedId = rawId === undefined || rawId === '' ? 0 : Number(rawId);
+    this.pageId = Number.isFinite(parsedId) && parsedId > 0 ? parsedId : 0;
+    this.pageType = this.$route.params.type || 'add';
     if (this.pageId === 0) this.visible = true; //新增的时候修改模板名称显示出来
     this.nameTopFrom = this.pageType !== 'copy' ? this.nameTop : this.nameTop + '-副本';
     this.name = this.pageType !== 'copy' ? this.nameTop : this.nameTop + '-副本';
@@ -420,7 +422,7 @@ export default {
         this.$message.success('复制成功');
       });
     });
-    if (this.$route.params.id !== '0') this.getInfo();
+    if (this.pageId > 0) this.getInfo();
     if (!localStorage.getItem('mediaDomain')) this.getMediadomain();
     this.getQRcode();
   },
@@ -478,7 +480,13 @@ export default {
     },
     //diy详情
     async getInfo() {
-      const data = await pagediyInfoApi(this.$route.params.id)
+      if (!this.pageId) return;
+      try {
+        const data = await pagediyInfoApi(this.pageId);
+        if (!data || typeof data !== 'object') {
+          this.$message.error('模板数据不存在或格式错误');
+          return;
+        }
       //更新页面设置中的参数
       this.$store.commit('mobildConfig/titleUpdata', data.title);
       this.$store.commit('mobildConfig/nameUpdata', this.pageType !== 'copy' ? data.name : data.name + '-副本');
@@ -492,7 +500,10 @@ export default {
       this.$store.commit('mobildConfig/titleBgColorUpdata', data.titleBgColor);
       this.$store.commit('mobildConfig/titleColorUpdata', data.titleColor);
       this.nameTopFrom = this.pageType !== 'copy' ? data.name : data.name + '-副本';
-      this.defaultData(data.value);
+        this.defaultData(data.value || {});
+      } catch (error) {
+        this.$message.error((error && error.message) || '模板数据加载失败');
+      }
     },
     //详情接口请求后，详情数据
     defaultData(data) {

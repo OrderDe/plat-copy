@@ -11,10 +11,7 @@
       </el-form-item>
       <el-form-item label="类型">
         <el-select v-model="query.type" clearable placeholder="全部" style="width:130px">
-          <el-option label="采购入库" :value="0" />
-          <el-option label="调拨入库" :value="1" />
-          <el-option label="退货入库" :value="2" />
-          <el-option label="其他" :value="3" />
+          <el-option v-for="t in typeOptions" :key="t.itemValue" :label="t.itemName" :value="t.itemValue" />
         </el-select>
       </el-form-item>
       <el-form-item label="状态">
@@ -48,7 +45,7 @@
           <el-tag :type="statusType(row.status)" size="mini">{{ statusText(row.status) }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="璐ㄦ" width="100">
+      <el-table-column label="质检" width="100">
         <template slot-scope="{row}">
           <el-tag :type="({0:'info',1:'warning',2:'success'})[row.inspectStatus || 0]" size="mini">
             {{ ({0:'未质检',1:'质检中',2:'已质检'})[row.inspectStatus || 0] }}
@@ -65,7 +62,7 @@
           <el-button type="text" @click="openDetail(row.id)">详情</el-button>
           <el-button type="text" @click="onPrint(row)">打印</el-button>
           <el-button v-if="row.status === 0" type="text" @click="onSubmit(row)">提交生效</el-button>
-          <el-button v-if="row.status === 1 && (row.inspectStatus || 0) === 0" type="text" style="color:#67c23a" @click="onCreateInspect(row)">生成璐ㄦ鍗</el-button>
+          <!-- <el-button v-if="row.status === 1 && (row.inspectStatus || 0) === 0" type="text" style="color:#67c23a" @click="onCreateInspect(row)">生成质检单</el-button> -->
           <el-button v-if="row.inspectCode" type="text" @click="goInspect(row)">查看质检</el-button>
           <el-button v-if="row.status === 0" type="text" class="danger-text" @click="onCancel(row)">作废</el-button>
         </template>
@@ -84,7 +81,8 @@
     <el-dialog
       :title="dialogMode === 'add' ? '新建入库单' : '入库单详情' + (form.code || '')"
       :visible.sync="dialogVisible"
-      width="960px"
+      width="90%"
+      top="5vh"
       @closed="resetForm"
     >
       <el-form ref="formRef" :model="form" :rules="rules" label-width="100px" size="small" :disabled="dialogMode === 'view'">
@@ -99,10 +97,7 @@
           <el-col :span="12">
             <el-form-item label="类型" prop="type">
               <el-select v-model="form.type" style="width:100%">
-                <el-option label="采购入库" :value="0" />
-                <el-option label="调拨入库" :value="1" />
-                <el-option label="退货入库" :value="2" />
-                <el-option label="其他" :value="3" />
+                <el-option v-for="t in typeOptions" :key="t.itemValue" :label="t.itemName" :value="t.itemValue" />
               </el-select>
             </el-form-item>
           </el-col>
@@ -128,87 +123,89 @@
         <el-divider content-position="left">入库明细</el-divider>
         <el-button v-if="dialogMode === 'add'" size="mini" icon="el-icon-plus" @click="addItem">添加行</el-button>
         <div class="dialog-table-scroller">
-          <el-table :data="form.items" border size="mini">
-            <el-table-column type="index" width="50" fixed="left" />
-            <el-table-column label="店铺" width="180">
+          <el-table :data="form.items" border size="mini" max-height="420">
+            <el-table-column type="index" width="45" fixed="left" />
+            <el-table-column label="店铺" width="150" fixed="left">
               <template slot-scope="{row}">
                 <el-select v-model="row.merId" filterable size="mini" style="width:100%" placeholder="选择店铺" @change="onShopChange(row)">
                   <el-option v-for="m in merchantList" :key="m.id" :label="m.name" :value="m.id" />
                 </el-select>
               </template>
             </el-table-column>
-            <el-table-column label="商品名称" min-width="220">
+            <!-- 左侧固定：列多要横向滚动，滚到右边还得知道这行是哪个商品 -->
+            <el-table-column label="商品名称" min-width="230" fixed="left">
               <template slot-scope="{row}">
                 <el-input v-model="row.goodsName" size="mini" readonly placeholder="点击选择商品">
                   <el-button slot="append" size="mini" icon="el-icon-search" @click="pickProduct(row)" />
                 </el-input>
+                <!-- 商品ID 原来单独占一列 130px，只读且很少看，收进来当副信息 -->
+                <span v-if="row.productId" class="cell-sub">ID: {{ row.productId }}</span>
               </template>
             </el-table-column>
-            <el-table-column label="规格" min-width="150">
+            <el-table-column label="规格 / 条码" min-width="160">
               <template slot-scope="{row}">
                 <el-tag v-if="row.sku" size="mini" type="info">{{ row.sku }}</el-tag>
                 <span v-else-if="row.productId" class="sku-missing">未选规格</span>
                 <span v-else>-</span>
+                <!-- 条码原来也单独占 140px，同样并进来 -->
+                <span v-if="row.barCode" class="cell-sub">{{ row.barCode }}</span>
               </template>
             </el-table-column>
-            <el-table-column label="条码" width="140">
+            <el-table-column label="应入库" width="100">
               <template slot-scope="{row}">
-                <span>{{ row.barCode || '-' }}</span>
+                <el-input-number v-model="row.inboundTotalNum" :min="0" size="mini" controls-position="right" style="width:100%" />
               </template>
             </el-table-column>
-            <el-table-column label="商品ID" width="130">
+            <el-table-column label="实入库" width="100">
               <template slot-scope="{row}">
-                <el-input v-model="row.productId" size="mini" readonly />
+                <el-input-number v-model="row.actualInboundNum" :min="0" size="mini" controls-position="right" style="width:100%" />
               </template>
             </el-table-column>
-            <el-table-column label="应入库" width="110">
-              <template slot-scope="{row}">
-                <el-input-number v-model="row.inboundTotalNum" :min="0" size="mini" controls-position="right" />
-              </template>
-            </el-table-column>
-            <el-table-column label="实入库" width="110">
-              <template slot-scope="{row}">
-                <el-input-number v-model="row.actualInboundNum" :min="0" size="mini" controls-position="right" />
-              </template>
-            </el-table-column>
-            <el-table-column label="入库单价" width="130">
-              <template slot-scope="{row}">
-                <el-input-number v-model="row.unitCost" :min="0" :precision="4" :step="0.01" size="mini" controls-position="right" style="width:110px" />
-              </template>
-            </el-table-column>
-            <el-table-column label="金额" width="110">
-              <template slot-scope="{row}">
-                <span class="amount">{{ ((row.unitCost || 0) * (row.actualInboundNum || 0)).toFixed(2) }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column label="货架" width="150">
+            <el-table-column label="货架" width="130">
               <template slot-scope="{row}">
                 <el-select v-model="row.shelfId" size="mini" filterable clearable style="width:100%" @change="onShelfChange(row)" :disabled="!form.warehouseId">
                   <el-option v-for="s in shelfCache" :key="s.id" :label="s.code" :value="s.id" />
                 </el-select>
               </template>
             </el-table-column>
-            <el-table-column label="库位" width="180">
+            <el-table-column label="库位" width="150">
               <template slot-scope="{row}">
                 <el-select v-model="row.locationId" size="mini" filterable clearable style="width:100%" :disabled="!row.shelfId">
                   <el-option v-for="l in (locationCache[row.shelfId] || [])" :key="l.id" :label="l.code" :value="l.id" />
                 </el-select>
               </template>
             </el-table-column>
+            <!-- 这两个日期会在入库确认时带进自动生成的批次，不是可有可无的装饰 -->
             <el-table-column label="生产日期" width="150">
               <template slot-scope="{row}">
-                <el-date-picker v-model="row.productionDate" type="date" value-format="yyyy-MM-dd" size="mini" style="width:100%" />
+                <el-date-picker
+                  v-model="row.productionDate"
+                  type="date"
+                  value-format="yyyy-MM-dd"
+                  size="mini"
+                  placeholder="选择日期"
+                  style="width:100%"
+                  :picker-options="prodPickerOptions"
+                />
               </template>
             </el-table-column>
             <el-table-column label="有效期至" width="150">
               <template slot-scope="{row}">
-                <el-date-picker v-model="row.expiryDate" type="date" value-format="yyyy-MM-dd" size="mini" style="width:100%" />
+                <el-date-picker
+                  v-model="row.expiryDate"
+                  type="date"
+                  value-format="yyyy-MM-dd"
+                  size="mini"
+                  placeholder="选择日期"
+                  style="width:100%"
+                  :picker-options="expiryPickerOptionsOf(row)"
+                />
               </template>
             </el-table-column>
-            <el-table-column label="供应商批次" width="150">
+            <el-table-column label="供应商批次" width="130">
               <template slot-scope="{row}"><el-input v-model="row.supplierBatchNo" size="mini" /></template>
             </el-table-column>
-            <el-table-column v-if="dialogMode === 'add'" label="操作" width="80" fixed="right">
+            <el-table-column v-if="dialogMode === 'add'" label="操作" width="70" fixed="right">
               <template slot-scope="{$index}">
                 <el-button type="text" class="danger-text" @click="form.items.splice($index, 1)">删除</el-button>
               </template>
@@ -223,13 +220,13 @@
       </div>
     </el-dialog>
 
-    <user-picker-dialog ref="userPicker" />
+    <admin-picker-dialog ref="adminPicker" title="选择申请人" />
     <product-picker-dialog ref="productPicker" />
   </div>
 </template>
 
 <script>
-import { inboundApi, shelfApi, locationApi, inspectApi } from '@/api/warehouse';
+import { inboundApi, shelfApi, locationApi, inspectApi, dictApi } from '@/api/warehouse';
 import warehouseFormMixin from '@/views/warehouse/components/warehouseFormMixin';
 import { doPrint } from '@/views/warehouse/components/printUtil';
 
@@ -244,13 +241,23 @@ export default {
       form: this.emptyForm(),
       shelfCache: [],
       locationCache: {},
+      typeOptions: [], // 入库类型，来自 wms_dict(inbound_type)
       rules: {
         warehouseId: [{ required: true, message: '请选择仓库', trigger: 'change' }],
         type: [{ required: true, message: '请选择类型', trigger: 'change' }],
       },
     };
   },
-  created() { this.loadPage(); },
+  computed: {
+    /** 生产日期不能晚于今天：还没生产出来的货不可能已入库 */
+    prodPickerOptions() {
+      return { disabledDate: (d) => d.getTime() > Date.now() };
+    },
+  },
+  created() {
+    this.loadTypeOptions();
+    this.loadPage();
+  },
   watch: {
     'form.warehouseId'(v) { this.loadShelves(v); },
   },
@@ -273,7 +280,25 @@ export default {
         this.$set(this.locationCache, row.shelfId, list.filter(l => l.status === 1));
       } catch (e) {}
     },
-    typeText(t) { return ({ 0: '采购入库', 1: '调拨入库', 2: '退货入库', 3: '其他' })[t] || '-'; },
+    typeText(t) {
+      // 类型名来自字典；停用后的历史单据也能显示原名称，字典没这条时退回显示原始值
+      const hit = this.typeOptions.find((x) => x.itemValue === t);
+      if (hit) return hit.itemName;
+      return t === null || t === undefined ? '-' : String(t);
+    },
+    async loadTypeOptions() {
+      try {
+        const res = await dictApi.items('inbound_type');
+        const data = res && (res.data !== undefined ? res.data : res);
+        this.typeOptions = Array.isArray(data) ? data : [];
+        // 新建单据默认选第一个可用类型，避免字典改动后默认值落到停用项上
+        if (this.typeOptions.length && !this.typeOptions.find((x) => x.itemValue === this.form.type)) {
+          this.form.type = this.typeOptions[0].itemValue;
+        }
+      } catch (e) {
+        this.typeOptions = [];
+      }
+    },
     statusText(s) { return ({ 0: '草稿', 1: '已生效', 2: '已作废' })[s] || '-'; },
     statusType(s) { return ({ 0: 'info', 1: 'success', 2: 'danger' })[s] || ''; },
     async loadPage() {
@@ -302,8 +327,38 @@ export default {
       this.form.items.push({ productId: null, attrValueId: null, sku: '', barCode: '', platformType: 0, merId: null, goodsName: '', inboundTotalNum: 0, actualInboundNum: 0, unitCost: 0, productionDate: '', expiryDate: '', supplierBatchNo: '', shelfId: null, locationId: null, _options: [], _loading: false });
     },
     resetForm() { this.$refs.formRef && this.$refs.formRef.resetFields(); },
+    /**
+     * 逐行检查日期，返回第一条错误信息，全部合法返回 null。
+     * 有效期已过期不拦 —— 补录历史批次、临期退货入库都要填过期日期。
+     */
+    checkItemDates() {
+      const endOfToday = new Date().setHours(23, 59, 59, 999);
+      for (let i = 0; i < this.form.items.length; i++) {
+        const it = this.form.items[i];
+        const prod = it.productionDate ? new Date(`${it.productionDate}T00:00:00`).getTime() : null;
+        const exp = it.expiryDate ? new Date(`${it.expiryDate}T00:00:00`).getTime() : null;
+        if (prod != null && prod > endOfToday) {
+          return `第 ${i + 1} 行生产日期不能晚于今天`;
+        }
+        if (prod != null && exp != null && exp < prod) {
+          return `第 ${i + 1} 行有效期不能早于生产日期(${it.productionDate})`;
+        }
+      }
+      return null;
+    },
+    /** 每行的有效期不能早于该行的生产日期，逐行算 */
+    expiryPickerOptionsOf(row) {
+      if (!row || !row.productionDate) return {};
+      const min = new Date(`${row.productionDate}T00:00:00`).getTime();
+      return { disabledDate: (d) => d.getTime() < min };
+    },
     async onSubmitForm() {
-      await this.$refs.formRef.validate();
+      // validate 失败会 reject，不接住的话点保存毫无反应、也看不出哪里没填
+      try {
+        await this.$refs.formRef.validate();
+      } catch (e) {
+        return this.$message.warning('请先补全带 * 的必填项');
+      }
       if (!this.form.items.length) return this.$message.warning('请至少添加一行明细');
       const bad = this.form.items.find(i => !i.productId);
       if (bad) return this.$message.warning('请为每行选择商品');
@@ -311,8 +366,12 @@ export default {
       // 导致该规格的可售库存回写不到 eb_product_attr_value，前台库存显示偏低
       const noSku = this.form.items.findIndex(i => !i.attrValueId);
       if (noSku >= 0) return this.$message.warning(`第 ${noSku + 1} 行未选择规格，请重新选择商品并指定规格`);
-      // 店铺决定库存的商户归属，漏填会落成?mer_id=NULL 的「历史数据」，后续无法按商户对账      const noShop = this.form.items.findIndex(i => !i.merId);
+      // 店铺决定库存的商户归属，漏填会落成 mer_id=NULL 的「历史数据」，后续无法按商户对账
+      const noShop = this.form.items.findIndex(i => !i.merId);
       if (noShop >= 0) return this.$message.warning(`第 ${noShop + 1} 行未选择店铺，库存将无法归属商户`);
+      // picker 的 disabledDate 只挡鼠标点选，手输能绕过，保存前统一再查一遍
+      const badDate = this.checkItemDates();
+      if (badDate) return this.$message.warning(badDate);
       this.saving = true;
       try {
         const payload = { ...this.form, items: this.stripItemMeta(this.form.items) };
@@ -320,13 +379,15 @@ export default {
         this.$message.success('保存成功');
         this.dialogVisible = false;
         this.loadPage();
+      } catch (e) {
+        this.$message.error((e && (e.message || e.msg)) || '保存失败');
       } finally { this.saving = false; }
     },
     async onPrint(row) {
       try { await doPrint('IN', row.id); } catch (e) { this.$message.error(e.message || '打印失败'); }
     },
     async onCreateInspect(row) {
-      await this.$confirm(`将根据入库单「{row.code}」的明细自动生成质检单（送检数?实入库数），继续?`, '确认', { type: 'warning' });
+      await this.$confirm(`将根据入库单「${row.code}」的明细自动生成质检单（送检数=实入库数），继续？`, '确认', { type: 'warning' });
       const d = await inspectApi.createFromInbound(row.id, {});
       this.$message.success(`已生成质检单 ${d.code}，请到"质检管理"填写质检结果`);
       this.loadPage();
@@ -335,13 +396,13 @@ export default {
       this.$router.push({ path: '/warehouse/inspect', query: { inboundId: row.id } });
     },
     async onSubmit(row) {
-      await this.$confirm('提交后将增加库存、写流水、反写商品库，不可撤销。继续', '确认', { type: 'warning' });
+      await this.$confirm('提交后将增加库存、写流水、反写商品库，不可撤销。继续？', '确认', { type: 'warning' });
       await inboundApi.submit(row.id);
       this.$message.success('已生效');
       this.loadPage();
     },
     async onCancel(row) {
-      await this.$confirm(`作废入库单「{row.code}」`, '提示', { type: 'warning' });
+      await this.$confirm(`作废入库单「${row.code}」`, '提示', { type: 'warning' });
       await inboundApi.cancel(row.id);
       this.$message.success('已作废');
       this.loadPage();
@@ -354,16 +415,21 @@ export default {
 .filter-container { margin-bottom: 12px; }
 .danger-text { color: #f56c6c; }
 .amount { color: #e6a23c; }
+/*
+  这里原来给外层套了 overflow-x + min-width:1990px，等于在 el-table 自带的
+  横向滚动外面又加了一层：出现双滚动条，而且 fixed 列会跟着外层一起滚走、
+  失去固定效果。滚动交给 el-table 自己（max-height + fixed 列），外层只留间距。
+*/
 .dialog-table-scroller {
   margin-top: 8px;
-  max-height: 360px;
-  overflow-y: auto;
-  overflow-x: auto;
-  border: 1px solid #ebeef5;
-  border-radius: 4px;
-}
-.dialog-table-scroller >>> .el-table {
-  min-width: 1990px;
 }
 .sku-missing { color: #f56c6c; font-size: 12px; }
+/* 商品ID、条码并入相邻列后的副信息样式 */
+.cell-sub {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  line-height: 1.3;
+  color: #909399;
+}
 </style>

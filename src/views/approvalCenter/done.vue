@@ -1,5 +1,5 @@
 <template>
-  <div class="app-container">
+  <div class="app-container approval-center-page">
     <div class="page-header">
       <div class="page-title">已办结</div>
       <div class="page-sub">我参与过的、已完成的审批 · 共 {{ list.length }} 条</div>
@@ -17,8 +17,8 @@
         <el-form-item label="关键字">
           <el-input v-model="filter.keyword" placeholder="标题/发起人" clearable style="width: 200px;" />
         </el-form-item>
-        <el-form-item>
-          <el-button type="primary" icon="el-icon-refresh" @click="load">刷新</el-button>
+        <el-form-item class="approval-toolbar-actions">
+          <el-button class="approval-toolbar-btn" type="primary" icon="el-icon-refresh" @click="load">刷新</el-button>
         </el-form-item>
       </el-form>
     </el-card>
@@ -37,10 +37,14 @@
           <el-tag size="small" :type="resultType(row.result)">{{ resultText(row.result) }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="办结时间" prop="endTime" width="160" />
-      <el-table-column label="操作" width="100">
+      <el-table-column label="办结时间" width="160">
+        <template slot-scope="{ row }">{{ formatDateTime(row.endTime) }}</template>
+      </el-table-column>
+      <el-table-column label="操作" width="140" align="center">
         <template slot-scope="{ row }">
-          <el-button type="text" @click.stop="goDetail(row)">查看详情</el-button>
+          <div class="approval-action-group">
+            <el-button class="approval-action-btn" type="primary" plain size="mini" icon="el-icon-view" @click.stop="goDetail(row)">查看详情</el-button>
+          </div>
         </template>
       </el-table-column>
     </el-table>
@@ -86,6 +90,10 @@ export default {
     },
     resultType(r) { return { 0: 'success', 1: 'danger', 2: 'info' }[r] || 'info'; },
     resultText(r) { return { 0: '通过', 1: '驳回', 2: '撤回' }[r] || '-'; },
+    formatDateTime(value) {
+      if (!value) return '-';
+      return String(value).replace('T', ' ').substring(0, 19);
+    },
     goDetail(row) {
       this.$router.push(`/approvalCenter/detail/${row.id}`);
     },

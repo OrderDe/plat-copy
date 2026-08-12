@@ -24,6 +24,8 @@ export async function doPrint(bizType, docId) {
       /* 打印时强制黑色实底，避免浏览器把表格线和底色淡化掉 */
       table{color:#000}
       th,td{color:#000;border-color:#000 !important}
+      /* 质检/入库等明细表统一居中，确保已有数据库模板也能直接生效 */
+      table[border] th,table[border] td{text-align:center !important;vertical-align:middle !important}
       @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
     </style>
     </head><body>${html}

@@ -1,5 +1,5 @@
 <template>
-  <div class="app-container" v-loading="loading">
+  <div class="app-container approval-center-page" v-loading="loading">
     <div class="page-header">
       <div class="page-title">审批统计</div>
       <div class="page-sub">

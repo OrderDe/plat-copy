@@ -102,33 +102,50 @@
                 </el-form-item>
 
                 <el-form-item label="多人审批规则">
-                  <el-radio-group v-model="selectedNode.rule" size="small">
-                    <el-tooltip effect="dark" placement="top">
-                      <div slot="content">
-                        <b>或签</b> — 任一人通过即可<br>
-                        3 人同时收到任务,任意 1 人点通过 → 节点通过<br>
-                        <span style="color:#a3e635;">适合互相备份 (如值班运营)</span>
+                  <el-radio-group v-model="selectedNode.rule" size="small" class="approval-rule-group">
+                    <el-tooltip
+                      effect="dark"
+                      placement="top"
+                      :open-delay="120"
+                      :enterable="false"
+                      popper-class="approval-rule-tooltip"
+                    >
+                      <div slot="content" class="rule-tooltip-content">
+                        <b>或签</b>
+                        <span>任意一名审批人通过，节点即通过。</span>
+                        <em>适合互相备份，例如值班运营。</em>
                       </div>
-                      <el-radio-button label="OR">或签</el-radio-button>
+                      <el-radio-button label="OR" title="或签：任意一名审批人通过，节点即通过">或签</el-radio-button>
                     </el-tooltip>
 
-                    <el-tooltip effect="dark" placement="top">
-                      <div slot="content">
-                        <b>会签</b> — 全部人必须通过<br>
-                        3 人同时收到任务,3 人都点通过 → 节点通过<br>
-                        (任一人驳回则整体驳回)<br>
-                        <span style="color:#a3e635;">适合重要决策 (资金/合规)</span>
+                    <el-tooltip
+                      effect="dark"
+                      placement="top"
+                      :open-delay="120"
+                      :enterable="false"
+                      popper-class="approval-rule-tooltip"
+                    >
+                      <div slot="content" class="rule-tooltip-content">
+                        <b>会签</b>
+                        <span>所有审批人都通过，节点才通过；任意一人驳回则整体驳回。</span>
+                        <em>适合资金、合规等重要决策。</em>
                       </div>
-                      <el-radio-button label="AND">会签</el-radio-button>
+                      <el-radio-button label="AND" title="会签：所有审批人通过后节点才通过">会签</el-radio-button>
                     </el-tooltip>
 
-                    <el-tooltip effect="dark" placement="top">
-                      <div slot="content">
-                        <b>依次</b> — 按顺序一个个审<br>
-                        张三通过 → 李四才收到 → 李四通过 → 王五才收到<br>
-                        <span style="color:#a3e635;">适合层级复核 (下级审完上级审)</span>
+                    <el-tooltip
+                      effect="dark"
+                      placement="top"
+                      :open-delay="120"
+                      :enterable="false"
+                      popper-class="approval-rule-tooltip"
+                    >
+                      <div slot="content" class="rule-tooltip-content">
+                        <b>依次</b>
+                        <span>按配置顺序逐一审批，前一人通过后才通知下一人。</span>
+                        <em>适合上下级逐级审批。</em>
                       </div>
-                      <el-radio-button label="SEQ">依次</el-radio-button>
+                      <el-radio-button label="SEQ" title="依次：按配置顺序逐一审批">依次</el-radio-button>
                     </el-tooltip>
                   </el-radio-group>
                 </el-form-item>
@@ -276,7 +293,14 @@ export default {
             body += `    <userTask id="n${n.id}" name="${n.name}">\n      <multiInstanceLoopCharacteristics flowable:collection="\${${n.name}Users}">\n        <completionCondition>\${${cond}}</completionCondition>\n      </multiInstanceLoopCharacteristics>\n    </userTask>\n`;
           } else body += `    <userTask id="n${n.id}" name="${n.name}" flowable:assignee="\${${(n.users && n.users[0] && n.users[0].name) || 'assignee'}}"/>\n`;
         } else if (n.type === 'condition') {
-          body += `    <exclusiveGateway id="n${n.id}"/>\n    <sequenceFlow sourceRef="n${n.id}"><conditionExpression>\${${n.field} ${n.op} ${n.val}}</conditionExpression></sequenceFlow>\n`;
+          // 排他网关必须两条出线：成立往下走，不成立走 default 直接结束。
+          // 只给一条还挂条件，Flowable 部署会报 condition-not-allowed-on-single-seq-flow。
+          const val = /^-?\d+(\.\d+)?$|^(true|false)$/i.test(String(n.val || '').trim())
+            ? n.val
+            : `'${n.val || ''}'`;
+          body += `    <exclusiveGateway id="n${n.id}" default="flow_n${n.id}_else"/>\n` +
+            `    <sequenceFlow sourceRef="n${n.id}"><conditionExpression>\${${n.field} ${n.op} ${val}}</conditionExpression></sequenceFlow>\n` +
+            `    <sequenceFlow id="flow_n${n.id}_else" sourceRef="n${n.id}" targetRef="end"/>\n`;
         } else if (n.type === 'cc') {
           body += `    <serviceTask id="n${n.id}" flowable:class="CcNotifyTask"/>\n`;
         }
@@ -527,4 +551,28 @@ code { background: #fff; padding: 1px 6px; border-radius: 3px; }
 .user-item:hover { background: #f5f7fa; }
 .user-item.selected { background: #ecf5ff; color: #409EFF; }
 .xml-preview { margin-top: 12px; padding: 12px; background: #1f2329; color: #a3e635; border-radius: 6px; font-size: 11px; line-height: 1.5; max-height: 280px; overflow: auto; white-space: pre; }
+</style>
+
+<style>
+/* Tooltip popper is mounted to body, so these rules intentionally stay unscoped. */
+.approval-rule-tooltip {
+  max-width: 320px;
+  padding: 9px 12px;
+  line-height: 1.55;
+}
+.approval-rule-tooltip .rule-tooltip-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  white-space: normal;
+}
+.approval-rule-tooltip .rule-tooltip-content b {
+  color: #fff;
+  font-size: 13px;
+}
+.approval-rule-tooltip .rule-tooltip-content em {
+  color: #a3e635;
+  font-style: normal;
+  font-size: 12px;
+}
 </style>

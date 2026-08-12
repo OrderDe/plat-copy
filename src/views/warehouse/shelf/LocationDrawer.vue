@@ -12,8 +12,13 @@
         <el-table-column prop="rowNo" label="行" width="60" />
         <el-table-column prop="colNo" label="列" width="60" />
         <el-table-column prop="capacity" label="容量" width="80" />
-        <el-table-column label="温区" width="90">
+        <el-table-column label="温区" width="80">
           <template slot-scope="{row}">{{ tempMap[row.tempZone] || '常温' }}</template>
+        </el-table-column>
+        <el-table-column label="用途" width="95">
+          <template slot-scope="{row}">
+            <el-tag :type="usageTagType(row.usageType)" size="mini">{{ usageMap[row.usageType || 0] }}</el-tag>
+          </template>
         </el-table-column>
         <el-table-column label="状态" width="120">
           <template slot-scope="{row}">
@@ -48,6 +53,16 @@
             <el-option label="常温" :value="0" /><el-option label="冷藏" :value="1" /><el-option label="冷冻" :value="2" />
           </el-select>
         </el-form-item>
+        <el-form-item label="用途">
+          <el-select v-model="form.usageType" style="width:100%">
+            <el-option label="可售区" :value="0" />
+            <el-option label="待检区" :value="1" />
+            <el-option label="隔离/不合格区" :value="2" />
+          </el-select>
+          <p class="usage-tip">
+            只有<b>可售区</b>的库存会同步成商城可售库存。待检区、隔离区的货在仓里但不可卖。
+          </p>
+        </el-form-item>
       </el-form>
       <div slot="footer">
         <el-button size="small" @click="editVisible = false">取消</el-button>
@@ -67,6 +82,13 @@
         <el-form-item label="温区">
           <el-select v-model="batchForm.tempZone" style="width:100%">
             <el-option label="常温" :value="0" /><el-option label="冷藏" :value="1" /><el-option label="冷冻" :value="2" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="库位用途">
+          <el-select v-model="batchForm.usageType" style="width:100%">
+            <el-option label="可售区" :value="0" />
+            <el-option label="待检区" :value="1" />
+            <el-option label="隔离/不合格区" :value="2" />
           </el-select>
         </el-form-item>
         <el-form-item label="清除已有库位"><el-switch v-model="batchForm.clearExisting" /></el-form-item>
@@ -90,12 +112,14 @@ export default {
       shelf: null, list: [],
       editVisible: false, batchVisible: false,
       form: this.emptyForm(),
-      batchForm: { rowNum: 1, colNum: 4, layerNum: 3, capacity: 100, tempZone: 0, clearExisting: false },
+      batchForm: { rowNum: 1, colNum: 4, layerNum: 3, capacity: 100, tempZone: 0, usageType: 0, clearExisting: false },
       tempMap: { 0: '常温', 1: '冷藏', 2: '冷冻' },
+      usageMap: { 0: '可售区', 1: '待检区', 2: '隔离区' },
     };
   },
   methods: {
-    emptyForm() { return { id: null, warehouseId: null, shelfId: null, code: '', rowNo: 1, colNo: 1, layerNo: 1, capacity: 100, tempZone: 0, status: 1 }; },
+    emptyForm() { return { id: null, warehouseId: null, shelfId: null, code: '', rowNo: 1, colNo: 1, layerNo: 1, capacity: 100, tempZone: 0, usageType: 0, status: 1 }; },
+    usageTagType(u) { return ({ 0: 'success', 1: 'warning', 2: 'danger' })[u || 0]; },
     open(shelf) { this.shelf = shelf; this.visible = true; this.load(); },
     async load() {
       if (!this.shelf) return;
@@ -134,4 +158,5 @@ export default {
 
 <style scoped>
 .danger-text { color: #f56c6c; }
+.usage-tip { margin: 4px 0 0; font-size: 12px; color: #909399; line-height: 1.5; }
 </style>

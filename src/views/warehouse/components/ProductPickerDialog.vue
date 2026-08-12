@@ -1,13 +1,13 @@
 <template>
   <el-dialog title="商品列表" :visible.sync="visible" width="900px" append-to-body @open="onOpen">
     <el-form :inline="true" size="small">
-      <el-form-item label="商品搜索">
-        <el-input v-model="keyword" placeholder="请输入商品名称" clearable style="width:220px" @keyup.enter.native="onSearch" />
-      </el-form-item>
       <el-form-item label="商户">
         <el-select v-model="merId" filterable clearable placeholder="请选择" style="width:200px">
           <el-option v-for="m in merchantList" :key="m.id" :label="m.name" :value="m.id" />
         </el-select>
+      </el-form-item>
+      <el-form-item label="商品搜索">
+        <el-input v-model="keyword" placeholder="请输入商品名称" clearable style="width:220px" @keyup.enter.native="onSearch" />
       </el-form-item>
       <el-form-item>
         <el-button type="primary" icon="el-icon-search" @click="onSearch">查询</el-button>
@@ -31,13 +31,28 @@
       <el-table-column label="商户" width="150" show-overflow-tooltip>
         <template slot-scope="{row}">{{ getMerName(row) }}</template>
       </el-table-column>
-      <el-table-column prop="price" label="价格" width="90" />
-      <el-table-column label="库存" width="80">
+      <el-table-column prop="price" label="价格" width="80" />
+      <el-table-column label="审核" width="90">
         <template slot-scope="{row}">
-          <span :class="{ 'text-danger': !row.stock }">{{ row.stock == null ? '-' : row.stock }}</span>
+          <el-tag size="mini" :type="row.auditStatus === 2 ? 'success' : 'info'">
+            {{ auditMap[row.auditStatus] || '已审核' }}
+          </el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column label="现有库存" width="90">
+        <template slot-scope="{row}">
+          <!-- 只有「必须有货才能操作」的场景才标红：入库方向库存为 0 是常态，
+               标红会让操作员以为该商品不能选 -->
+          <span :class="{ 'text-danger': requireStock && !row.stock }">{{ row.stock == null ? '-' : row.stock }}</span>
         </template>
       </el-table-column>
     </el-table>
+    <p class="list-tips">
+      仅展示<b>已审核</b>商品（无需审核 / 审核成功）；待审核、审核拒绝的不可选。
+      未上架的已审核商品（如<b>待入仓</b>）同样可选，入库后会自动上架。
+      <span v-if="requireStock" class="text-danger">本单需要从仓内取货，现有库存为 0 的商品无法完成作业。</span>
+      <span v-else>本单是入库方向，<b>现有库存为 0 的商品可以正常选择</b>——入库正是给它加库存。</span>
+    </p>
     <el-pagination
       style="margin-top:12px;text-align:right"
       :current-page.sync="page"
@@ -80,7 +95,7 @@
             <el-table-column prop="price" label="售价" width="90" />
             <el-table-column label="现有库存" width="90">
               <template slot-scope="{row}">
-                <span :class="{ 'text-danger': !row.stock }">{{ row.stock == null ? '-' : row.stock }}</span>
+                <span :class="{ 'text-danger': requireStock && !row.stock }">{{ row.stock == null ? '-' : row.stock }}</span>
               </template>
             </el-table-column>
           </el-table>
@@ -125,6 +140,11 @@ export default {
       selectedSkus: [],
       skuLoading: false,
       resolver: null,
+      // 后端只会返回 0/2 两种（见 wmsSelectable 口径），1/3 列出来只是为了兜底不显示空白
+      auditMap: { 0: '无需审核', 1: '待审核', 2: '审核成功', 3: '审核拒绝' },
+      // 由调用方声明：true = 出库/移库/质检等需要仓内有货的单据，0 库存标红提醒；
+      // false = 入库、采购发货、批次、盘点，0 库存是常态，不做视觉警告
+      requireStock: false,
     };
   },
   computed: {
@@ -134,11 +154,12 @@ export default {
     },
   },
   methods: {
-    async open({ merId = null } = {}) {
+    async open({ merId = null, requireStock = false } = {}) {
       return new Promise((resolve) => {
         this.resolver = resolve;
         this.keyword = '';
         this.merId = merId;
+        this.requireStock = requireStock;
         this.page = 1;
         this.selectedId = null;
         this.selectedProduct = null;
@@ -160,7 +181,9 @@ export default {
     async load() {
       this.loading = true;
       try {
-        const params = { page: this.page, limit: this.limit, type: 1, keywords: this.keyword };
+        // wmsSelectable：仓储选品口径 —— 只要「已审核」(无需审核/审核成功)，不看上架状态。
+        // type 仍需传（后端 @NotNull 校验），但有 wmsSelectable 时后端会跳过 type 的上架条件。
+        const params = { page: this.page, limit: this.limit, type: 1, wmsSelectable: true, keywords: this.keyword };
         if (this.merId) params.merId = this.merId;
         const res = await productLstApi(params);
         const rawList = (res && res.list) || (res && res.records) || [];
@@ -228,4 +251,5 @@ export default {
 <style scoped>
 .text-danger { color: #f56c6c; }
 .sku-tips { margin: 0 0 8px; font-size: 12px; color: #909399; }
+.list-tips { margin: 8px 0 0; font-size: 12px; color: #909399; line-height: 1.6; }
 </style>

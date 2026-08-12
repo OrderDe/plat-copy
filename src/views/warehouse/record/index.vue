@@ -41,7 +41,9 @@
     </el-form>
 
     <el-table v-loading="loading" :data="tableData" border stripe>
-      <el-table-column prop="createTime" label="时间" width="170" />
+      <el-table-column label="时间" width="170">
+        <template slot-scope="{row}">{{ formatDateTime(row.createTime) }}</template>
+      </el-table-column>
       <el-table-column label="仓库" min-width="160" show-overflow-tooltip>
         <template slot-scope="{row}">{{ row.warehouseName || warehouseText(row.warehouseId) }}</template>
       </el-table-column>
@@ -87,6 +89,7 @@
 <script>
 import { stockRecordApi, warehouseApi } from '@/api/warehouse';
 import { merchantListApi } from '@/api/merchant';
+import { formatDateTime } from '../components/dateTime';
 
 export default {
   name: 'WarehouseStockRecord',
@@ -109,6 +112,7 @@ export default {
     this.loadPage();
   },
   methods: {
+    formatDateTime,
     emptyQuery() {
       return { page: 1, limit: 20, warehouseId: null, merId: null, productId: null,
         bizCode: '', bizType: null, startTime: null, endTime: null };

@@ -54,6 +54,12 @@ const warehouseRouter = {
           name: 'WarehousePrintTemplate',
           meta: { title: '打印模板' },
         },
+        {
+          path: '/warehouse/dict',
+          component: () => import('@/views/warehouse/dict/index'),
+          name: 'WarehouseDict',
+          meta: { title: '仓储字典' },
+        },
       ],
     },
 
@@ -104,13 +110,13 @@ const warehouseRouter = {
           path: '/warehouse/wave',
           component: () => import('@/views/warehouse/wave/index'),
           name: 'WarehouseWave',
-          meta: { title: '波次管理' },
+          meta: { title: '波次与拣货' },
         },
         {
+          // 拣货管理已并入波次页（主从布局），旧链接/收藏重定向过去
           path: '/warehouse/pick',
-          component: () => import('@/views/warehouse/pick/index'),
-          name: 'WarehousePick',
-          meta: { title: '拣货管理' },
+          redirect: '/warehouse/wave',
+          hidden: true,
         },
         {
           path: '/warehouse/review',
@@ -119,10 +125,32 @@ const warehouseRouter = {
           meta: { title: '复核管理' },
         },
         {
-          path: '/warehouse/package',
-          component: () => import('@/views/warehouse/package/index'),
-          name: 'WarehousePackage',
-          meta: { title: '装箱管理' },
+          // 出库交接：快递员上门取件时当面确认，解决「货有没有真的被带走」
+          path: '/warehouse/handover',
+          component: () => import('@/views/warehouse/handover/index'),
+          name: 'WarehouseHandover',
+          meta: { title: '出库交接' },
+        },
+        {
+          // 人工交接与承运商揽收状态对不上的异常清单
+          path: '/warehouse/handover-exception',
+          component: () => import('@/views/warehouse/handover/exception'),
+          name: 'WarehouseHandoverException',
+          meta: { title: '交接异常' },
+        },
+        {
+          // 商城↔仓储两个服务之间的同步失败记录（发货没扣账、退货没入库）
+          path: '/warehouse/sync-fail',
+          component: () => import('@/views/warehouse/syncFail/index'),
+          name: 'WarehouseSyncFail',
+          meta: { title: '仓储同步异常' },
+        },
+        {
+          // 发货记录 + 运单号反查：一个运单号对应哪个仓、发了什么货、谁操作的
+          path: '/warehouse/ship-record',
+          component: () => import('@/views/warehouse/shipRecord/index'),
+          name: 'WarehouseShipRecord',
+          meta: { title: '发货记录' },
         },
       ],
     },
@@ -140,18 +168,6 @@ const warehouseRouter = {
           component: () => import('@/views/warehouse/relocate/index'),
           name: 'WarehouseRelocate',
           meta: { title: '上架/移库/补货' },
-        },
-        {
-          path: '/warehouse/replenish',
-          component: () => import('@/views/warehouse/replenish/index'),
-          name: 'WarehouseReplenish',
-          meta: { title: '智能补货' },
-        },
-        {
-          path: '/warehouse/allocate',
-          component: () => import('@/views/warehouse/allocate/index'),
-          name: 'WarehouseAllocate',
-          meta: { title: '智能分仓' },
         },
       ],
     },
@@ -181,12 +197,6 @@ const warehouseRouter = {
           component: () => import('@/views/warehouse/stockCheck/index'),
           name: 'WarehouseStockCheck',
           meta: { title: '盘点列表' },
-        },
-        {
-          path: '/warehouse/stock-check-plan',
-          component: () => import('@/views/warehouse/stockCheckPlan/index'),
-          name: 'WarehouseStockCheckPlan',
-          meta: { title: '循环盘点计划' },
         },
       ],
     },
@@ -262,7 +272,7 @@ const warehouseRouter = {
           path: '/warehouse/cost',
           component: () => import('@/views/warehouse/cost/index'),
           name: 'WarehouseCost',
-          meta: { title: '成本核算' },
+          meta: { title: '库存流动明细' },
         },
       ],
     },

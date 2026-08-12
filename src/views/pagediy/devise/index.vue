@@ -79,7 +79,8 @@
             </el-row>
           </div>
         </div>
-        <regional-agent v-if="listActive === 1 || listActive === 2" :listActive="listActive"></regional-agent>
+        <regional-agent v-if="listActive === 1" :listActive="listActive"></regional-agent>
+        <diy-template-library v-if="listActive === 2" />
       </div>
     </el-card>
   </div>
@@ -93,11 +94,12 @@ import {
 import QRcode from 'qrcodejs2';
 import { checkPermi } from '@/utils/permission';
 import RegionalAgent from "@/views/pagediy/devise/regionalAgent";
+import DiyTemplateLibrary from "@/views/pagediy/template";
 import useDeviseDiy from "@/views/pagediy/devise/config"; // 权限判断函数
 const { previewProtol, onEditDiyPage } = useDeviseDiy();
 export default {
   name: 'index',
-  components: {RegionalAgent},
+  components: { RegionalAgent, DiyTemplateLibrary },
   data() {
     return {
       grid: {
@@ -115,7 +117,7 @@ export default {
         xs: 24,
       },
       listActive: 0,
-      tabList: ['商城首页', '微页面'],
+      tabList: ['商城首页', '微页面', '商户模板库'],
       listLoading: false,
       frontDomain: '',
       Qrcode: '', //小程序二维码

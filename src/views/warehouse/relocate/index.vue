@@ -1,6 +1,6 @@
 <template>
-  <div class="app-container">
-    <el-form :inline="true" :model="query" size="small" class="filter-container">
+  <div class="app-container warehouse-relocate-page">
+    <el-form :inline="true" :model="query" size="small" class="filter-container relocate-filter-card">
       <el-form-item label="业务">
         <el-select v-model="query.bizType" clearable placeholder="全部" style="width:130px" @change="onSearch">
           <el-option v-for="(v,k) in bizMap" :key="k" :label="v" :value="Number(k)" />
@@ -23,18 +23,13 @@
       </el-form-item>
     </el-form>
 
-    <div style="margin-bottom:12px">
-      <el-dropdown @command="openDialog" size="small">
-        <el-button type="primary" icon="el-icon-plus" size="small">新建 <i class="el-icon-arrow-down el-icon--right"></i></el-button>
-        <el-dropdown-menu slot="dropdown">
-          <el-dropdown-item :command="0">上架单</el-dropdown-item>
-          <el-dropdown-item :command="1">移库单</el-dropdown-item>
-          <el-dropdown-item :command="2">补货单</el-dropdown-item>
-        </el-dropdown-menu>
-      </el-dropdown>
+    <div class="create-buttons">
+      <el-button class="create-action-btn" type="primary" icon="el-icon-upload2" size="small" @click="openDialog(0)">新建上架单</el-button>
+      <el-button class="create-action-btn" type="primary" icon="el-icon-sort" size="small" @click="openDialog(1)">新建移库单</el-button>
+      <el-button class="create-action-btn" type="primary" icon="el-icon-box" size="small" @click="openDialog(2)">新建补货单</el-button>
     </div>
 
-    <el-table v-loading="loading" :data="tableData" border stripe>
+    <el-table class="relocate-table" v-loading="loading" :data="tableData" border stripe>
       <el-table-column prop="id" label="ID" width="70" />
       <el-table-column prop="code" label="单号" width="180" />
       <el-table-column label="业务" width="90">
@@ -53,17 +48,20 @@
       <el-table-column label="创建时间" width="160">
         <template slot-scope="{row}">{{ row.createTime ? row.createTime.replace('T', ' ').substring(0, 19) : '' }}</template>
       </el-table-column>
-      <el-table-column label="操作" width="240" fixed="right">
+      <el-table-column label="操作" width="300" fixed="right" align="center">
         <template slot-scope="{row}">
-          <el-button type="text" @click="openDetail(row.id)">详情</el-button>
-          <el-button v-if="row.status===0" type="text" @click="onSubmit(row)">提交生效</el-button>
-          <el-button v-if="row.status===0" type="text" class="danger-text" @click="onCancel(row)">作废</el-button>
+          <div class="relocate-action-group">
+            <el-button class="relocate-action-btn" type="primary" plain size="mini" icon="el-icon-view" @click="openDetail(row.id)">详情</el-button>
+            <el-button v-if="row.status===0" class="relocate-action-btn" type="warning" plain size="mini" icon="el-icon-edit" @click="openEdit(row)">修改</el-button>
+            <el-button v-if="row.status===0" class="relocate-action-btn" type="success" plain size="mini" icon="el-icon-check" @click="onSubmit(row)">提交生效</el-button>
+            <el-button v-if="row.status===0" class="relocate-action-btn" type="danger" plain size="mini" icon="el-icon-close" @click="onCancel(row)">作废</el-button>
+          </div>
         </template>
       </el-table-column>
     </el-table>
 
     <el-pagination
-      style="margin-top:16px;text-align:right"
+      class="relocate-pagination"
       :current-page.sync="query.page"
       :page-size.sync="query.limit"
       :total="total"
@@ -97,9 +95,9 @@
         </el-row>
 
         <el-divider content-position="left">明细</el-divider>
-        <el-button v-if="dialogMode==='add'" size="mini" icon="el-icon-plus" @click="addItem">添加行</el-button>
+        <el-button v-if="editable" size="mini" icon="el-icon-plus" @click="addItem">添加行</el-button>
         <div class="dialog-table-scroller">
-          <el-table :data="form.items" border size="mini">
+          <el-table :data="form.items" border size="mini" max-height="360">
             <el-table-column type="index" width="50" fixed="left" />
             <el-table-column label="商品" min-width="200">
               <template slot-scope="{row}">
@@ -149,32 +147,32 @@
             <el-table-column label="数量" width="110">
               <template slot-scope="{row}"><el-input-number v-model="row.num" :min="1" size="mini" controls-position="right" /></template>
             </el-table-column>
-            <el-table-column v-if="dialogMode==='add'" label="操作" width="80" fixed="right">
+            <el-table-column v-if="editable" label="操作" width="80" fixed="right">
               <template slot-scope="{$index}"><el-button type="text" class="danger-text" @click="form.items.splice($index,1)">删除</el-button></template>
             </el-table-column>
           </el-table>
         </div>
       </el-form>
 
-      <div v-if="dialogMode==='add'" slot="footer">
+      <div v-if="editable" slot="footer">
         <el-button size="small" @click="dialogVisible=false">取消</el-button>
         <el-button type="primary" size="small" :loading="saving" @click="onSaveForm">保存</el-button>
       </div>
     </el-dialog>
 
-    <user-picker-dialog ref="userPicker" />
+    <admin-picker-dialog ref="adminPicker" title="选择申请人" />
     <product-picker-dialog ref="productPicker" />
   </div>
 </template>
 
 <script>
 import { relocateApi, warehouseApi, shelfApi, locationApi } from '@/api/warehouse';
-import UserPickerDialog from '../components/UserPickerDialog.vue';
+import AdminPickerDialog from '../components/AdminPickerDialog.vue';
 import ProductPickerDialog from '../components/ProductPickerDialog.vue';
 
 export default {
   name: 'WarehouseRelocate',
-  components: { UserPickerDialog, ProductPickerDialog },
+  components: { AdminPickerDialog, ProductPickerDialog },
   data() {
     return {
       loading: false, saving: false, total: 0, tableData: [],
@@ -187,7 +185,12 @@ export default {
     };
   },
   computed: {
-    dialogTitle() { return this.dialogMode === 'view' ? (this.bizMap[this.form.bizType] + '单详情 ' + (this.form.code || '')) : '新建' + this.bizMap[this.form.bizType] + '单'; },
+    editable() { return this.dialogMode === 'add' || this.dialogMode === 'edit'; },
+    dialogTitle() {
+      const biz = this.bizMap[this.form.bizType];
+      if (this.dialogMode === 'add') return '新建' + biz + '单';
+      return (this.dialogMode === 'edit' ? '编辑' + biz + '单 ' : biz + '单详情 ') + (this.form.code || '');
+    },
   },
   created() { this.loadWarehouses(); this.loadPage(); },
   methods: {
@@ -202,7 +205,25 @@ export default {
     onSearch() { this.query.page = 1; this.loadPage(); },
     onReset() { this.query = { page: 1, limit: 20, code: '', warehouseId: null, bizType: null, status: null }; this.loadPage(); },
     openDialog(bizType) { this.form = { ...this.emptyForm(), bizType }; this.dialogMode = 'add'; this.dialogVisible = true; },
-    async openDetail(id) { const d = await relocateApi.detail(id); this.form = d || this.emptyForm(); if (!this.form.items) this.form.items = []; this.dialogMode = 'view'; this.dialogVisible = true; await this.onWarehouseChange(); },
+    async openDetail(id) { await this.openDoc(id, 'view'); },
+    /** 草稿才可编辑，状态判断以后端为准，这里只做入口控制 */
+    async openEdit(row) {
+      if (row.status !== 0) return this.$message.warning('只有草稿状态的单据可以修改');
+      await this.openDoc(row.id, 'edit');
+    },
+    async openDoc(id, mode) {
+      const d = await relocateApi.detail(id);
+      this.form = d || this.emptyForm();
+      if (!this.form.items) this.form.items = [];
+      this.dialogMode = mode;
+      this.dialogVisible = true;
+      await this.onWarehouseChange();
+      // 明细里已选的货架要把库位选项带出来，否则编辑时库位下拉是空的
+      for (const it of this.form.items) {
+        await this.ensureLocations(it.fromShelfId);
+        await this.ensureLocations(it.toShelfId);
+      }
+    },
     resetForm() { this.$refs.formRef && this.$refs.formRef.resetFields(); },
     async onWarehouseChange() {
       if (!this.form.warehouseId) { this.shelfCache = []; this.locationCache = {}; return; }
@@ -212,19 +233,21 @@ export default {
       } catch (e) {}
       this.locationCache = {};
     },
+    async ensureLocations(shelfId) {
+      if (!shelfId || this.locationCache[shelfId]) return;
+      try { const list = await locationApi.list(shelfId) || []; this.$set(this.locationCache, shelfId, list.filter(l => l.status === 1)); } catch (e) {}
+    },
     async onShelfChange(row, side) {
       if (side === 'from') row.fromLocationId = null;
       else row.toLocationId = null;
-      const sid = side === 'from' ? row.fromShelfId : row.toShelfId;
-      if (!sid || this.locationCache[sid]) return;
-      try { const list = await locationApi.list(sid) || []; this.$set(this.locationCache, sid, list.filter(l => l.status === 1)); } catch (e) {}
+      await this.ensureLocations(side === 'from' ? row.fromShelfId : row.toShelfId);
     },
     addItem() { this.form.items.push({ productId: null, attrValueId: null, sku: '', barCode: '', platformType: 0, goodsName: '', fromShelfId: null, fromLocationId: null, fromBatchId: null, toShelfId: null, toLocationId: null, toBatchId: null, num: 1 }); },
     async pickApplyUser() {
-      const u = await this.$refs.userPicker.open();
+      const u = await this.$refs.adminPicker.open();
       if (!u) return;
-      this.$set(this.form, 'applyUserId', u.uid != null ? u.uid : u.id);
-      this.$set(this.form, 'applyUserName', u.nickname || u.username || u.phone || '');
+      this.$set(this.form, 'applyUserId', u.id);
+      this.$set(this.form, 'applyUserName', u.realName || u.account || '');
       this.$set(this.form, 'applyUserPhone', u.phone || '');
     },
     /**
@@ -232,7 +255,8 @@ export default {
      * 多选规格自动展开成多行没有意义（每行的源/目标库位都不同），所以只取第一个规格。
      */
     async pickProduct(row) {
-      const res = await this.$refs.productPicker.open();
+      // 上架/移库/补货都是搬动仓内已有的货，没库存搬不了
+      const res = await this.$refs.productPicker.open({ requireStock: true });
       if (!res || !res.product) return;
       const sku = res.skus && res.skus.length ? res.skus[0] : null;
       this.$set(row, 'productId', res.product.id);
@@ -249,8 +273,11 @@ export default {
       const noSku = this.form.items.findIndex((i) => !i.attrValueId);
       if (noSku >= 0) return this.$message.warning(`第 ${noSku + 1} 行未选择规格，请重新选择商品并指定规格`);
       this.saving = true;
-      try { await relocateApi.add(this.form); this.$message.success('保存成功'); this.dialogVisible = false; this.loadPage(); }
-      finally { this.saving = false; }
+      try {
+        if (this.dialogMode === 'edit') { await relocateApi.update(this.form); this.$message.success('修改成功'); }
+        else { await relocateApi.add(this.form); this.$message.success('保存成功'); }
+        this.dialogVisible = false; this.loadPage();
+      } finally { this.saving = false; }
     },
     async onSubmit(row) {
       await this.$confirm('提交后将按明细执行库位间移动，不可撤销。继续', '确认', { type: 'warning' });
@@ -263,18 +290,51 @@ export default {
 </script>
 
 <style scoped>
-.filter-container { margin-bottom: 12px; }
+.warehouse-relocate-page { padding-bottom: 18px; }
+.relocate-filter-card {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 16px 18px 2px;
+  margin-bottom: 16px;
+  border: 1px solid #e6ebf2;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(31, 45, 61, 0.04);
+}
+.relocate-filter-card >>> .el-form-item { margin-bottom: 14px; }
+.relocate-filter-card >>> .el-form-item__label { color: #53657b; font-weight: 500; }
+.relocate-filter-card >>> .el-input__inner,
+.relocate-filter-card >>> .el-select .el-input__inner { border-color: #dce4ef; border-radius: 6px; }
+.create-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.create-action-btn { min-width: 126px; border-radius: 6px; box-shadow: 0 3px 8px rgba(64, 158, 255, 0.16); }
+.relocate-table { overflow: hidden; border-radius: 8px; border: 1px solid #e4eaf3; }
+.relocate-table >>> th {
+  height: 48px;
+  color: #41526b;
+  font-weight: 600;
+  background: #eef4ff;
+  border-color: #e1e8f2;
+}
+.relocate-table >>> td { height: 58px; color: #3f4d60; border-color: #edf1f6; }
+.relocate-table >>> .el-table__row:hover > td { background: #f7faff; }
+.relocate-table >>> .el-tag { border-radius: 4px; }
+.relocate-action-group { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 7px; }
+.relocate-action-btn { min-width: 64px; margin: 0 !important; border-radius: 5px; }
+.relocate-pagination { margin-top: 16px; text-align: right; }
 .danger-text { color: #f56c6c; }
 .sku-missing { color: #f56c6c; font-size: 12px; }
 .dialog-table-scroller {
   margin-top: 8px;
-  max-height: 360px;
-  overflow-y: auto;
-  overflow-x: auto;
-  border: 1px solid #ebeef5;
-  border-radius: 4px;
 }
-.dialog-table-scroller >>> .el-table {
-  min-width: 1240px;
+
+@media (max-width: 960px) {
+  .relocate-filter-card { padding-left: 12px; padding-right: 12px; }
+  .relocate-action-btn { min-width: 58px; padding-left: 8px; padding-right: 8px; }
 }
 </style>

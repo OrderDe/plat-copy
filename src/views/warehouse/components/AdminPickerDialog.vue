@@ -1,8 +1,8 @@
 <template>
-  <el-dialog title="选择申请人" :visible.sync="visible" width="720px" append-to-body @open="onOpen">
+  <el-dialog :title="title" :visible.sync="visible" width="720px" append-to-body @open="onOpen">
     <el-form :inline="true" size="small">
       <el-form-item label="关键字">
-        <el-input v-model="keyword" placeholder="昵称 / 手机号" clearable @keyup.enter.native="onSearch" style="width:220px" />
+        <el-input v-model="keyword" placeholder="姓名" clearable style="width:220px" @keyup.enter.native="onSearch" />
       </el-form-item>
       <el-form-item>
         <el-button type="primary" icon="el-icon-search" @click="onSearch">搜索</el-button>
@@ -11,11 +11,13 @@
     <el-table v-loading="loading" :data="list" border size="small" highlight-current-row @row-click="pick">
       <el-table-column label="选择" width="60" align="center">
         <template slot-scope="{row}">
-          <el-radio v-model="selectedKey" :label="rowKey(row)">{{ '' }}</el-radio>
+          <el-radio v-model="selectedKey" :label="row.id">{{ '' }}</el-radio>
         </template>
       </el-table-column>
-      <el-table-column prop="nickname" label="昵称" min-width="160" />
-      <el-table-column prop="phone" label="手机号" width="160" />
+      <el-table-column prop="realName" label="姓名" min-width="140" />
+      <el-table-column prop="account" label="账号" min-width="140" />
+      <el-table-column prop="phone" label="手机号" width="140" />
+      <el-table-column prop="roleNames" label="身份" min-width="120" />
     </el-table>
     <el-pagination
       style="margin-top:12px;text-align:right"
@@ -27,16 +29,19 @@
     />
     <div slot="footer">
       <el-button size="small" @click="visible = false">取消</el-button>
-      <el-button type="primary" size="small" :disabled="!selectedUser" @click="confirm">确定</el-button>
+      <el-button type="primary" size="small" :disabled="!selected" @click="confirm">确定</el-button>
     </div>
   </el-dialog>
 </template>
 
 <script>
-import { userListApi } from '@/api/user';
+import { adminList } from '@/api/systemadmin';
 
 export default {
-  name: 'UserPickerDialog',
+  name: 'AdminPickerDialog',
+  props: {
+    title: { type: String, default: '选择管理员' },
+  },
   data() {
     return {
       visible: false,
@@ -47,7 +52,7 @@ export default {
       list: [],
       loading: false,
       selectedKey: null,
-      selectedUser: null,
+      selected: null,
       resolver: null,
     };
   },
@@ -58,28 +63,28 @@ export default {
         this.keyword = '';
         this.page = 1;
         this.selectedKey = null;
-        this.selectedUser = null;
+        this.selected = null;
         this.visible = true;
       });
     },
     onOpen() { this.load(); },
     onSearch() { this.page = 1; this.load(); },
-    rowKey(row) { return row.uid != null ? row.uid : row.id; },
     async load() {
       this.loading = true;
       try {
-        const res = await userListApi({ page: this.page, limit: this.limit, keywords: this.keyword, nickname: this.keyword });
+        // 只列有效管理员，避免选到已停用账号
+        const res = await adminList({ page: this.page, limit: this.limit, realName: this.keyword, status: true });
         this.list = (res && res.list) || (res && res.records) || [];
         this.total = (res && res.total) || 0;
       } finally { this.loading = false; }
     },
     pick(row) {
-      this.selectedKey = this.rowKey(row);
-      this.selectedUser = row;
+      this.selectedKey = row.id;
+      this.selected = row;
     },
     confirm() {
-      if (!this.selectedUser) return;
-      if (this.resolver) this.resolver(this.selectedUser);
+      if (!this.selected) return;
+      if (this.resolver) this.resolver(this.selected);
       this.resolver = null;
       this.visible = false;
     },

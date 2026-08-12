@@ -185,3 +185,38 @@ export function pagediyAreasSetDefaultApi(id) {
     method: 'post',
   });
 }
+
+/** 商户模板库列表 */
+export function pagediyTemplateListApi(params) {
+  return request({
+    url: '/admin/platform/pagediy/template/page',
+    method: 'get',
+    params,
+  });
+}
+
+/** 将平台装修页面发布为商户模板 */
+export function pagediyTemplatePublishApi(data) {
+  return request({
+    url: '/admin/platform/pagediy/template/publish',
+    method: 'post',
+    data,
+  });
+}
+
+/** 更新商户模板元数据 */
+export function pagediyTemplateUpdateApi(data) {
+  return request({
+    url: '/admin/platform/pagediy/template/update',
+    method: 'post',
+    data,
+  });
+}
+
+/** 删除商户模板 */
+export function pagediyTemplateDeleteApi(id) {
+  return request({
+    url: `/admin/platform/pagediy/template/delete/${id}`,
+    method: 'post',
+  });
+}

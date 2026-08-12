@@ -88,9 +88,9 @@
           </el-select>
         </el-form-item>
         <el-row :gutter="8">
-          <el-col :span="8"><el-form-item label="琛" label-width="40px"><el-input-number v-model="form.rowNum" :min="1" controls-position="right" style="width:100%" /></el-form-item></el-col>
-          <el-col :span="8"><el-form-item label="鍒" label-width="40px"><el-input-number v-model="form.colNum" :min="1" controls-position="right" style="width:100%" /></el-form-item></el-col>
-          <el-col :span="8"><el-form-item label="灞" label-width="40px"><el-input-number v-model="form.layerNum" :min="1" controls-position="right" style="width:100%" /></el-form-item></el-col>
+          <el-col :span="8"><el-form-item label="行" label-width="40px"><el-input-number v-model="form.rowNum" :min="1" controls-position="right" style="width:100%" /></el-form-item></el-col>
+          <el-col :span="8"><el-form-item label="列" label-width="40px"><el-input-number v-model="form.colNum" :min="1" controls-position="right" style="width:100%" /></el-form-item></el-col>
+          <el-col :span="8"><el-form-item label="层" label-width="40px"><el-input-number v-model="form.layerNum" :min="1" controls-position="right" style="width:100%" /></el-form-item></el-col>
         </el-row>
         <el-form-item label="容量"><el-input-number v-model="form.capacity" :min="0" style="width:100%" /></el-form-item>
         <el-form-item label="状态">
@@ -125,9 +125,9 @@
           </el-select>
         </el-form-item>
         <el-row :gutter="8">
-          <el-col :span="8"><el-form-item label="琛"><el-input-number v-model="batchForm.rowNum" :min="1" style="width:100%" /></el-form-item></el-col>
-          <el-col :span="8"><el-form-item label="鍒"><el-input-number v-model="batchForm.colNum" :min="1" style="width:100%" /></el-form-item></el-col>
-          <el-col :span="8"><el-form-item label="灞"><el-input-number v-model="batchForm.layerNum" :min="1" style="width:100%" /></el-form-item></el-col>
+          <el-col :span="8"><el-form-item label="行"><el-input-number v-model="batchForm.rowNum" :min="1" style="width:100%" /></el-form-item></el-col>
+          <el-col :span="8"><el-form-item label="列"><el-input-number v-model="batchForm.colNum" :min="1" style="width:100%" /></el-form-item></el-col>
+          <el-col :span="8"><el-form-item label="层"><el-input-number v-model="batchForm.layerNum" :min="1" style="width:100%" /></el-form-item></el-col>
         </el-row>
         <el-form-item label="单库位容量"><el-input-number v-model="batchForm.locationCapacity" :min="0" style="width:100%" /></el-form-item>
         <div class="hint">将创建 {{ batchForm.shelfCount }} 个货架，共{{ batchTotal }} 个库位</div>

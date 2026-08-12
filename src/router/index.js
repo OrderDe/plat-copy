@@ -26,6 +26,8 @@ import invoiceRouter from './modules/invoice';
 import ryFlowAbleRouter from './modules/ryFlowAble';
 import approvalCenterRouter from './modules/approvalCenter';
 import warehouseRouter from './modules/warehouse';
+import jdlLogisticsRouter from './modules/jdlLogistics';
+import recommendRouter from './modules/recommend';
 /**
  * Note: sub-menu only appear when route children.length >= 1
  * Detail see: https://panjiachen.github.io/vue-element-admin-site/guide/essentials/router-and-nav.html
@@ -88,6 +90,10 @@ export const constantRoutes = [
   approvalCenterRouter,
   // 仓储物流
   warehouseRouter,
+  // 京东物流（从仓库管理中拆分为一级父目录）
+  jdlLogisticsRouter,
+  // 商品用户推荐
+  recommendRouter,
   {
     path: '/404',
     component: () => import('@/views/error-page/404'),

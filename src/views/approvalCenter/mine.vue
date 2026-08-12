@@ -1,5 +1,5 @@
 <template>
-  <div class="app-container">
+  <div class="app-container approval-center-page">
     <div class="page-header">
       <div class="page-title">我发起的</div>
       <div class="page-sub">我提交的所有审批申请</div>
@@ -21,18 +21,19 @@
         <template slot-scope="{ row }">
           <span v-if="row.status === 0">{{ row.currentTaskName }} · {{ row.currentAssigneeName || '待分配' }}</span>
           <span v-else-if="row.result === 1" style="color: #f56c6c;">已驳回: {{ row.comment || '' }}</span>
-          <span v-else-if="row.result === 0" style="color: #67c23a;">完成于 {{ row.endTime }}</span>
+          <span v-else-if="row.result === 0" style="color: #67c23a;">完成于 {{ formatDateTime(row.endTime) }}</span>
           <span v-else style="color: #909399;">已撤回</span>
         </template>
       </el-table-column>
-      <el-table-column label="提交时间" prop="startTime" width="160" />
-      <el-table-column label="操作" width="180">
+      <el-table-column label="提交时间" width="160">
+        <template slot-scope="{ row }">{{ formatDateTime(row.startTime) }}</template>
+      </el-table-column>
+      <el-table-column label="操作" width="210" align="center">
         <template slot-scope="{ row }">
-          <template v-if="row.status === 0">
-            <el-button type="text" @click="goDetail(row)">查看</el-button>
-            <el-button type="text" @click="withdraw(row)">撤回</el-button>
-          </template>
-          <el-button v-else type="text" @click="goDetail(row)">查看</el-button>
+          <div class="approval-action-group">
+            <el-button class="approval-action-btn" type="primary" plain size="mini" icon="el-icon-view" @click="goDetail(row)">查看</el-button>
+            <el-button v-if="row.status === 0" class="approval-action-btn" type="warning" plain size="mini" icon="el-icon-refresh-left" @click="withdraw(row)">撤回</el-button>
+          </div>
         </template>
       </el-table-column>
     </el-table>
@@ -78,6 +79,10 @@ export default {
       if (row.result === 0) return '已通过';
       if (row.result === 1) return '已驳回';
       return '已撤回';
+    },
+    formatDateTime(value) {
+      if (!value) return '-';
+      return String(value).replace('T', ' ').substring(0, 19);
     },
     goDetail(row) {
       this.$router.push(`/approvalCenter/detail/${row.id}`);

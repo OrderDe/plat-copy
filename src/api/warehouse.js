@@ -15,6 +15,15 @@ export const warehouseApi = {
   del: (id) => request({ url: `/api/warehouse/warehouse/delete/${id}`, method: 'post', baseURL }),
 };
 
+// ==================== 字典 ====================
+// 单据类型等枚举统一由 wms_dict 维护，前端不再硬编码
+export const dictApi = {
+  items: (dictType) => request({ url: '/api/warehouse/dict/items', method: 'get', params: { dictType }, baseURL }),
+  page: (data) => request({ url: '/api/warehouse/dict/page', method: 'post', data, baseURL }),
+  save: (data) => request({ url: '/api/warehouse/dict/save', method: 'post', data, baseURL }),
+  del: (id) => request({ url: `/api/warehouse/dict/delete/${id}`, method: 'post', baseURL }),
+};
+
 // ==================== 货架 ====================
 export const shelfApi = {
   page: (data) => request({ url: '/api/warehouse/shelf/page', method: 'post', data, baseURL }),
@@ -44,8 +53,13 @@ export const batchApi = {
   del: (id) => request({ url: `/api/warehouse/batch/delete/${id}`, method: 'post', baseURL }),
   freeze: (id) => request({ url: `/api/warehouse/batch/freeze/${id}`, method: 'post', baseURL }),
   unfreeze: (id) => request({ url: `/api/warehouse/batch/unfreeze/${id}`, method: 'post', baseURL }),
+  unbatchedNum: (params) => request({ url: '/api/warehouse/batch/unbatchedNum', method: 'get', params, baseURL }),
+  inboundSum: (params) => request({ url: '/api/warehouse/batch/inboundSum', method: 'get', params, baseURL }),
   fifo: (params) => request({ url: '/api/warehouse/batch/fifo', method: 'get', params, baseURL }),
   fefo: (params) => request({ url: '/api/warehouse/batch/fefo', method: 'get', params, baseURL }),
+  leastRemain: (params) => request({ url: '/api/warehouse/batch/leastRemain', method: 'get', params, baseURL }),
+  // 建出库单选批次用，支持 minShelfLifeDays 过滤剩余效期
+  pickable: (params) => request({ url: '/api/warehouse/batch/pickable', method: 'get', params, baseURL }),
   expiryWarning: (params) => request({ url: '/api/warehouse/batch/expiryWarning', method: 'get', params, baseURL }),
 };
 
@@ -54,6 +68,7 @@ export const relocateApi = {
   page: (data) => request({ url: '/api/warehouse/relocate/page', method: 'post', data, baseURL }),
   detail: (id) => request({ url: `/api/warehouse/relocate/detail/${id}`, method: 'get', baseURL }),
   add: (data) => request({ url: '/api/warehouse/relocate/add', method: 'post', data, baseURL }),
+  update: (data) => request({ url: '/api/warehouse/relocate/update', method: 'post', data, baseURL }),
   submit: (id) => request({ url: `/api/warehouse/relocate/submit/${id}`, method: 'post', baseURL }),
   cancel: (id) => request({ url: `/api/warehouse/relocate/cancel/${id}`, method: 'post', baseURL }),
 };
@@ -63,7 +78,8 @@ export const inspectApi = {
   page: (data) => request({ url: '/api/warehouse/inspect/page', method: 'post', data, baseURL }),
   detail: (id) => request({ url: `/api/warehouse/inspect/detail/${id}`, method: 'get', baseURL }),
   add: (data) => request({ url: '/api/warehouse/inspect/add', method: 'post', data, baseURL }),
-  submit: (id) => request({ url: `/api/warehouse/inspect/submit/${id}`, method: 'post', baseURL }),
+  update: (data) => request({ url: '/api/warehouse/inspect/update', method: 'post', data, baseURL }),
+  submit: (id, params) => request({ url: `/api/warehouse/inspect/submit/${id}`, method: 'post', params, baseURL }),
   cancel: (id) => request({ url: `/api/warehouse/inspect/cancel/${id}`, method: 'post', baseURL }),
   createFromInbound: (inboundId, params) => request({ url: `/api/warehouse/inspect/createFromInbound/${inboundId}`, method: 'post', params, baseURL }),
 };
@@ -84,7 +100,7 @@ export const pickApi = {
   page: (data) => request({ url: '/api/warehouse/pick/page', method: 'post', data, baseURL }),
   detail: (id) => request({ url: `/api/warehouse/pick/detail/${id}`, method: 'get', baseURL }),
   assign: (id, pickerId, pickerName) => request({ url: `/api/warehouse/pick/assign/${id}`, method: 'post', params: { pickerId, pickerName }, baseURL }),
-  confirm: (id, pickedMap) => request({ url: `/api/warehouse/pick/confirm/${id}`, method: 'post', data: pickedMap, baseURL }),
+  confirm: (id, pickedMap, params) => request({ url: `/api/warehouse/pick/confirm/${id}`, method: 'post', data: pickedMap, params, baseURL }),
 };
 
 // ==================== 复核 ====================
@@ -92,7 +108,7 @@ export const reviewApi = {
   page: (data) => request({ url: '/api/warehouse/review/page', method: 'post', data, baseURL }),
   detail: (id) => request({ url: `/api/warehouse/review/detail/${id}`, method: 'get', baseURL }),
   createFromPick: (pickOrderId, params) => request({ url: `/api/warehouse/review/createFromPick/${pickOrderId}`, method: 'post', params, baseURL }),
-  confirm: (id, reviewedMap) => request({ url: `/api/warehouse/review/confirm/${id}`, method: 'post', data: reviewedMap, baseURL }),
+  confirm: (id, reviewedMap, params) => request({ url: `/api/warehouse/review/confirm/${id}`, method: 'post', data: reviewedMap, params, baseURL }),
   reject: (id, reason) => request({ url: `/api/warehouse/review/reject/${id}`, method: 'post', params: { reason }, baseURL }),
 };
 
@@ -119,15 +135,6 @@ export const stockCheckApi = {
   approve: (id, operator) => request({ url: `/api/warehouse/stockCheck/approve/${id}`, method: 'post', params: { operator }, baseURL }),
 };
 
-// ==================== 循环盘点计划 ====================
-export const stockCheckPlanApi = {
-  page: (data) => request({ url: '/api/warehouse/stockCheckPlan/page', method: 'post', data, baseURL }),
-  add: (data) => request({ url: '/api/warehouse/stockCheckPlan/add', method: 'post', data, baseURL }),
-  edit: (data) => request({ url: '/api/warehouse/stockCheckPlan/edit', method: 'post', data, baseURL }),
-  del: (id) => request({ url: `/api/warehouse/stockCheckPlan/delete/${id}`, method: 'post', baseURL }),
-  runOnce: (id, operator) => request({ url: `/api/warehouse/stockCheckPlan/runOnce/${id}`, method: 'post', params: { operator }, baseURL }),
-};
-
 // ==================== 入库 ====================
 export const inboundApi = {
   page: (data) => request({ url: '/api/warehouse/inbound/page', method: 'post', data, baseURL }),
@@ -142,7 +149,6 @@ export const outboundApi = {
   page: (data) => request({ url: '/api/warehouse/outbound/page', method: 'post', data, baseURL }),
   detail: (id) => request({ url: `/api/warehouse/outbound/detail/${id}`, method: 'get', baseURL }),
   add: (data) => request({ url: '/api/warehouse/outbound/add', method: 'post', data, baseURL }),
-  submit: (id) => request({ url: `/api/warehouse/outbound/submit/${id}`, method: 'post', baseURL }),
   cancel: (id) => request({ url: `/api/warehouse/outbound/cancel/${id}`, method: 'post', baseURL }),
 };
 
@@ -175,41 +181,23 @@ export const transferApi = {
   cancelShip: (id) => request({ url: `/api/warehouse/transfer/cancelShip/${id}`, method: 'post', baseURL }),
 };
 
-// ==================== 智能分仓 ====================
-export const allocateApi = {
-  preview: (data) => request({ url: '/api/warehouse/allocate/preview', method: 'post', data, baseURL }),
-  createOutbounds: (data, operator) => request({ url: '/api/warehouse/allocate/createOutbounds', method: 'post', data, params: { operator }, baseURL }),
-};
-
 // ==================== 库存流水 ====================
 export const stockRecordApi = {
   page: (data) => request({ url: '/api/warehouse/stockRecord/page', method: 'post', data, baseURL }),
 };
 
-// ==================== 装箱管理 ====================
-export const packageApi = {
-  page: (data) => request({ url: '/api/warehouse/package/page', method: 'post', data, baseURL }),
-  detail: (id) => request({ url: `/api/warehouse/package/detail/${id}`, method: 'get', baseURL }),
-  save: (data) => request({ url: '/api/warehouse/package/save', method: 'post', data, baseURL }),
-  seal: (id, operator) => request({ url: `/api/warehouse/package/seal/${id}`, method: 'post', params: { operator }, baseURL }),
-  cancel: (id) => request({ url: `/api/warehouse/package/cancel/${id}`, method: 'post', baseURL }),
-  listByOutbound: (outboundId) => request({ url: '/api/warehouse/package/listByOutbound', method: 'get', params: { outboundId }, baseURL }),
-  progress: (outboundId) => request({ url: '/api/warehouse/package/progress', method: 'get', params: { outboundId }, baseURL }),
-  quickPack: (outboundId, operator) => request({ url: '/api/warehouse/package/quickPack', method: 'post', params: { outboundId, operator }, baseURL }),
-  createFromReview: (reviewId, operator) => request({ url: `/api/warehouse/package/createFromReview/${reviewId}`, method: 'post', params: { operator }, baseURL }),
-  deliver: (id, params) => request({ url: `/api/warehouse/package/deliver/${id}`, method: 'post', params, baseURL }),
-  deliverByOutbound: (params) => request({ url: '/api/warehouse/package/deliverByOutbound', method: 'post', params, baseURL }),
-};
-
-// ==================== 智能补货 ====================
-export const replenishApi = {
-  rulePage: (params) => request({ url: '/api/warehouse/replenish/rule/page', method: 'get', params, baseURL }),
-  ruleSave: (data) => request({ url: '/api/warehouse/replenish/rule/save', method: 'post', data, baseURL }),
-  ruleDel: (id) => request({ url: `/api/warehouse/replenish/rule/delete/${id}`, method: 'post', baseURL }),
-  suggestionPage: (params) => request({ url: '/api/warehouse/replenish/suggestion/page', method: 'get', params, baseURL }),
-  scan: (params) => request({ url: '/api/warehouse/replenish/scan', method: 'post', params, baseURL }),
-  convert: (ids, operator) => request({ url: '/api/warehouse/replenish/convert', method: 'post', data: ids, params: { operator }, baseURL }),
-  ignore: (ids) => request({ url: '/api/warehouse/replenish/ignore', method: 'post', data: ids, baseURL }),
+// ==================== 出库交接（快递员取件确认） ====================
+export const handoverApi = {
+  // 待交接：已生效但还没登记交接的出库单
+  pending: (params) => request({ url: '/api/warehouse/handover/pending', method: 'get', params, baseURL }),
+  create: (data) => request({ url: '/api/warehouse/handover/create', method: 'post', data, baseURL }),
+  page: (data) => request({ url: '/api/warehouse/handover/page', method: 'post', data, baseURL }),
+  detail: (id) => request({ url: `/api/warehouse/handover/detail/${id}`, method: 'get', baseURL }),
+  // 交接与承运商揽收状态对不上的异常清单
+  exceptionPage: (data) => request({ url: '/api/warehouse/handover/exception/page', method: 'post', data, baseURL }),
+  exceptionPendingCount: (params) => request({ url: '/api/warehouse/handover/exception/pendingCount', method: 'get', params, baseURL }),
+  exceptionHandle: (params) => request({ url: '/api/warehouse/handover/exception/handle', method: 'post', params, baseURL }),
+  exceptionScan: () => request({ url: '/api/warehouse/handover/exception/scan', method: 'post', baseURL }),
 };
 
 // ==================== 打印中心 ====================
@@ -248,3 +236,14 @@ export const reportApi = {
   turnover: (params) => request({ url: '/api/warehouse/report/turnover', method: 'get', params, baseURL }),
 };
 
+
+// ==================== 仓储同步异常 ====================
+// 注意 baseURL：这些记录存在商城主库(eb_warehouse_sync_fail)、由 tjMall-admin 提供，
+// 不走仓储服务(baseURL3)，所以这里用默认 baseURL。
+export const syncFailApi = {
+  page: (params) => request({ url: '/admin/platform/warehouse/sync-fail/list', method: 'get', params }),
+  retry: (id, operator) => request({ url: `/admin/platform/warehouse/sync-fail/retry/${id}`, method: 'post', params: { operator } }),
+  handle: (id, status, remark, operator) => request({ url: `/admin/platform/warehouse/sync-fail/handle/${id}`, method: 'post', params: { status, remark, operator } }),
+  // 复用定时任务的兜底触发入口，批量重试行为与自动补偿完全一致
+  retryAll: () => request({ url: '/admin/warehouse/refund-inbound/retry-once', method: 'post' }),
+};

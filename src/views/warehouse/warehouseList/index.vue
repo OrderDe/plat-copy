@@ -39,24 +39,11 @@
           <el-tag size="mini">{{ typeText(row.type) }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="层级" width="90">
-        <template slot-scope="{row}">
-          <el-tag size="mini" :type="({0:'danger',1:'',2:'success'})[row.level == null ? 1 : row.level]">
-            {{ ({0:'总仓',1:'区域仓', 2:'前置仓'})[row.level == null ? 1 : row.level] }}
-          </el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column label="分仓" width="90">
-        <template slot-scope="{row}">
-          <el-tag v-if="row.allocEnabled === 0" type="info" size="mini">不参与</el-tag>
-          <span v-else>优先级 {{ row.priority || 0 }}</span>
-        </template>
-      </el-table-column>
       <el-table-column prop="contactName" label="联系人" width="100" />
       <el-table-column prop="contactPhone" label="电话" width="130" />
       <el-table-column label="地址" min-width="200" show-overflow-tooltip>
         <template slot-scope="{row}">
-          {{ [row.province, row.city, row.region, row.detailAddress].filter(Boolean).join('') }}
+          {{ [row.province, row.city, row.region, row.detailAddress, row.building, row.floor].filter(Boolean).join('') }}
         </template>
       </el-table-column>
       <el-table-column label="状态" width="80">
@@ -123,31 +110,12 @@
         <el-form-item label="详细地址">
           <el-input v-model="form.detailAddress" type="textarea" :rows="2" />
         </el-form-item>
-        <el-divider content-position="left">多结算单同配配置</el-divider>
-        <el-form-item label="仓库层级">
-          <el-select v-model="form.level" style="width:100%">
-            <el-option label="总仓" :value="0" />
-            <el-option label="区域仓" :value="1" />
-            <el-option label="前置仓（分仓时最优先）" :value="2" />
-          </el-select>
+        <el-form-item label="栋">
+          <el-input v-model="form.building" maxlength="64" placeholder="如：A栋" />
         </el-form-item>
-        <el-form-item label="覆盖省份">
-          <el-input v-model="form.coverProvinceCodes" placeholder="如：广东省,广西 —— 逗号分隔，留空 = 全国可发" />
-          <div class="form-tips">
-            推荐直接填省份名称。订单只存一整串收货地址、没有行政区编码，
-            填名称才能命中；也支持填编码，两种可混用。
-          </div>
+        <el-form-item label="层">
+          <el-input v-model="form.floor" maxlength="64" placeholder="如：3层" />
         </el-form-item>
-        <el-form-item label="覆盖城市">
-          <el-input v-model="form.coverCityCodes" placeholder="如：深圳市,广州市 —— 选填，比省份更精确" />
-        </el-form-item>
-        <el-form-item label="分仓优先级">
-          <el-input-number v-model="form.priority" :min="0" :max="999" style="width:100%" />
-        </el-form-item>
-        <el-form-item label="参与智能分仓">
-          <el-switch v-model="form.allocEnabled" :active-value="1" :inactive-value="0" />
-        </el-form-item>
-        <el-divider />
         <el-form-item label="状态">
           <el-radio-group v-model="form.status">
             <el-radio :label="1">启用</el-radio>
@@ -202,8 +170,7 @@ export default {
   methods: {
     emptyForm() {
       return { id: null, code: '', name: '', type: 0, contactName: '', contactPhone: '',
-        province: '', city: '', region: '', regionIds: [], detailAddress: '', status: 1, remark: '',
-        level: 1, coverProvinceCodes: '', coverCityCodes: '', priority: 0, allocEnabled: 1 };
+        province: '', city: '', region: '', regionIds: [], detailAddress: '', building: '', floor: '', status: 1, remark: '' };
     },
     typeText(t) {
       return ({ 0: '实体仓', 1: '虚拟仓' })[t] || '-';
@@ -383,5 +350,4 @@ export default {
 <style scoped>
 .filter-container { margin-bottom: 12px; }
 .danger-text { color: #f56c6c; }
-.form-tips { color: #909399; font-size: 12px; line-height: 1.5; margin-top: 4px; }
 </style>

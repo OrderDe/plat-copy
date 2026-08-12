@@ -1,5 +1,5 @@
 <template>
-  <div class="app-container">
+  <div class="app-container approval-center-page">
     <div class="page-header">
       <div class="page-title">我收到的抄送</div>
       <div class="page-sub">仅知会,无需审批操作 · 未读 {{ unreadCount }} 条</div>
@@ -13,14 +13,18 @@
         </template>
       </el-table-column>
       <el-table-column label="抄送人" prop="ccUserName" width="140" />
-      <el-table-column label="抄送时间" prop="ccTime" width="180" />
-      <el-table-column label="阅读时间" prop="readTime" width="180">
-        <template slot-scope="{ row }">{{ row.readTime || '—' }}</template>
+      <el-table-column label="抄送时间" width="180">
+        <template slot-scope="{ row }">{{ formatDateTime(row.ccTime) }}</template>
       </el-table-column>
-      <el-table-column label="操作" width="140">
+      <el-table-column label="阅读时间" width="180">
+        <template slot-scope="{ row }">{{ formatDateTime(row.readTime, '—') }}</template>
+      </el-table-column>
+      <el-table-column label="操作" width="210" align="center">
         <template slot-scope="{ row }">
-          <el-button type="text" @click.stop="viewInstance(row)">查看</el-button>
-          <el-button v-if="!row.isRead" type="text" @click.stop="markRead(row)">标为已读</el-button>
+          <div class="approval-action-group">
+            <el-button class="approval-action-btn" type="primary" plain size="mini" icon="el-icon-view" @click.stop="viewInstance(row)">查看</el-button>
+            <el-button v-if="!row.isRead" class="approval-action-btn" type="success" plain size="mini" icon="el-icon-check" @click.stop="markRead(row)">标为已读</el-button>
+          </div>
         </template>
       </el-table-column>
     </el-table>
@@ -56,7 +60,7 @@ export default {
       try {
         await markCcRead(row.id, this.userId);
         row.isRead = true;
-        row.readTime = new Date().toISOString().replace('T', ' ').slice(0, 19);
+        row.readTime = this.formatDateTime(new Date());
         this.$message.success('已标为已读');
       } catch (e) {
         this.$message.error('操作失败: ' + (e.message || e));
@@ -64,6 +68,14 @@ export default {
     },
     viewInstance(row) {
       this.$router.push(`/approvalCenter/detail/${row.instanceId}`);
+    },
+    formatDateTime(value, empty = '-') {
+      if (!value) return empty;
+      if (value instanceof Date) {
+        const pad = n => String(n).padStart(2, '0');
+        return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())} ${pad(value.getHours())}:${pad(value.getMinutes())}:${pad(value.getSeconds())}`;
+      }
+      return String(value).replace('T', ' ').substring(0, 19);
     },
     goDetail(row) { this.viewInstance(row); },
   },

@@ -117,6 +117,11 @@
                 >删除</el-dropdown-item
               >
               <el-dropdown-item @click.native="handlePreviewProtol(scope.row.id)">预览</el-dropdown-item>
+              <el-dropdown-item
+                v-if="isShowAction && checkPermi(['platform:pagediy:update'])"
+                @click.native="publishTemplate(scope.row)"
+                >发布到商户模板库</el-dropdown-item
+              >
             </el-dropdown-menu>
           </el-dropdown>
         </template>
@@ -146,6 +151,7 @@ import {
   pagediyListApi,
   pagediySetdefaultApi,
   pagediyUpdatenameApi,
+  pagediyTemplatePublishApi,
 } from '@/api/devise';
 import { handleDeleteTable } from '@/libs/public';
 import useDeviseDiy from '@/views/pagediy/devise/config';
@@ -264,6 +270,25 @@ export default {
     pageChange(val) {
       this.tableForm.page = val;
       this.getList();
+    },
+    async publishTemplate(row) {
+      try {
+        const result = await this.$prompt('请输入模板行业分类', '发布商户模板', {
+          confirmButtonText: '发布',
+          cancelButtonText: '取消',
+          inputValue: row.templateCategory || '综合',
+          inputPlaceholder: '例如：家居、美妆、日用百货',
+        });
+        await pagediyTemplatePublishApi({
+          sourceId: row.id,
+          name: row.name,
+          templateCategory: result.value || '其他',
+          coverImage: row.coverImage || '',
+        });
+        this.$message.success('已发布到商户模板库');
+      } catch (error) {
+        if (error !== 'cancel' && error !== 'close') throw error;
+      }
     },
     //预览
     handlePreviewProtol(id) {

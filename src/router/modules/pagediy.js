@@ -28,6 +28,12 @@ const pageDiyRouter = {
           meta: { title: '页面装修', noCache: true },
         },
         {
+          path: 'template',
+          component: () => import('@/views/pagediy/template'),
+          name: 'diyTemplateLibrary',
+          meta: { title: '商户模板库', noCache: true },
+        },
+        {
           path: 'viewDesign',
           component: () => import('@/views/pagediy/viewDesign'),
           name: 'viewDesign',

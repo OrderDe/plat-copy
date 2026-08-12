@@ -24,6 +24,14 @@ const publicPaths = [
   '/page/design/creatDevise',
 ];
 
+// 已下线的流程案例页面；审批中心不在此列表中，继续保留。
+const removedPlatformPaths = [
+  '/ryFlowAble/activiti',
+  '/ryFlowAble/activiti/leave',
+  '/ryFlowAble/activiti/message',
+  '/ryFlowAble/activiti/signal',
+];
+
 /**
  * 路由前缀 → 所需权限标识映射
  * 当菜单数据不完整时，通过用户 permissions 数组兜底校验
@@ -123,6 +131,12 @@ router.beforeEach(async (to, from, next) => {
 
   // determine whether the user has logged in
   const hasToken = getToken();
+  if (isPlatform && removedPlatformPaths.some((path) => to.path === path || to.path.startsWith(path + '/'))) {
+    Message.warning('该流程页面已下线');
+    next('/dashboard');
+    NProgress.done();
+    return;
+  }
   if (hasToken) {
     if (to.path === '/login' || to.path === '/circle/login') {
       // if is logged in, redirect to the home page

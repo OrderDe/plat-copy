@@ -158,6 +158,51 @@ export function offShellApi(data) {
 }
 
 /**
+ * 设置商品App展示权限（平台端）
+ * @param data { ids, forbid }
+ */
+export function setAppShowForbidApi(data) {
+  return request({
+    url: `/admin/platform/product/app/show/forbid`,
+    method: 'post',
+    data,
+  });
+}
+
+/**
+ * 设置商品是否纳入仓储管理（平台端）
+ * @param data { ids, managed }
+ */
+export function setWmsManagedApi(data) {
+  return request({
+    url: `/admin/platform/product/wms/managed`,
+    method: 'post',
+    data,
+  });
+}
+
+/**
+ * 查询「商户可自选是否入仓」开关
+ */
+export function getWmsManagedSelectableApi() {
+  return request({
+    url: `/admin/platform/product/wms/managed/selectable`,
+    method: 'get',
+  });
+}
+
+/**
+ * 开/关「商户可自选是否入仓」
+ */
+export function setWmsManagedSelectableApi(open) {
+  return request({
+    url: `/admin/platform/product/wms/managed/selectable`,
+    method: 'post',
+    params: { open },
+  });
+}
+
+/**
  * 商品评论 列表
  * @param pram
  */

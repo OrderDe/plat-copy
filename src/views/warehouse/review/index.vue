@@ -18,21 +18,21 @@
       </el-form-item>
     </el-form>
 
-    <el-table v-loading="loading" :data="tableData" border stripe>
+    <el-table v-loading="loading" :data="tableData" border stripe size="small">
       <el-table-column prop="id" label="ID" width="70" />
-      <el-table-column prop="code" label="复核单号" width="200" />
-      <el-table-column prop="pickOrderCode" label="拣货单" width="240" />
+      <el-table-column prop="code" label="复核单号" min-width="200" show-overflow-tooltip />
+      <el-table-column prop="pickOrderCode" label="拣货单" min-width="220" show-overflow-tooltip />
       <el-table-column label="状态" width="100">
         <template slot-scope="{row}"><el-tag :type="statusType(row.status)" size="mini">{{ statusMap[row.status] }}</el-tag></template>
       </el-table-column>
-      <el-table-column prop="reviewerName" label="复核员" width="120" />
-      <el-table-column label="创建时间" width="160">
+      <el-table-column prop="reviewerName" label="复核员" min-width="120" show-overflow-tooltip />
+      <el-table-column label="创建时间" min-width="170">
         <template slot-scope="{row}">{{ row.createTime ? row.createTime.replace('T', ' ').substring(0, 19) : '' }}</template>
       </el-table-column>
-      <el-table-column label="操作" width="260" fixed="right">
+      <el-table-column label="操作" width="140" fixed="right" align="center">
         <template slot-scope="{row}">
-          <el-button type="text" @click="openReview(row)">复核</el-button>
-          <el-button v-if="row.status===1" type="text" style="color:#67c23a" @click="onCreatePackage(row)">一键装箱</el-button>
+          <!-- 只有待复核能操作，其余状态弹窗是只读的，按钮改叫「明细」避免误以为还能改 -->
+          <el-button type="text" @click="openReview(row)">{{ row.status === 0 ? '复核' : '明细' }}</el-button>
           <el-button v-if="row.status===0" type="text" class="danger-text" @click="onReject(row)">驳回</el-button>
         </template>
       </el-table-column>
@@ -44,11 +44,14 @@
       layout="total, prev, pager, next" @current-change="loadPage"
     />
 
-    <!-- 复核鎵ц -->
-    <el-dialog :title="`复核 ${detail.code||''}`" :visible.sync="reviewVisible" width="1080px">
+    <!-- 复核执行 -->
+    <el-dialog :title="`${detail.status === 0 ? '复核' : '复核明细'} ${detail.code||''}`" :visible.sync="reviewVisible" width="1080px">
       <div style="margin-bottom:12px">
         <b>拣货单：</b>{{ detail.pickOrderCode }} · <b>状态：</b>{{ statusMap[detail.status] }} · <b>复核员：</b>{{ detail.reviewerName || '-' }}
       </div>
+      <el-alert v-if="detail.status !== 0" type="info" :closable="false" style="margin-bottom:10px">
+        该复核单已{{ statusMap[detail.status] }}，以下为复核结果，仅供查看。
+      </el-alert>
       <el-table :data="detail.items || []" border size="small" max-height="500">
         <el-table-column type="index" width="40" />
         <el-table-column prop="goodsName" label="商品" min-width="160" />
@@ -76,7 +79,7 @@
 </template>
 
 <script>
-import { reviewApi, warehouseApi, packageApi } from '@/api/warehouse';
+import { reviewApi, warehouseApi } from '@/api/warehouse';
 
 export default {
   name: 'WarehouseReview',
@@ -105,16 +108,14 @@ export default {
       }
       const map = {};
       (this.detail.items || []).forEach(i => { map[i.id] = i.reviewedNum == null ? 0 : i.reviewedNum; });
-      await reviewApi.confirm(this.detail.id, map);
-      this.$message.success('复核通过锛屽嚭搴撳崟已生效');
+      const u = this.$store.getters.userInfo || {};
+      await reviewApi.confirm(this.detail.id, map, {
+        reviewerId: u.id,
+        reviewerName: u.realName || u.account || this.$store.getters.name,
+      });
+      this.$message.success('复核通过，出库单已生效');
       this.reviewVisible = false;
       this.loadPage();
-    },
-    async onCreatePackage(row) {
-      await this.$confirm(`按复核实测数量为「?{row.code}」生成待封箱包裹，继续?`, '确认', { type: 'warning' });
-      const id = await packageApi.createFromReview(row.id, {});
-      this.$message.success(`已生成包裹 ID=${id}，请到"装箱管理"填写尺寸重量并封箱`);
-      this.$router.push({ path: '/warehouse/package', query: { packageId: id } });
     },
     async onReject(row) {
       const { value } = await this.$prompt('请输入驳回原因', '驳回', { inputPattern: /.+/, inputErrorMessage: '不能为空' });

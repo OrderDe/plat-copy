@@ -72,6 +72,16 @@ export function addCc(instanceId, userId, userName) {
   return request({ url: '/flowable/approval/cc/add', method: 'post', params: { instanceId, userId, userName }, baseURL });
 }
 
+// 全量审批记录分页 (平台端溯源，不限发起人/审批人)
+export function pageApprovalRecords(data) {
+  return request({ url: '/flowable/approval/page', method: 'post', data, baseURL });
+}
+
+// 按业务查审批轨迹 (某商品/订单走过的所有审批，含每一步记录)
+export function listApprovalByBusiness(businessType, businessId) {
+  return request({ url: '/flowable/approval/business', method: 'get', params: { businessType, businessId }, baseURL });
+}
+
 // 审批统计
 export function approvalStat(days) {
   return request({ url: '/flowable/approval/stat', method: 'get', params: { days: days || 30 }, baseURL });

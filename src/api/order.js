@@ -342,3 +342,27 @@ export function getExpressTrackListApi(params) {
     // params,
   });
 }
+/**
+ * 订单发货记录 列表
+ * 记录商户每次发货选的方式（仓储/自己发货）、指定的仓库以及改仓操作
+ * @param params
+ */
+export function orderShipRecordListApi(params) {
+  return request({
+    url: '/admin/platform/order/ship/record/list',
+    method: 'get',
+    params,
+  });
+}
+
+/**
+ * 运单号反查：给一个快递单号，返回发货记录、订单概要、仓储出库单
+ * @param expressNumber 快递单号
+ */
+export function waybillTraceApi(expressNumber) {
+  return request({
+    url: '/admin/platform/waybill/trace',
+    method: 'get',
+    params: { expressNumber },
+  });
+}
