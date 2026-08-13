@@ -126,13 +126,22 @@ export const stockApi = {
 };
 
 // ==================== 盘点单 ====================
+// 流程：新增(草稿) → 生成明细(待反馈) → 打印线下盘 → 录入反馈(已反馈)
+//      → 提交领导审核(待审核) → 通过(已归档，联动库存) / 退回(已退回)
 export const stockCheckApi = {
   page: (data) => request({ url: '/api/warehouse/stockCheck/page', method: 'post', data, baseURL }),
   detail: (id) => request({ url: `/api/warehouse/stockCheck/detail/${id}`, method: 'get', baseURL }),
   add: (data) => request({ url: '/api/warehouse/stockCheck/add', method: 'post', data, baseURL }),
-  submit: (id) => request({ url: `/api/warehouse/stockCheck/submit/${id}`, method: 'post', baseURL }),
+  /** 按仓库+品类+货架从库存自动展开应盘明细 */
+  generate: (data) => request({ url: '/api/warehouse/stockCheck/generate', method: 'post', data, baseURL }),
+  /** 打印数据：不含金额，盲盘不含账面数 */
+  printData: (id) => request({ url: `/api/warehouse/stockCheck/printData/${id}`, method: 'get', baseURL }),
+  /** 保存反馈；data.submit=true 时保存后直接提交审核 */
+  feedback: (data) => request({ url: '/api/warehouse/stockCheck/feedback', method: 'post', data, baseURL }),
+  submitAudit: (id, submitUser) => request({ url: `/api/warehouse/stockCheck/submitAudit/${id}`, method: 'post', params: { submitUser }, baseURL }),
+  /** { checkId, pass, comment, auditUser } */
+  audit: (data) => request({ url: '/api/warehouse/stockCheck/audit', method: 'post', data, baseURL }),
   cancel: (id) => request({ url: `/api/warehouse/stockCheck/cancel/${id}`, method: 'post', baseURL }),
-  approve: (id, operator) => request({ url: `/api/warehouse/stockCheck/approve/${id}`, method: 'post', params: { operator }, baseURL }),
 };
 
 // ==================== 入库 ====================
