@@ -62,7 +62,7 @@
           <el-button type="text" @click="openDetail(row.id)">详情</el-button>
           <el-button type="text" @click="onPrint(row)">打印</el-button>
           <el-button v-if="row.status === 0" type="text" @click="onSubmit(row)">提交生效</el-button>
-          <!-- <el-button v-if="row.status === 1 && (row.inspectStatus || 0) === 0" type="text" style="color:#67c23a" @click="onCreateInspect(row)">生成质检单</el-button> -->
+          <el-button v-if="row.status === 1 && (row.inspectStatus || 0) === 0" type="text" style="color:#67c23a" @click="onCreateInspect(row)">生成质检单</el-button>
           <el-button v-if="row.inspectCode" type="text" @click="goInspect(row)">查看质检</el-button>
           <el-button v-if="row.status === 0" type="text" class="danger-text" @click="onCancel(row)">作废</el-button>
         </template>
@@ -81,8 +81,7 @@
     <el-dialog
       :title="dialogMode === 'add' ? '新建入库单' : '入库单详情' + (form.code || '')"
       :visible.sync="dialogVisible"
-      width="90%"
-      top="5vh"
+      width="960px"
       @closed="resetForm"
     >
       <el-form ref="formRef" :model="form" :rules="rules" label-width="100px" size="small" :disabled="dialogMode === 'view'">
@@ -102,7 +101,9 @@
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="申请人">
+            <!-- 校验 applyUserId 而不是 applyUserName：审批流按用户ID派人，只有名字没有ID
+                 照样会在 flowable 侧炸掉 -->
+            <el-form-item label="申请人" prop="applyUserId" required>
               <el-input v-model="form.applyUserName" placeholder="点击选择申请人" readonly>
                 <el-button slot="append" icon="el-icon-user" @click="pickApplyUser">选择</el-button>
               </el-input>
@@ -123,9 +124,9 @@
         <el-divider content-position="left">入库明细</el-divider>
         <el-button v-if="dialogMode === 'add'" size="mini" icon="el-icon-plus" @click="addItem">添加行</el-button>
         <div class="dialog-table-scroller">
-          <el-table :data="form.items" border size="mini" max-height="420">
-            <el-table-column type="index" width="45" fixed="left" />
-            <el-table-column label="店铺" width="150" fixed="left">
+          <el-table :data="form.items" border size="mini" max-height="360">
+            <el-table-column type="index" width="50" fixed="left" />
+            <el-table-column label="店铺" width="180" fixed="left">
               <template slot-scope="{row}">
                 <el-select v-model="row.merId" filterable size="mini" style="width:100%" placeholder="选择店铺" @change="onShopChange(row)">
                   <el-option v-for="m in merchantList" :key="m.id" :label="m.name" :value="m.id" />
@@ -133,7 +134,7 @@
               </template>
             </el-table-column>
             <!-- 左侧固定：列多要横向滚动，滚到右边还得知道这行是哪个商品 -->
-            <el-table-column label="商品名称" min-width="230" fixed="left">
+            <el-table-column label="商品名称" min-width="220" fixed="left">
               <template slot-scope="{row}">
                 <el-input v-model="row.goodsName" size="mini" readonly placeholder="点击选择商品">
                   <el-button slot="append" size="mini" icon="el-icon-search" @click="pickProduct(row)" />
@@ -245,6 +246,7 @@ export default {
       rules: {
         warehouseId: [{ required: true, message: '请选择仓库', trigger: 'change' }],
         type: [{ required: true, message: '请选择类型', trigger: 'change' }],
+        applyUserId: [{ required: true, message: '请选择申请人', trigger: 'change' }],
       },
     };
   },

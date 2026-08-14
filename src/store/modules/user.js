@@ -13,7 +13,7 @@ import { isPlatform } from '@/utils/settingMer';
 // 过滤已下线的菜单项
 function removeHiddenMenus(routes) {
   if (!Array.isArray(routes)) return routes;
-  const hiddenTitles = ['物料列表', '购销存数据', '统计管理', '装箱管理', '智能补货', '智能分仓', '循环盘点计划', '质检管理', '采购发货单'];
+  const hiddenTitles = ['物料列表', '购销存数据', '统计管理', '装箱管理', '智能补货', '智能分仓', '循环盘点计划', '采购发货单'];
   const hiddenPaths = [
     '/warehouse/material',
     'warehouse/material',
@@ -28,8 +28,6 @@ function removeHiddenMenus(routes) {
     'warehouse/allocate',
     '/warehouse/stock-check-plan',
     'warehouse/stock-check-plan',
-    '/warehouse/inspect',
-    'warehouse/inspect',
     '/warehouse/deliver',
     'warehouse/deliver',
     // 已下线的流程模型、审批案例、消息事件、信号事件页面。
@@ -351,6 +349,19 @@ const actions = {
         accessRoutes.push(approvalCenterMenu);
       }
 
+      // ===== 手动注入「企业四要素核验」到「商户」菜单下 =====
+      // 商户入驻时校验企业名称/信用代码/法人姓名/法人身份证,对接阿里云号码百科
+      const merchantMenu = Array.isArray(accessRoutes)
+        ? accessRoutes.find((r) => r && r.path === '/merchant')
+        : null;
+      if (merchantMenu && Array.isArray(merchantMenu.children)
+        && !merchantMenu.children.find((c) => c && c.path === '/merchant/enterprise-verify')) {
+        merchantMenu.children.push({
+          id: 9301, pid: merchantMenu.id, title: '企业四要素核验', icon: '',
+          perms: '', path: '/merchant/enterprise-verify', menuType: 'C', sort: 900, children: [],
+        });
+      }
+
       // ===== 手动注入「字典列表」到「设置」菜单下 =====
       // eb_system_config 里有一批不属于任何设置表单的开关，之前只能改库，这里给个可维护入口
       const settingMenu = Array.isArray(accessRoutes)
@@ -388,6 +399,7 @@ const actions = {
             id: 9141, pid: 9101, title: '入库业务', icon: 'download', perms: '',
             path: '/warehouse/in', menuType: 'M', sort: 2, children: [
               { id: 9103, pid: 9141, title: '入库管理',   icon: '', perms: '', path: '/warehouse/inbound', menuType: 'C', sort: 2, children: [] },
+              { id: 9110, pid: 9141, title: '质检管理',   icon: '', perms: '', path: '/warehouse/inspect', menuType: 'C', sort: 3, children: [] },
             ],
           },
           // ============ 出库业务 ============

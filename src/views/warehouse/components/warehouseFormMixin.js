@@ -68,7 +68,18 @@ export default {
       });
       if (!res || !res.product) return;
       const { product, skus } = res;
-      const list = skus && skus.length ? skus : [null];
+      // 弹窗已去重，这里再按规格主键防御一次，避免重复 SKU 生成重复明细。
+      const seenSkuIds = new Set();
+      const uniqueSkus = (skus || []).filter((sku) => {
+        if (!sku) return false;
+        const key = sku.id != null
+          ? `id:${sku.id}`
+          : `sku:${sku.sku || ''}|barCode:${sku.barCode || ''}`;
+        if (seenSkuIds.has(key)) return false;
+        seenSkuIds.add(key);
+        return true;
+      });
+      const list = uniqueSkus.length ? uniqueSkus : [null];
 
       this.applySku(row, product, list[0]);
 

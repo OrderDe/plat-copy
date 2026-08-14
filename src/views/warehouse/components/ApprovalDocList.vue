@@ -70,7 +70,7 @@
         <slot name="form-fields" :form="form" :warehouse-list="warehouseList" />
         <!-- 校验 applyUserId 而不是 applyUserName：审批流按用户ID派人，只有名字没有ID
              照样会在 flowable 侧炸掉 -->
-        <el-form-item label="申请人" prop="applyUserId">
+        <el-form-item label="申请人" prop="applyUserId" required>
           <el-input v-model="form.applyUserName" placeholder="点击选择申请人" readonly>
             <el-button slot="append" icon="el-icon-user" @click="pickApplyUser">选择</el-button>
           </el-input>

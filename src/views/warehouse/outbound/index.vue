@@ -100,7 +100,9 @@
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="申请人">
+            <!-- 校验 applyUserId 而不是 applyUserName：审批流按用户ID派人，只有名字没有ID
+                 照样会在 flowable 侧炸掉 -->
+            <el-form-item label="申请人" prop="applyUserId" required>
               <el-input v-model="form.applyUserName" placeholder="点击选择申请人" readonly>
                 <el-button slot="append" icon="el-icon-user" @click="pickApplyUser">选择</el-button>
               </el-input>
@@ -242,6 +244,7 @@ export default {
       rules: {
         warehouseId: [{ required: true, message: '请选择仓库', trigger: 'change' }],
         type: [{ required: true, message: '请选择类型', trigger: 'change' }],
+        applyUserId: [{ required: true, message: '请选择申请人', trigger: 'change' }],
       },
     };
   },

@@ -120,7 +120,7 @@
             </el-form-item>
           </el-col>
           <el-col :span="8">
-            <el-form-item label="质检员">
+            <el-form-item label="质检员" prop="inspectorName" required>
               <el-input v-model="form.inspectorName" readonly>
                 <el-button slot="append" icon="el-icon-user" @click="pickInspector">选择</el-button>
               </el-input>
@@ -156,7 +156,14 @@
         <div class="dialog-table-scroller inspect-table-wrapper">
           <el-table class="inspect-detail-table" :data="form.items" border size="mini" max-height="360">
             <el-table-column type="index" width="50" fixed="left" />
-            <el-table-column label="商品" min-width="200">
+            <el-table-column label="店铺" width="150" fixed="left">
+              <template slot-scope="{row}">
+                <el-select v-model="row.merId" filterable size="mini" style="width:100%" placeholder="选择店铺" @change="onShopChange(row)">
+                  <el-option v-for="m in merchantList" :key="m.id" :label="m.name" :value="m.id" />
+                </el-select>
+              </template>
+            </el-table-column>
+            <el-table-column label="商品" min-width="200" fixed="left">
               <template slot-scope="{row}">
                 <el-input v-model="row.goodsName" size="mini" readonly>
                   <el-button slot="append" size="mini" icon="el-icon-search" @click="pickProduct(row)" />
@@ -228,6 +235,7 @@
 
 <script>
 import { inspectApi, inboundApi, warehouseApi, shelfApi, locationApi } from '@/api/warehouse';
+import { merchantListApi } from '@/api/merchant';
 import { doPrint } from '@/views/warehouse/components/printUtil';
 import AdminPickerDialog from '../components/AdminPickerDialog.vue';
 import ProductPickerDialog from '../components/ProductPickerDialog.vue';
@@ -238,13 +246,16 @@ export default {
   data() {
     return {
       loading: false, saving: false, total: 0, tableData: [],
-      warehouseList: [], shelfCache: [], locationCache: {},
+      warehouseList: [], merchantList: [], shelfCache: [], locationCache: {},
       inboundOptions: [], inboundLoading: false,
       query: { page: 1, limit: 20, code: '', warehouseId: null, inboundId: null, status: null, result: null },
       dialogVisible: false, dialogMode: 'add',
       form: this.emptyForm(),
       typeMap: { 0: '普通', 1: '托盘', 2: '零散', 3: '退货', 4: '不合格', 5: '冷藏', 6: '冷冻' },
-      rules: { warehouseId: [{ required: true, message: '请选择仓库', trigger: 'change' }] },
+      rules: {
+        warehouseId: [{ required: true, message: '请选择仓库', trigger: 'change' }],
+        inspectorName: [{ required: true, message: '请选择质检员', trigger: 'change' }],
+      },
     };
   },
   computed: {
@@ -257,6 +268,7 @@ export default {
   created() {
     if (this.$route.query.inboundId) this.query.inboundId = Number(this.$route.query.inboundId);
     this.loadWarehouses();
+    this.loadMerchants();
     this.loadPage();
   },
   methods: {
@@ -272,6 +284,12 @@ export default {
     },
     warehouseText(id) { const w = this.warehouseList.find(x => x.id === id); return w ? `${w.code} / ${w.name}` : id || '-'; },
     async loadWarehouses() { try { const r = await warehouseApi.page({ page: 1, limit: 999 }); this.warehouseList = (r && r.list) || []; } catch (e) {} },
+    async loadMerchants() {
+      try {
+        const r = await merchantListApi({ page: 1, limit: 999 });
+        this.merchantList = (r && r.list) || (r && r.records) || [];
+      } catch (e) { this.merchantList = []; }
+    },
     async loadPage() { this.loading = true; try { const r = await inspectApi.page(this.query); this.tableData = (r && r.list) || []; this.total = (r && r.total) || 0; } finally { this.loading = false; } },
     onSearch() { this.query.page = 1; this.loadPage(); },
     onReset() { this.query = { page: 1, limit: 20, code: '', warehouseId: null, inboundId: null, status: null, result: null }; this.loadPage(); },
@@ -338,29 +356,67 @@ export default {
       row.passLocationId = null;
       await this.ensureLocations(row.passShelfId);
     },
-    addItem() { this.form.items.push({ productId: null, attrValueId: null, sku: '', barCode: '', platformType: 0, goodsName: '', batchId: null, qtyReceived: 0, qtyPass: 0, qtyFail: 0, disposition: 0, passShelfId: null, passLocationId: null, ngLocationId: null, failReason: '' }); },
+    addItem() { this.form.items.push({ merId: null, productId: null, attrValueId: null, sku: '', barCode: '', platformType: 0, goodsName: '', batchId: null, qtyReceived: 0, qtyPass: 0, qtyFail: 0, disposition: 0, passShelfId: null, passLocationId: null, ngLocationId: null, failReason: '' }); },
+    onShopChange(row) {
+      this.$set(row, 'productId', null);
+      this.$set(row, 'goodsName', '');
+      this.$set(row, 'attrValueId', null);
+      this.$set(row, 'sku', '');
+      this.$set(row, 'barCode', '');
+      this.$set(row, 'batchId', null);
+      this.$set(row, 'platformType', 0);
+    },
     async pickInspector() {
       const u = await this.$refs.adminPicker.open();
       if (!u) return;
       this.form.inspectorId = u.id;
       this.form.inspectorName = u.realName || u.account || '';
       this.form.inspectorPhone = u.phone || '';
+      // 程序赋值不会触发 el-input 的 change，手动清掉必填校验的红字
+      this.$refs.formRef && this.$refs.formRef.validateField('inspectorName');
     },
     async pickProduct(row) {
       // 质检是对仓内实物抽检，没库存无从检起
-      const res = await this.$refs.productPicker.open({ requireStock: true });
+      const res = await this.$refs.productPicker.open({ merId: row.merId, requireStock: true });
       if (!res || !res.product) return;
-      // 质检一行对应一个批次的收货实物，只取第一个规格，不展开多行
-      const sku = res.skus && res.skus.length ? res.skus[0] : null;
-      this.$set(row, 'productId', res.product.id);
-      this.$set(row, 'goodsName', res.product.name);
-      this.$set(row, 'attrValueId', sku ? sku.id : null);
-      this.$set(row, 'sku', sku ? sku.sku : '');
-      this.$set(row, 'barCode', sku ? sku.barCode : '');
+      const seen = new Set();
+      const skus = (res.skus || []).filter((sku) => {
+        if (!sku || sku.id == null || seen.has(sku.id)) return false;
+        seen.add(sku.id);
+        return true;
+      });
+      if (!skus.length) return;
+
+      this.applyInspectSku(row, res.product, skus[0]);
+      if (skus.length > 1) {
+        const idx = this.form.items.indexOf(row);
+        const extras = skus.slice(1).map((sku) => {
+          // 保留当前行的数量、处置和库位上下文，每个规格生成一条独立质检明细。
+          const clone = JSON.parse(JSON.stringify(row));
+          this.applyInspectSku(clone, res.product, sku);
+          return clone;
+        });
+        this.form.items.splice(idx < 0 ? this.form.items.length : idx + 1, 0, ...extras);
+      }
+    },
+    applyInspectSku(row, product, sku) {
+      this.$set(row, 'productId', product.id);
+      this.$set(row, 'goodsName', product.name);
+      this.$set(row, 'attrValueId', sku.id);
+      this.$set(row, 'sku', sku.sku || '');
+      this.$set(row, 'barCode', sku.barCode || '');
+      if (product.merId != null) this.$set(row, 'merId', product.merId);
+      this.$set(row, 'platformType', 0);
     },
     async onSaveForm() {
       await this.$refs.formRef.validate();
       if (!this.form.items.length) return this.$message.warning('请至少添加一行明细');
+      const noShop = this.form.items.findIndex((item) => !item.merId);
+      if (noShop >= 0) return this.$message.warning(`第 ${noShop + 1} 行未选择店铺`);
+      const noProduct = this.form.items.findIndex((item) => !item.productId);
+      if (noProduct >= 0) return this.$message.warning(`第 ${noProduct + 1} 行未选择商品`);
+      const noSku = this.form.items.findIndex((item) => !item.attrValueId);
+      if (noSku >= 0) return this.$message.warning(`第 ${noSku + 1} 行未选择规格`);
       this.saving = true;
       try {
         if (this.dialogMode === 'edit') { await inspectApi.update(this.form); this.$message.success('修改成功'); }

@@ -68,7 +68,7 @@
     -->
     <template v-if="selectedId">
       <el-divider content-position="left">规格（SKU）</el-divider>
-      <div v-loading="skuLoading">
+      <div ref="skuSection" v-loading="skuLoading">
         <el-alert
           v-if="!skuLoading && skuList.length === 1"
           type="success"
@@ -86,7 +86,8 @@
             max-height="240"
             @selection-change="onSkuSelectionChange"
           >
-            <el-table-column type="selection" width="45" />
+            <!-- 不提供表头“全选”，避免误点后把所有规格一次性带回明细；仍可逐项勾选多个规格 -->
+            <el-table-column type="selection" width="55" :render-header="renderSkuSelectionHeader" />
             <el-table-column prop="sku" label="规格" min-width="160" show-overflow-tooltip>
               <template slot-scope="{row}">{{ row.sku || '默认' }}</template>
             </el-table-column>
@@ -112,7 +113,9 @@
 
     <div slot="footer">
       <el-button size="small" @click="visible = false">取消</el-button>
-      <el-button type="primary" size="small" :disabled="!canConfirm" @click="confirm">确定</el-button>
+      <!-- 不置灰：规格区在弹窗下方，容易被滚动挡住，点了没反应会让人以为「确定」坏了。
+           这里改成点击后给出明确提示并把规格区滚进视野。 -->
+      <el-button type="primary" size="small" @click="confirm">确定</el-button>
     </div>
   </el-dialog>
 </template>
@@ -139,6 +142,7 @@ export default {
       skuList: [],
       selectedSkus: [],
       skuLoading: false,
+      skuRequestId: 0,
       resolver: null,
       // 后端只会返回 0/2 两种（见 wmsSelectable 口径），1/3 列出来只是为了兜底不显示空白
       auditMap: { 0: '无需审核', 1: '待审核', 2: '审核成功', 3: '审核拒绝' },
@@ -147,13 +151,10 @@ export default {
       requireStock: false,
     };
   },
-  computed: {
-    // 没有规格的商品不允许入库：仓储按 SKU 记账，attrValueId 缺失会让库存挂在兜底行上
-    canConfirm() {
-      return !!this.selectedId && this.selectedSkus.length > 0;
-    },
-  },
   methods: {
+    renderSkuSelectionHeader(h) {
+      return h('span', '选择');
+    },
     async open({ merId = null, requireStock = false } = {}) {
       return new Promise((resolve) => {
         this.resolver = resolve;
@@ -165,6 +166,7 @@ export default {
         this.selectedProduct = null;
         this.skuList = [];
         this.selectedSkus = [];
+        this.skuRequestId += 1;
         this.visible = true;
       });
     },
@@ -214,30 +216,63 @@ export default {
       this.selectedId = row.id;
       this.selectedProduct = row;
       this.loadSkus(row.id);
+      // 规格区在商品列表下方，不主动滚过去操作员看不到，会以为选完商品就能确定
+      this.scrollToSku();
     },
     async loadSkus(productId) {
+      const requestId = ++this.skuRequestId;
       this.skuList = [];
       this.selectedSkus = [];
       this.skuLoading = true;
       try {
         const res = await productDetailApi(productId);
-        this.skuList = (res && res.attrValueList) || [];
+        // 快速切换商品时，旧请求不能覆盖当前商品的规格。
+        if (requestId !== this.skuRequestId || this.selectedId !== productId) return;
+        this.skuList = this.uniqueSkus((res && res.attrValueList) || []);
         // 单规格没有选择余地，直接选中；多规格等用户勾选
         if (this.skuList.length === 1) {
           this.selectedSkus = [this.skuList[0]];
         }
       } catch (e) {
-        this.$message.error('加载商品规格失败');
+        if (requestId === this.skuRequestId) this.$message.error('加载商品规格失败');
       } finally {
-        this.skuLoading = false;
+        if (requestId === this.skuRequestId) this.skuLoading = false;
       }
     },
     onSkuSelectionChange(rows) {
-      this.selectedSkus = rows || [];
+      this.selectedSkus = this.uniqueSkus(rows);
+    },
+    uniqueSkus(skus) {
+      const seen = new Set();
+      return (skus || []).filter((sku) => {
+        if (!sku) return false;
+        const key = sku.id != null
+          ? `id:${sku.id}`
+          : `sku:${sku.sku || ''}|barCode:${sku.barCode || ''}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    },
+    scrollToSku() {
+      this.$nextTick(() => {
+        const el = this.$refs.skuSection;
+        if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
     },
     confirm() {
+      if (!this.selectedId) return this.$message.warning('请先选择商品');
+      if (this.skuLoading) return this.$message.warning('规格加载中，请稍候');
+      if (!this.skuList.length) {
+        this.scrollToSku();
+        return this.$message.warning('该商品没有可用规格，请先在商品管理中维护规格');
+      }
+      if (!this.selectedSkus.length) {
+        this.scrollToSku();
+        return this.$message.warning('请在下方「规格（SKU）」中勾选至少一个规格');
+      }
       const p = this.selectedProduct || this.list.find((x) => x.id === this.selectedId);
-      if (this.resolver) this.resolver({ product: p, skus: this.selectedSkus });
+      if (this.resolver) this.resolver({ product: p, skus: this.uniqueSkus(this.selectedSkus) });
       this.resolver = null;
       this.visible = false;
     },

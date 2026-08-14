@@ -80,7 +80,9 @@
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="申请人">
+            <!-- 校验 applyUserId 而不是 applyUserName：审批流按用户ID派人，只有名字没有ID
+                 照样会在 flowable 侧炸掉 -->
+            <el-form-item label="申请人" prop="applyUserId" required>
               <el-input v-model="form.applyUserName" readonly>
                 <el-button slot="append" icon="el-icon-user" @click="pickApplyUser">选择</el-button>
               </el-input>
@@ -130,6 +132,11 @@
                 </el-select>
               </template>
             </el-table-column>
+            <el-table-column v-if="form.bizType === 0" label="可上架数量" width="100">
+              <template slot-scope="{row}">
+                <span :class="{ 'sku-missing': row.maxNum === 0 }">{{ row.maxNum == null ? '-' : row.maxNum }}</span>
+              </template>
+            </el-table-column>
             <el-table-column label="目标货架" width="150">
               <template slot-scope="{row}">
                 <el-select v-model="row.toShelfId" size="mini" filterable clearable style="width:100%" @change="onShelfChange(row, 'to')">
@@ -145,7 +152,9 @@
               </template>
             </el-table-column>
             <el-table-column label="数量" width="110">
-              <template slot-scope="{row}"><el-input-number v-model="row.num" :min="1" size="mini" controls-position="right" /></template>
+              <template slot-scope="{row}">
+                <el-input-number v-model="row.num" :min="1" :max="row.maxNum == null ? undefined : row.maxNum" size="mini" controls-position="right" />
+              </template>
             </el-table-column>
             <el-table-column v-if="editable" label="操作" width="80" fixed="right">
               <template slot-scope="{$index}"><el-button type="text" class="danger-text" @click="form.items.splice($index,1)">删除</el-button></template>
@@ -166,7 +175,7 @@
 </template>
 
 <script>
-import { relocateApi, warehouseApi, shelfApi, locationApi } from '@/api/warehouse';
+import { relocateApi, warehouseApi, shelfApi, locationApi, stockApi } from '@/api/warehouse';
 import AdminPickerDialog from '../components/AdminPickerDialog.vue';
 import ProductPickerDialog from '../components/ProductPickerDialog.vue';
 
@@ -181,7 +190,10 @@ export default {
       dialogVisible: false, dialogMode: 'add',
       form: this.emptyForm(),
       bizMap: { 0: '上架', 1: '移库', 2: '补货' },
-      rules: { warehouseId: [{ required: true, message: '请选择仓库', trigger: 'change' }] },
+      rules: {
+        warehouseId: [{ required: true, message: '请选择仓库', trigger: 'change' }],
+        applyUserId: [{ required: true, message: '请选择申请人', trigger: 'change' }],
+      },
     };
   },
   computed: {
@@ -229,26 +241,59 @@ export default {
       if (!this.form.warehouseId) { this.shelfCache = []; this.locationCache = {}; return; }
       try {
         const r = await shelfApi.page({ page: 1, limit: 999, warehouseId: this.form.warehouseId, status: 1 });
-        this.shelfCache = (r && r.list) || [];
+        this.shelfCache = ((r && r.list) || []).filter((s) => Number(s.status) === 1);
       } catch (e) {}
       this.locationCache = {};
+      // 换仓后可上架数量要按新仓重算
+      for (const it of this.form.items) {
+        await this.loadMaxNum(it);
+      }
     },
     async ensureLocations(shelfId) {
       if (!shelfId || this.locationCache[shelfId]) return;
-      try { const list = await locationApi.list(shelfId) || []; this.$set(this.locationCache, shelfId, list.filter(l => l.status === 1)); } catch (e) {}
+      try {
+        const list = await locationApi.list(shelfId) || [];
+        this.$set(this.locationCache, shelfId, list.filter((l) => Number(l.status) === 1));
+      } catch (e) {}
     },
     async onShelfChange(row, side) {
       if (side === 'from') row.fromLocationId = null;
       else row.toLocationId = null;
       await this.ensureLocations(side === 'from' ? row.fromShelfId : row.toShelfId);
     },
-    addItem() { this.form.items.push({ productId: null, attrValueId: null, sku: '', barCode: '', platformType: 0, goodsName: '', fromShelfId: null, fromLocationId: null, fromBatchId: null, toShelfId: null, toLocationId: null, toBatchId: null, num: 1 }); },
+    addItem() { this.form.items.push({ productId: null, attrValueId: null, merId: null, sku: '', barCode: '', platformType: 0, goodsName: '', fromShelfId: null, fromLocationId: null, fromBatchId: null, toShelfId: null, toLocationId: null, toBatchId: null, num: 1, maxNum: null }); },
+    /**
+     * 上架单的可上架数量 = 该商品该规格在本仓「还没放进库位」的可用量
+     * （wms_stock 里 location_id 为空的行，即收货入仓但未上架的部分）。
+     * 移库/补货是库位之间搬货，源库位可用量由后端在提交时校验，这里不限制。
+     */
+    async loadMaxNum(row) {
+      if (this.form.bizType !== 0) { this.$set(row, 'maxNum', null); return; }
+      if (!this.form.warehouseId || !row.productId || !row.attrValueId) { this.$set(row, 'maxNum', null); return; }
+      try {
+        const params = { warehouseId: this.form.warehouseId, productId: row.productId, attrValueId: row.attrValueId };
+        if (row.merId) params.merId = row.merId;
+        const list = (await stockApi.distribution(params)) || [];
+        const pending = list
+          .filter((s) => !s.locationId)
+          .reduce((sum, s) => sum + (Number(s.availableNum) || 0), 0);
+        this.$set(row, 'maxNum', pending);
+        if (row.num > pending) this.$set(row, 'num', pending > 0 ? pending : 1);
+      } catch (e) {
+        // 查不到就不限制，交给后端提交时的库存校验兜底
+        this.$set(row, 'maxNum', null);
+      }
+    },
     async pickApplyUser() {
       const u = await this.$refs.adminPicker.open();
       if (!u) return;
       this.$set(this.form, 'applyUserId', u.id);
       this.$set(this.form, 'applyUserName', u.realName || u.account || '');
       this.$set(this.form, 'applyUserPhone', u.phone || '');
+      // 输入框绑的是 applyUserName，改 applyUserId 不会触发它的校验，手动清一次报错
+      this.$nextTick(() => {
+        this.$refs.formRef && this.$refs.formRef.clearValidate('applyUserId');
+      });
     },
     /**
      * 移库不复用 mixin 的 pickProduct：这里一行明细描述的是「从某库位搬到某库位」，
@@ -264,6 +309,9 @@ export default {
       this.$set(row, 'attrValueId', sku ? sku.id : null);
       this.$set(row, 'sku', sku ? sku.sku : '');
       this.$set(row, 'barCode', sku ? sku.barCode : '');
+      // 库存行是按商户存的，明细不带 merId 提交时定位不到源库存
+      this.$set(row, 'merId', res.product.merId || null);
+      await this.loadMaxNum(row);
     },
     async onSaveForm() {
       await this.$refs.formRef.validate();
@@ -272,6 +320,19 @@ export default {
       // 移库按 SKU 定位源库位，缺 attrValueId 会搬错规格甚至找不到库存行
       const noSku = this.form.items.findIndex((i) => !i.attrValueId);
       if (noSku >= 0) return this.$message.warning(`第 ${noSku + 1} 行未选择规格，请重新选择商品并指定规格`);
+      // 上架是把「收货后还没进库位」的货放上货架：源货架/源库位本来就为空，
+      // 但目标货架、目标库位必须指定，否则提交时不知道货放到哪里。
+      if (this.form.bizType === 0) {
+        for (let i = 0; i < this.form.items.length; i++) {
+          const it = this.form.items[i];
+          if (!it.toShelfId) return this.$message.warning(`第 ${i + 1} 行请选择目标货架`);
+          if (!it.toLocationId) return this.$message.warning(`第 ${i + 1} 行请选择目标库位`);
+          if (!it.num || it.num <= 0) return this.$message.warning(`第 ${i + 1} 行请填写上架数量`);
+          if (it.maxNum != null && it.num > it.maxNum) {
+            return this.$message.warning(`第 ${i + 1} 行上架数量不能大于该规格的未上架数量（${it.maxNum}）`);
+          }
+        }
+      }
       this.saving = true;
       try {
         if (this.dialogMode === 'edit') { await relocateApi.update(this.form); this.$message.success('修改成功'); }

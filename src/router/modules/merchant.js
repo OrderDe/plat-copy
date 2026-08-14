@@ -36,6 +36,12 @@ const merchantRouter = {
       meta: { title: '商户入驻申请', icon: '' },
     },
     {
+      path: 'enterprise-verify',
+      name: 'MerchantEnterpriseVerify',
+      component: () => import('@/views/merchant/enterpriseVerify'),
+      meta: { title: '企业四要素核验', icon: '' },
+    },
+    {
       path: 'type',
       name: 'MerchantType',
       component: () => import('@/views/merchant/type'),
