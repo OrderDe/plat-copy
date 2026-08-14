@@ -10,12 +10,11 @@
         </div>
       </div>
       <div class="header-actions">
-        <el-button size="small" icon="el-icon-time" @click="showStep('history')">历史记录</el-button>
         <el-button type="primary" size="small" icon="el-icon-plus" @click="onNewCheck">新建盘点单</el-button>
       </div>
     </header>
 
-    <!-- 流程导航：六步 -->
+    <!-- 流程导航：两步 -->
     <nav class="workflow">
       <button
         v-for="(key, index) in stepOrder"
@@ -30,11 +29,11 @@
     </nav>
 
     <main>
-      <!-- 1. 新增盘点表 -->
+      <!-- 1. 建单与范围 -->
       <section v-show="activeStep === 'create'" class="screen">
         <div class="section-heading">
           <div>
-            <h2>新增盘点单</h2>
+            <h2>建单与盘点范围</h2>
             <p class="text-muted">选择目标仓库和货品品类，系统按仓库、货架、库位和 SKU 自动生成盘点明细。</p>
           </div>
           <span class="badge" :class="statusBadgeClass(form.status)">{{ statusText(form.status) }}</span>
@@ -58,7 +57,8 @@
                 <el-option v-for="c in categoryList" :key="c.id" :label="c.name" :value="c.id" />
               </el-select>
             </el-form-item>
-            <el-form-item label="盘点人">
+            <!-- 盘点人同时是审批流的发起人，缺了流程派不出去 -->
+            <el-form-item label="盘点人 / 审批申请人" prop="checkUserId">
               <el-input v-model="form.checkPeople" placeholder="点击选择盘点人" readonly>
                 <el-button slot="append" icon="el-icon-user" @click="pickCheckUser">选择</el-button>
               </el-input>
@@ -94,80 +94,70 @@
           <span>{{ scopeText }}</span>
         </div>
 
-        <div class="action-bar">
-          <el-button type="primary" class="btn-block" :loading="saving" :disabled="!scopeEditable" @click="onGenerate">
+        <div class="action-bar split-actions">
+          <el-button v-if="details.length" size="small" @click="showStep('check')">
+            查看盘点明细 <i class="el-icon-arrow-right" />
+          </el-button>
+          <span v-else />
+          <el-button type="primary" size="small" :loading="saving" :disabled="!scopeEditable" @click="onGenerate">
             <i class="el-icon-plus" /> 生成盘点明细
           </el-button>
         </div>
       </section>
 
-      <!-- 2. 打印盘点表 -->
-      <section v-show="activeStep === 'print'" class="screen">
+      <!-- 2. 盘点与提交：打印、录入反馈、提交审批都在这一页 -->
+      <section v-show="activeStep === 'check'" class="screen">
         <div class="section-heading">
           <div>
-            <h2>打印盘点表</h2>
-            <p class="text-muted">盘点表不显示库存金额，线下填写实盘数量、货品状态和反馈说明。</p>
+            <h2>盘点与提交</h2>
+            <p class="text-muted">
+              打印盘点表线下盘 → 回来逐条录入实盘数量和货品状态 → 提交审批。
+              损坏、缺失或其他异常必须填写反馈说明。
+            </p>
           </div>
           <div class="heading-actions">
             <el-switch v-model="blindPrint" active-text="盲盘打印" />
-            <el-button type="primary" size="small" icon="el-icon-printer" @click="onPrint">打印</el-button>
+            <el-button size="small" icon="el-icon-printer" :disabled="!details.length" @click="onPrint">打印盘点表</el-button>
+            <el-button v-if="submitted" size="small" icon="el-icon-refresh" :loading="saving" @click="onRefreshApproval">刷新审批状态</el-button>
+            <span class="badge" :class="statusBadgeClass(form.status)">{{ statusText(form.status) }}</span>
           </div>
         </div>
 
-        <article id="check-print-sheet" class="print-sheet">
-          <div class="sheet-title">货品盘点表</div>
-          <div class="sheet-meta">
-            <span>盘点单号：<b>{{ form.checkNo || '-' }}</b></span>
-            <span>仓库：<b>{{ warehouseText(form.warehouseId) }}</b></span>
-            <span>品类：<b>{{ categoryText(form.categoryId) }}</b></span>
-            <span>盘点人：<b>{{ form.checkPeople || '-' }}</b></span>
-            <span>日期：<b>{{ form.checkDate || '-' }}</b></span>
-          </div>
-          <table class="data-table print-table">
-            <thead>
-              <tr>
-                <th>序号</th><th>库位</th><th>SKU</th><th>商品名称</th><th>规格</th>
-                <th>单位</th><th>账面数量</th><th>实盘数量</th><th>状态</th><th>反馈说明</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="(d, i) in details" :key="d.id">
-                <td>{{ i + 1 }}</td>
-                <td>{{ d.locationCode || '-' }}</td>
-                <td>{{ d.sku || '-' }}</td>
-                <td>{{ d.goodsName || '-' }}</td>
-                <td>{{ d.specName || '-' }}</td>
-                <td>{{ d.unitName || '-' }}</td>
-                <td>{{ blindPrint || d.bookStock == null ? '—' : d.bookStock }}</td>
-                <td /><td /><td />
-              </tr>
-              <tr v-if="!details.length"><td colspan="10" class="empty-row">请先在「新增盘点表」生成盘点明细</td></tr>
-            </tbody>
-          </table>
-          <div class="signatures"><span>盘点人签字</span><span>复核人签字</span><span>领导签字</span></div>
-        </article>
-
-        <div class="action-bar split-actions">
-          <el-button size="small" icon="el-icon-arrow-left" @click="showStep('create')">返回修改</el-button>
-          <el-button type="primary" size="small" @click="showStep('feedback')">已完成线下盘点，录入反馈 <i class="el-icon-arrow-right" /></el-button>
-        </div>
-      </section>
-
-      <!-- 3. 盘点反馈 -->
-      <section v-show="activeStep === 'feedback'" class="screen">
-        <div class="section-heading">
+        <!-- 已发起审批后，本页转为这张单的审批状态展示 -->
+        <div v-if="submitted" class="notice-band approval-band">
+          <i class="el-icon-s-check" />
           <div>
-            <h2>盘点反馈</h2>
-            <p class="text-muted">逐条录入实盘数量和货品状态。损坏、缺失或其他异常必须填写反馈说明。</p>
+            <strong>{{ auditStateText }}</strong>
+            <div class="text-small">
+              审批实例：{{ form.approvalInstanceId || '未发起' }} ·
+              提交时间：{{ fmtTime(form.submitTime) || '-' }}
+              <template v-if="form.auditComment"> · 审批意见：{{ form.auditComment }}</template>
+            </div>
           </div>
-          <span class="badge">{{ details.length }} / {{ details.length }} 已录入</span>
+          <el-button v-if="form.approvalInstanceId" type="primary" size="small" icon="el-icon-position" @click="gotoApproval">
+            前往审批中心
+          </el-button>
+        </div>
+        <div v-else-if="form.status === ST.REJECTED" class="notice-band reject-band">
+          <i class="el-icon-warning-outline" />
+          <div>
+            <strong>审批已驳回，可修改后重新提交</strong>
+            <div class="text-small">驳回意见：{{ form.auditComment || '-' }}</div>
+          </div>
+        </div>
+
+        <div class="doc-band">
+          <span>{{ form.checkNo || '未保存' }}</span>
+          <span>{{ warehouseText(form.warehouseId) }} · {{ categoryText(form.categoryId) }}</span>
+          <span>盘点人：{{ form.checkPeople || '-' }}</span>
+          <span>盘点日期：{{ form.checkDate || '-' }}</span>
         </div>
 
         <div class="summary-grid">
-          <div class="summary-card"><span class="text-muted">应盘 SKU</span><strong>{{ details.length }}</strong><small>本次盘点范围</small></div>
+          <div class="summary-card"><span class="text-muted">应盘 SKU</span><strong>{{ details.length }}</strong><small>{{ summary.locations }} 个库位</small></div>
           <div class="summary-card"><span class="text-muted">正常</span><strong>{{ summary.normal }}</strong><small>账实一致</small></div>
-          <div class="summary-card"><span class="text-muted">损坏</span><strong>{{ summary.damaged }}</strong><small>需核实处理</small></div>
-          <div class="summary-card"><span class="text-muted">缺失</span><strong>{{ summary.missing }}</strong><small>需查明原因</small></div>
+          <div class="summary-card"><span class="text-muted">异常</span><strong>{{ summary.abnormal }}</strong><small>损坏 {{ summary.damaged }} / 缺失 {{ summary.missing }}</small></div>
+          <div class="summary-card"><span class="text-muted">差异金额</span><strong>¥{{ summary.amount.toFixed(2) }}</strong><small>按当前成本估算</small></div>
         </div>
 
         <table class="data-table feedback-table">
@@ -197,248 +187,66 @@
                 />
               </td>
             </tr>
-            <tr v-if="!details.length"><td colspan="7" class="empty-row">暂无盘点明细</td></tr>
+            <tr v-if="!details.length"><td colspan="7" class="empty-row">请先在「建单与范围」生成盘点明细</td></tr>
           </tbody>
         </table>
 
-        <div class="notice-band">
-          <i class="el-icon-info" />
+        <div v-if="!submitted" class="notice-band">
+          <i class="el-icon-bell" />
           <div>
-            <strong>反馈操作说明</strong>
-            <div class="text-small">修改实盘数量后自动计算差异。异常状态需说明具体情况，退回修改时保留已录入数据。</div>
+            <strong>提交即发起「盘点审批」，反馈数据锁定</strong>
+            <div class="text-small">
+              提交会先保存当前页面的实盘数据，再以盘点人身份发起审批；
+              审批通过前库存不会变更，被驳回后可继续修改重提。
+            </div>
           </div>
         </div>
         <div v-if="feedbackError" class="validation-message">{{ feedbackError }}</div>
 
         <div class="action-bar split-actions">
-          <el-button size="small" icon="el-icon-arrow-left" @click="showStep('print')">返回打印页</el-button>
-          <el-button type="primary" size="small" icon="el-icon-document-checked" :loading="saving" :disabled="!feedbackEditable" @click="onSaveFeedback">
-            保存反馈并生成汇总
-          </el-button>
-        </div>
-      </section>
-
-      <!-- 4. 提交领导审核 -->
-      <section v-show="activeStep === 'submit'" class="screen">
-        <div class="section-heading">
-          <div>
-            <h2>提交领导审核</h2>
-            <p class="text-muted">确认反馈无误后提交，领导将收到待办通知并查看盘点差异摘要。</p>
-          </div>
-          <span class="badge" :class="statusBadgeClass(form.status)">{{ statusText(form.status) }}</span>
-        </div>
-
-        <div class="summary-grid">
-          <div class="summary-card"><span class="text-muted">盘点 SKU 总数</span><strong>{{ details.length }}</strong><small>{{ summary.locations }} 个库位</small></div>
-          <div class="summary-card"><span class="text-muted">正常</span><strong>{{ summary.normal }}</strong><small>无需调整</small></div>
-          <div class="summary-card"><span class="text-muted">异常</span><strong>{{ summary.abnormal }}</strong><small>损坏与缺失</small></div>
-          <div class="summary-card"><span class="text-muted">差异金额</span><strong>¥{{ summary.amount.toFixed(2) }}</strong><small>按当前成本估算</small></div>
-        </div>
-
-        <div class="review-layout">
-          <section class="review-block">
-            <h3>异常项汇总</h3>
-            <div v-if="!exceptionRows.length" class="text-muted text-small">本次盘点账实一致，无异常项。</div>
-            <div v-for="d in exceptionRows" :key="d.id" class="exception-row">
-              <span>{{ d.sku || '-' }} · {{ d.goodsName }} {{ d.specName }}</span>
-              <span>账面 {{ d.bookStock }} → 实盘 {{ d.actualStock }}（{{ goodsStatusText(d.goodsStatus) }} {{ diffLabel(d) }}）</span>
-            </div>
-          </section>
-          <section class="review-block">
-            <h3>盘点摘要</h3>
-            <dl class="detail-list">
-              <div><dt>盘点单号</dt><dd>{{ form.checkNo || '-' }}</dd></div>
-              <div><dt>仓库 / 品类</dt><dd>{{ warehouseText(form.warehouseId) }} / {{ categoryText(form.categoryId) }}</dd></div>
-              <div><dt>盘点人</dt><dd>{{ form.checkPeople || '-' }}</dd></div>
-              <div><dt>盘点日期</dt><dd>{{ form.checkDate || '-' }}</dd></div>
-              <div><dt>库存差异</dt><dd>{{ summary.totalDiff > 0 ? '+' + summary.totalDiff : summary.totalDiff }}</dd></div>
-            </dl>
-          </section>
-        </div>
-
-        <div class="notice-band">
-          <i class="el-icon-bell" />
-          <div>
-            <strong>提交后将锁定反馈数据</strong>
-            <div class="text-small">审批通过前库存不会变更；退回后可重新修改实盘数量、状态和说明。</div>
+          <el-button size="small" icon="el-icon-arrow-left" @click="showStep('create')">返回范围</el-button>
+          <div v-if="!submitted" class="button-group">
+            <el-button size="small" icon="el-icon-document-checked" :loading="saving" :disabled="!feedbackEditable" @click="onSaveFeedback()">
+              保存反馈
+            </el-button>
+            <el-button type="primary" size="small" icon="el-icon-s-promotion" :loading="saving" :disabled="!canSubmitAudit" @click="onSubmit">
+              保存并提交审批
+            </el-button>
           </div>
         </div>
 
-        <div class="action-bar split-actions">
-          <el-button size="small" icon="el-icon-arrow-left" @click="showStep('feedback')">返回反馈</el-button>
-          <el-button type="primary" size="small" icon="el-icon-s-promotion" :loading="saving" :disabled="!canSubmitAudit" @click="onSubmitAudit">
-            提交领导审核
-          </el-button>
-        </div>
-      </section>
-
-      <!-- 5. 审核与归档 -->
-      <section v-show="activeStep === 'audit'" class="screen">
-        <div class="section-heading">
-          <div>
-            <h2>领导审核与归档</h2>
-            <p class="text-muted">审批通过后自动归档盘点记录，并按差异生成库存调整流水。</p>
+        <!-- 打印用的 A4 排版，不在页面上显示，onPrint 直接取它的 innerHTML -->
+        <article id="check-print-sheet" class="print-sheet is-hidden">
+          <div class="sheet-title">货品盘点表</div>
+          <div class="sheet-meta">
+            <span>盘点单号：<b>{{ form.checkNo || '-' }}</b></span>
+            <span>仓库：<b>{{ warehouseText(form.warehouseId) }}</b></span>
+            <span>品类：<b>{{ categoryText(form.categoryId) }}</b></span>
+            <span>盘点人：<b>{{ form.checkPeople || '-' }}</b></span>
+            <span>日期：<b>{{ form.checkDate || '-' }}</b></span>
           </div>
-          <span class="badge" :class="statusBadgeClass(form.status)">{{ statusText(form.status) }}</span>
-        </div>
-
-        <div class="audit-layout">
-          <ol class="timeline">
-            <li class="timeline-item" :class="{ done: !!form.submitTime }">
-              <span class="timeline-mark"><i class="el-icon-check" /></span>
-              <div>
-                <strong>盘点员提交盘点反馈</strong>
-                <span class="badge">{{ form.submitTime ? '已完成' : '待执行' }}</span>
-                <p class="text-muted">{{ form.checkPeople || '-' }} · {{ fmtTime(form.submitTime) || '未提交' }} · 提交 {{ details.length }} 条明细，含 {{ summary.abnormal }} 条异常</p>
-              </div>
-            </li>
-            <li class="timeline-item" :class="{ done: form.status === ST.ARCHIVED, current: form.status === ST.AUDITING }">
-              <span class="timeline-mark"><i class="el-icon-user" /></span>
-              <div>
-                <strong>领导审核</strong>
-                <span class="badge">{{ auditStateText }}</span>
-                <p class="text-muted">
-                  审核人：{{ form.auditUser || '待指派' }} · 差异金额 ¥{{ summary.amount.toFixed(2) }}
-                </p>
-                <p v-if="form.auditComment" class="text-muted">审核意见：{{ form.auditComment }}</p>
-                <template v-if="form.status === ST.AUDITING">
-                  <label class="audit-comment">
-                    <span class="text-small text-muted">审核意见</span>
-                    <el-input v-model="auditComment" type="textarea" :rows="2" size="small"
-                              placeholder="审批通过可填写处理意见；退回时必须说明原因" />
-                  </label>
-                  <div class="audit-actions">
-                    <el-button size="small" icon="el-icon-refresh-left" :loading="saving" @click="onAudit(false)">退回修改</el-button>
-                    <el-button type="primary" size="small" icon="el-icon-circle-check" :loading="saving" @click="onAudit(true)">审核通过</el-button>
-                  </div>
-                </template>
-              </div>
-            </li>
-            <li class="timeline-item" :class="{ done: form.status === ST.ARCHIVED }">
-              <span class="timeline-mark"><i class="el-icon-folder-checked" /></span>
-              <div>
-                <strong>盘点历史归档</strong>
-                <span class="badge">{{ form.status === ST.ARCHIVED ? '已完成' : '待执行' }}</span>
-                <p class="text-muted">归档范围、明细、反馈和审核意见，支持按时间、仓库、品类查询。</p>
-              </div>
-            </li>
-            <li class="timeline-item" :class="{ done: form.status === ST.ARCHIVED }">
-              <span class="timeline-mark"><i class="el-icon-refresh" /></span>
-              <div>
-                <strong>库存联动更新</strong>
-                <span class="badge">{{ form.status === ST.ARCHIVED ? '已完成' : '待执行' }}</span>
-                <p class="text-muted">按实盘结果更新账面库存，并生成库存调整流水。</p>
-              </div>
-            </li>
-          </ol>
-
-          <aside class="audit-summary">
-            <h3>本次审核摘要</h3>
-            <dl class="detail-list">
-              <div><dt>盘点单</dt><dd>{{ form.checkNo || '-' }}</dd></div>
-              <div><dt>正常 / 异常</dt><dd>{{ summary.normal }} / {{ summary.abnormal }}</dd></div>
-              <div><dt>库存差异</dt><dd>{{ summary.totalDiff > 0 ? '+' + summary.totalDiff : summary.totalDiff }}</dd></div>
-              <div><dt>差异金额</dt><dd>¥{{ summary.amount.toFixed(2) }}</dd></div>
-            </dl>
-            <el-button class="btn-block" size="small" icon="el-icon-document" @click="showStep('submit')">查看提交详情</el-button>
-          </aside>
-        </div>
-        <div v-if="auditError" class="validation-message">{{ auditError }}</div>
-      </section>
-
-      <!-- 6. 历史查询 -->
-      <section v-show="activeStep === 'history'" class="screen">
-        <div class="section-heading">
-          <div>
-            <h2>盘点历史查询</h2>
-            <p class="text-muted">查询盘点单，查看盘点范围、明细、反馈、审核意见和库存调整结果。</p>
-          </div>
-        </div>
-
-        <div class="history-filters">
-          <label><span class="text-small text-muted">盘点单号</span>
-            <el-input v-model="query.checkNo" size="small" placeholder="输入盘点单号" clearable @keyup.enter.native="onSearch" />
-          </label>
-          <label><span class="text-small text-muted">仓库</span>
-            <el-select v-model="query.warehouseId" size="small" clearable filterable placeholder="全部仓库" style="width:100%">
-              <el-option v-for="w in warehouseList" :key="w.id" :label="`${w.code} / ${w.name}`" :value="w.id" />
-            </el-select>
-          </label>
-          <label><span class="text-small text-muted">品类</span>
-            <el-select v-model="query.categoryId" size="small" clearable filterable placeholder="全部品类" style="width:100%">
-              <el-option v-for="c in categoryList" :key="c.id" :label="c.name" :value="c.id" />
-            </el-select>
-          </label>
-          <label><span class="text-small text-muted">状态</span>
-            <el-select v-model="query.status" size="small" clearable placeholder="全部状态" style="width:100%">
-              <el-option v-for="s in statusOptions" :key="s.value" :label="s.label" :value="s.value" />
-            </el-select>
-          </label>
-          <label class="filter-wide"><span class="text-small text-muted">盘点日期</span>
-            <el-date-picker
-              v-model="dateRange" size="small" type="daterange" value-format="yyyy-MM-dd"
-              range-separator="至" start-placeholder="开始" end-placeholder="结束" style="width:100%"
-            />
-          </label>
-          <el-button type="primary" size="small" icon="el-icon-search" @click="onSearch">查询</el-button>
-        </div>
-
-        <table v-loading="loading" class="data-table history-table">
-          <thead>
-            <tr><th>盘点单号</th><th>仓库 / 品类</th><th>盘点人</th><th>盘点日期</th><th>差异</th><th>差异金额</th><th>状态</th><th>操作</th></tr>
-          </thead>
-          <tbody>
-            <tr v-for="row in tableData" :key="row.id">
-              <td>{{ row.checkNo }}</td>
-              <td>{{ warehouseText(row.warehouseId) }} · {{ row.categoryName || '全部品类' }}</td>
-              <td>{{ row.checkPeople || '-' }}</td>
-              <td>{{ row.checkDate || '-' }}</td>
-              <td>{{ row.totalDiff || 0 }}</td>
-              <td>¥{{ Number(row.diffAmount || 0).toFixed(2) }}</td>
-              <td><span class="badge" :class="statusBadgeClass(row.status)">{{ statusText(row.status) }}</span></td>
-              <td class="row-actions">
-                <el-button type="text" @click="openCheck(row)">{{ primaryActionText(row) }}</el-button>
-                <el-button type="text" @click="openCheck(row, 'print')">打印</el-button>
-                <el-button v-if="canCancel(row)" type="text" class="danger-text" @click="onCancel(row)">作废</el-button>
-              </td>
-            </tr>
-            <tr v-if="!tableData.length"><td colspan="8" class="empty-row">没有查询到盘点单</td></tr>
-          </tbody>
-        </table>
-
-        <el-pagination
-          class="history-pager"
-          :current-page.sync="query.page"
-          :page-size.sync="query.limit"
-          :total="total"
-          layout="total, prev, pager, next"
-          @current-change="loadPage"
-        />
-
-        <section v-if="historyDetail" class="history-detail">
-          <div class="section-heading compact-heading">
-            <div>
-              <h3>归档详情</h3>
-              <p class="text-muted">{{ historyDetail.checkNo }} · {{ statusText(historyDetail.status) }}</p>
-            </div>
-            <el-button type="text" icon="el-icon-close" @click="historyDetail = null">关闭</el-button>
-          </div>
-          <div class="review-layout">
-            <dl class="detail-list">
-              <div><dt>审核结果</dt><dd>{{ statusText(historyDetail.status) }}</dd></div>
-              <div><dt>审核人</dt><dd>{{ historyDetail.auditUser || '-' }}</dd></div>
-              <div><dt>审核意见</dt><dd>{{ historyDetail.auditComment || '-' }}</dd></div>
-              <div><dt>差异金额</dt><dd>¥{{ Number(historyDetail.diffAmount || 0).toFixed(2) }}</dd></div>
-              <div><dt>归档时间</dt><dd>{{ fmtTime(historyDetail.archiveTime) || '-' }}</dd></div>
-            </dl>
-            <div class="inventory-result">
-              <div v-for="(text, i) in archiveResultTexts" :key="i">
-                <i :class="historyDetail.status === ST.ARCHIVED ? 'el-icon-circle-check done-icon' : 'el-icon-time'" />
-                <span>{{ text }}</span>
-              </div>
-            </div>
-          </div>
-        </section>
+          <table class="data-table print-table">
+            <thead>
+              <tr>
+                <th>序号</th><th>库位</th><th>SKU</th><th>商品名称</th><th>规格</th>
+                <th>单位</th><th>账面数量</th><th>实盘数量</th><th>状态</th><th>反馈说明</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(d, i) in details" :key="d.id">
+                <td>{{ i + 1 }}</td>
+                <td>{{ d.locationCode || '-' }}</td>
+                <td>{{ d.sku || '-' }}</td>
+                <td>{{ d.goodsName || '-' }}</td>
+                <td>{{ d.specName || '-' }}</td>
+                <td>{{ d.unitName || '-' }}</td>
+                <td>{{ blindPrint || d.bookStock == null ? '—' : d.bookStock }}</td>
+                <td /><td /><td />
+              </tr>
+            </tbody>
+          </table>
+          <div class="signatures"><span>盘点人签字</span><span>复核人签字</span><span>领导签字</span></div>
+        </article>
       </section>
     </main>
 
@@ -461,34 +269,23 @@ export default {
     return {
       ST,
       activeStep: 'create',
-      stepOrder: ['create', 'print', 'feedback', 'submit', 'audit', 'history'],
-      stepLabels: {
-        create: '新增盘点表', print: '打印盘点表', feedback: '盘点反馈',
-        submit: '提交领导审核', audit: '审核与归档', history: '历史查询',
-      },
-      loading: false,
+      // 打印和提交都是盘点页上的动作，不单列步骤；审核归档走审批中心
+      stepOrder: ['create', 'check'],
+      stepLabels: { create: '建单与范围', check: '盘点与提交' },
       saving: false,
-      total: 0,
-      tableData: [],
-      dateRange: [],
-      query: { page: 1, limit: 20, checkNo: '', warehouseId: null, categoryId: null, status: null, startDate: '', endDate: '' },
       categoryList: [],
       shelfList: [],
       lockedShelfIdList: [],
       form: this.emptyForm(),
       details: [],
-      historyDetail: null,
       blindPrint: false,
       feedbackError: '',
-      auditError: '',
-      auditComment: '',
-      archiveResultTexts: ['盘点记录与反馈已归档', '库存调整流水已生成', '商品库账面数量已更新'],
       statusOptions: [
         { value: ST.DRAFT, label: '草稿' },
         { value: ST.WAIT_FB, label: '待反馈' },
         { value: ST.FEEDBACK, label: '已反馈' },
-        { value: ST.AUDITING, label: '待审核' },
-        { value: ST.REJECTED, label: '已退回' },
+        { value: ST.AUDITING, label: '审批中' },
+        { value: ST.REJECTED, label: '已驳回' },
         { value: ST.ARCHIVED, label: '已归档' },
         { value: ST.CANCELED, label: '已作废' },
       ],
@@ -498,7 +295,10 @@ export default {
         { value: 'MISSING', label: '缺失' },
         { value: 'OTHER', label: '其他' },
       ],
-      rules: { warehouseId: [{ required: true, message: '请选择仓库', trigger: 'change' }] },
+      rules: {
+        warehouseId: [{ required: true, message: '请选择仓库', trigger: 'change' }],
+        checkUserId: [{ required: true, message: '请选择盘点人，审批流按用户派单', trigger: 'change' }],
+      },
     };
   },
   computed: {
@@ -510,10 +310,14 @@ export default {
       return [ST.WAIT_FB, ST.FEEDBACK, ST.REJECTED].includes(this.form.status);
     },
     canSubmitAudit() {
-      return this.details.length > 0 && [ST.WAIT_FB, ST.FEEDBACK, ST.REJECTED].includes(this.form.status);
+      return this.details.length > 0 && this.feedbackEditable;
     },
     auditStateText() {
-      return ({ [ST.AUDITING]: '审核中', [ST.ARCHIVED]: '已通过', [ST.REJECTED]: '已退回' })[this.form.status] || '待提交';
+      return ({ [ST.AUDITING]: '审批中', [ST.ARCHIVED]: '审批通过，已归档并联动库存' })[this.form.status] || '待提交';
+    },
+    /** 已发起审批（含审批完成）的单据，本页转为只读的审批状态展示 */
+    submitted() {
+      return [ST.AUDITING, ST.ARCHIVED].includes(this.form.status);
     },
     scopeText() {
       if (!this.details.length) return '保存并生成明细后显示应盘 SKU 与库位数量';
@@ -536,13 +340,9 @@ export default {
       result.locations = locations.size;
       return result;
     },
-    exceptionRows() {
-      return this.details.filter((d) => d.goodsStatus !== 'NORMAL' || this.diffOf(d) !== 0);
-    },
   },
   created() {
     this.loadCategories();
-    this.loadPage();
   },
   methods: {
     emptyForm() {
@@ -551,6 +351,7 @@ export default {
         checkDate: this.today(), checkUserId: null, checkPeople: '', checkMode: 0,
         lockedShelfIds: '', remark: '', status: ST.DRAFT,
         submitTime: null, auditTime: null, archiveTime: null, auditUser: '', auditComment: '',
+        approvalInstanceId: '',
       };
     },
     today() {
@@ -565,10 +366,6 @@ export default {
     },
     statusBadgeClass(s) {
       return ({ [ST.ARCHIVED]: 'badge-success', [ST.CANCELED]: 'badge-danger', [ST.REJECTED]: 'badge-danger', [ST.AUDITING]: 'badge-warning' })[s] || '';
-    },
-    goodsStatusText(s) {
-      const hit = this.goodsStatusOptions.find((x) => x.value === s);
-      return hit ? hit.label : s;
     },
     categoryText(id) {
       if (!id) return '全部品类';
@@ -585,18 +382,8 @@ export default {
       const diff = this.diffOf(row);
       return diff < 0 ? 'diff-negative' : diff > 0 ? 'diff-positive' : '';
     },
-    canCancel(row) { return [ST.DRAFT, ST.WAIT_FB, ST.FEEDBACK, ST.AUDITING, ST.REJECTED].includes(row.status); },
-    primaryActionText(row) {
-      return ({
-        [ST.DRAFT]: '生成明细', [ST.WAIT_FB]: '录入反馈', [ST.FEEDBACK]: '提交审核',
-        [ST.AUDITING]: '审核', [ST.REJECTED]: '修改反馈',
-      })[row.status] || '查看详情';
-    },
 
-    showStep(step) {
-      this.activeStep = step;
-      if (step === 'history') this.loadPage();
-    },
+    showStep(step) { this.activeStep = step; },
     onNewCheck() {
       this.form = this.emptyForm();
       this.details = [];
@@ -604,8 +391,6 @@ export default {
       this.shelfList = [];
       this.blindPrint = false;
       this.feedbackError = '';
-      this.auditError = '';
-      this.auditComment = '';
       if (this.$refs.formRef) this.$refs.formRef.clearValidate();
       this.showStep('create');
       this.$message.success('已创建新的盘点单草稿');
@@ -640,47 +425,15 @@ export default {
       this.loadShelfOptions(warehouseId);
     },
 
-    async loadPage() {
-      this.loading = true;
-      try {
-        this.query.startDate = (this.dateRange && this.dateRange[0]) || '';
-        this.query.endDate = (this.dateRange && this.dateRange[1]) || '';
-        const res = await stockCheckApi.page(this.query);
-        this.tableData = (res && res.list) || [];
-        this.total = (res && res.total) || 0;
-      } finally { this.loading = false; }
-    },
-    onSearch() { this.query.page = 1; this.loadPage(); },
-
-    /** 从历史列表打开一张单：按状态跳到该处理的那一步 */
-    async openCheck(row, mode) {
-      const res = await stockCheckApi.detail(row.id);
-      this.form = { ...this.emptyForm(), ...(res || {}) };
-      this.details = ((res && res.details) || []).map((d) => ({ ...d, goodsStatus: d.goodsStatus || 'NORMAL' }));
-      this.lockedShelfIdList = (this.form.lockedShelfIds || '').split(',').filter(Boolean).map(Number);
-      this.blindPrint = this.form.checkMode === 1;
-      this.auditComment = '';
-      this.feedbackError = '';
-      this.auditError = '';
-      await this.loadShelfOptions(this.form.warehouseId);
-      if (this.form.status === ST.ARCHIVED || this.form.status === ST.CANCELED) this.historyDetail = this.form;
-      this.showStep(mode === 'print' ? 'print' : this.stepOf(this.form.status));
-    },
-    stepOf(status) {
-      return ({
-        [ST.DRAFT]: 'create', [ST.WAIT_FB]: 'feedback', [ST.FEEDBACK]: 'submit',
-        [ST.AUDITING]: 'audit', [ST.REJECTED]: 'feedback', [ST.ARCHIVED]: 'audit', [ST.CANCELED]: 'submit',
-      })[status] || 'create';
-    },
-
     async pickCheckUser() {
       const u = await this.$refs.adminPicker.open();
       if (!u) return;
       this.form.checkUserId = u.id;
       this.form.checkPeople = u.realName || u.account || '';
+      if (this.$refs.formRef) this.$refs.formRef.clearValidate('checkUserId');
     },
 
-    /** 保存草稿(首次) + 按范围从库存展开应盘明细 */
+    /** 保存草稿(首次) + 按范围从库存展开应盘明细，完成后直接进盘点页 */
     async onGenerate() {
       await this.$refs.formRef.validate();
       this.saving = true;
@@ -701,7 +454,7 @@ export default {
         });
         this.$message.success(`已从库存中生成 ${count} 条盘点明细`);
         await this.refreshDetail();
-        this.showStep('print');
+        this.showStep('check');
       } finally { this.saving = false; }
     },
     async refreshDetail() {
@@ -734,15 +487,19 @@ export default {
       setTimeout(() => { win.print(); win.close(); }, 300);
     },
 
-    async onSaveFeedback() {
+    /**
+     * 保存反馈。silent=true 时由提交流程调用，不弹提示、不刷新，
+     * 让「保存 + 提交」在用户看来是一个动作。
+     */
+    async onSaveFeedback(silent = false) {
       // 前端先拦一道，省去异常行还要等后端来回；后端同样有校验，是最终防线
       const invalid = this.details.find((d) => d.goodsStatus !== 'NORMAL' && !String(d.feedbackRemark || '').trim());
       if (invalid) {
         this.feedbackError = `${invalid.sku || invalid.goodsName} 为异常状态，请填写具体反馈说明。`;
-        return;
+        return false;
       }
       this.feedbackError = '';
-      this.saving = true;
+      if (!silent) this.saving = true;
       try {
         await stockCheckApi.feedback({
           checkId: this.form.id,
@@ -754,45 +511,44 @@ export default {
             feedbackRemark: d.feedbackRemark || '',
           })),
         });
-        this.$message.success('反馈已保存，盘点汇总已生成');
-        await this.refreshDetail();
-        this.showStep('submit');
-      } finally { this.saving = false; }
+        if (!silent) {
+          this.$message.success('反馈已保存，盘点汇总已生成');
+          await this.refreshDetail();
+        }
+        return true;
+      } finally { if (!silent) this.saving = false; }
     },
 
-    async onSubmitAudit() {
-      await this.$confirm('提交后将锁定反馈数据，审批通过前库存不会变更。继续?', '确认', { type: 'warning' });
-      this.saving = true;
-      try {
-        await stockCheckApi.submitAudit(this.form.id, this.form.checkPeople);
-        this.$message.success('已提交领导审核，待办通知发送成功');
-        await this.refreshDetail();
-        this.showStep('audit');
-      } finally { this.saving = false; }
-    },
-
-    async onAudit(pass) {
-      const comment = String(this.auditComment || '').trim();
-      if (!pass && !comment) {
-        this.auditError = '退回盘点单前必须填写退回原因。';
+    /**
+     * 提交审批。后端 submitAudit 只认库里的明细，页面上没保存的实盘数它读不到，
+     * 所以这里必须先落一次库再发起，否则会出现「页面显示新值、审批用旧值」。
+     */
+    async onSubmit() {
+      if (!this.form.checkUserId) {
+        this.$message.warning('请先在「建单与范围」选择盘点人，审批流需要按用户派单');
         return;
       }
-      this.auditError = '';
-      if (pass) await this.$confirm('审核通过后将按差异校准库存并归档盘点记录。继续?', '确认', { type: 'warning' });
+      await this.$confirm('提交后将保存当前反馈并发起「盘点审批」，审批通过前库存不会变更。继续?', '确认', { type: 'warning' });
       this.saving = true;
       try {
-        await stockCheckApi.audit({ checkId: this.form.id, pass, comment });
-        this.$message.success(pass ? '审核通过：库存已更新，盘点记录已归档' : '盘点单已退回，反馈数据已解锁');
+        if (!await this.onSaveFeedback(true)) return;
+        await stockCheckApi.submitAudit(this.form.id, this.form.checkPeople);
+        this.$message.success('已发起审批，审批人可在审批中心处理');
         await this.refreshDetail();
-        if (!pass) this.showStep('feedback');
       } finally { this.saving = false; }
     },
 
-    async onCancel(row) {
-      await this.$confirm(`作废盘点单「${row.checkNo}」?`, '提示', { type: 'warning' });
-      await stockCheckApi.cancel(row.id);
-      this.$message.success('已作废');
-      this.loadPage();
+    /** 审批结果由 flowable 回调写回单据，页面只能主动拉最新状态 */
+    async onRefreshApproval() {
+      if (!this.form.id) return;
+      this.saving = true;
+      try {
+        await this.refreshDetail();
+        this.$message.success(`当前状态：${this.statusText(this.form.status)}`);
+      } finally { this.saving = false; }
+    },
+    gotoApproval() {
+      this.$router.push(`/approvalCenter/detail/${this.form.approvalInstanceId}`);
     },
   },
 };
@@ -802,7 +558,6 @@ export default {
 .inventory-check { color: #303133; }
 .text-muted { color: #909399; }
 .text-small { font-size: 12px; }
-.danger-text { color: #f56c6c; }
 
 .app-header {
   display: flex; align-items: center; justify-content: space-between; gap: 16px;
@@ -817,7 +572,7 @@ export default {
 .header-actions { display: flex; gap: 8px; }
 
 .workflow {
-  display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px;
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px;
   margin-top: 12px; padding: 8px; background: #f4f6f8; border: 1px solid #ebeef5; border-radius: 8px;
 }
 .workflow-step {
@@ -841,10 +596,8 @@ main { padding-top: 14px; }
 .screen { padding: 22px; background: #fff; border: 1px solid #ebeef5; border-radius: 8px; }
 .section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; margin-bottom: 18px; }
 .section-heading h2 { margin: 0; font-size: 16px; }
-.section-heading h3 { margin: 0; font-size: 14px; }
 .section-heading p { margin: 5px 0 0; font-size: 13px; }
-.heading-actions { display: flex; align-items: center; gap: 14px; }
-.compact-heading { margin-bottom: 8px; }
+.heading-actions { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
 
 .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 20px; }
 .form-span { grid-column: 1 / -1; }
@@ -856,14 +609,27 @@ main { padding-top: 14px; }
   margin-top: 18px; padding: 13px 14px; background: #ecf5ff; color: #4e5969;
   border: 1px solid #d3e3ff; border-left: 3px solid #409eff; border-radius: 6px;
 }
-.scope-band > div, .notice-band { align-items: center; }
-.scope-band > div { display: flex; gap: 8px; font-weight: 500; }
+.scope-band > div { display: flex; align-items: center; gap: 8px; font-weight: 500; }
 .notice-band { justify-content: flex-start; gap: 10px; }
 .notice-band i { font-size: 16px; color: #409eff; }
+.approval-band { justify-content: space-between; margin-top: 0; margin-bottom: 16px; }
+.approval-band > div { flex: 1; }
+.reject-band {
+  margin-top: 0; margin-bottom: 16px;
+  background: #fef0f0; border-color: #fbc4c4; border-left-color: #f56c6c;
+}
+.reject-band i { color: #f56c6c; }
+
+/* 单据信息压缩成一行，省掉一整块摘要区 */
+.doc-band {
+  display: flex; flex-wrap: wrap; gap: 6px 24px; margin-bottom: 16px; padding: 10px 14px;
+  background: #fafbfc; border: 1px solid #ebeef5; border-radius: 6px; font-size: 13px; color: #606266;
+}
+.doc-band span:first-child { font-weight: 600; color: #303133; }
 
 .action-bar { margin-top: 18px; }
-.action-bar .btn-block { width: 100%; }
-.split-actions { display: flex; justify-content: space-between; gap: 12px; }
+.split-actions { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.button-group { display: flex; gap: 10px; }
 .validation-message { margin-top: 10px; color: #f56c6c; font-size: 13px; }
 
 .data-table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 13px; }
@@ -873,21 +639,6 @@ main { padding-top: 14px; }
 .empty-row { padding: 26px 0; color: #c0c4cc; }
 .diff-negative { color: #f56c6c; font-weight: 600; }
 .diff-positive { color: #67c23a; font-weight: 600; }
-
-.print-sheet { padding: 26px; background: #fff; border: 1px solid #ebeef5; border-radius: 6px; }
-.sheet-title { text-align: center; font-weight: 600; font-size: 15px; margin-bottom: 12px; }
-.sheet-meta { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 20px; margin-bottom: 16px; color: #909399; font-size: 12px; }
-.print-table th, .print-table td { border: 1px solid #dcdfe6; }
-.print-table th:nth-child(1) { width: 6%; }
-.print-table th:nth-child(2), .print-table th:nth-child(3) { width: 10%; }
-.print-table th:nth-child(4) { width: 13%; }
-.print-table th:nth-child(5) { width: 10%; }
-.print-table th:nth-child(6) { width: 7%; }
-.print-table th:nth-child(7), .print-table th:nth-child(8) { width: 10%; }
-.print-table th:nth-child(9) { width: 9%; }
-.print-table th:nth-child(10) { width: 15%; }
-.signatures { display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px; margin-top: 38px; text-align: center; color: #909399; }
-.signatures span { padding-top: 8px; border-top: 1px solid #303133; }
 
 .summary-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 18px; }
 .summary-card {
@@ -903,47 +654,16 @@ main { padding-top: 14px; }
 .feedback-table th:nth-child(6) { width: 13%; }
 .feedback-table th:nth-child(7) { width: 28%; }
 
-.review-layout { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
-.review-block { padding: 16px; background: #fafbfc; border: 1px solid #ebeef5; border-radius: 6px; }
-.review-block h3 { margin: 0 0 12px; font-size: 14px; }
-.exception-row { display: flex; justify-content: space-between; gap: 14px; padding: 9px 0; border-bottom: 1px dashed #ebeef5; font-size: 13px; }
-.exception-row:last-child { border-bottom: 0; }
-.detail-list { margin: 0; }
-.detail-list > div { display: flex; justify-content: space-between; gap: 16px; padding: 9px 0; border-bottom: 1px dashed #ebeef5; font-size: 13px; }
-.detail-list dt { color: #909399; }
-.detail-list dd { margin: 0; text-align: right; }
-
-.audit-layout { display: grid; grid-template-columns: minmax(0, 2fr) minmax(220px, .85fr); gap: 30px; }
-.timeline { margin: 0; padding: 0; list-style: none; }
-.timeline-item { position: relative; display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: 12px; padding-bottom: 26px; }
-.timeline-item:not(:last-child)::after { position: absolute; left: 15px; top: 30px; bottom: 2px; width: 1px; background: #ebeef5; content: ''; }
-.timeline-mark { position: relative; z-index: 1; display: grid; place-items: center; width: 30px; height: 30px; color: #909399; background: #f0f2f5; border-radius: 50%; }
-.timeline-item.done .timeline-mark, .timeline-item.current .timeline-mark { color: #fff; background: #409eff; }
-.timeline-item strong { margin-right: 8px; }
-.timeline-item p { margin: 6px 0 0; font-size: 13px; }
-.audit-comment { display: block; margin: 12px 0; }
-.audit-actions { display: flex; gap: 10px; }
-.audit-summary { padding: 16px; background: #fafbfc; border: 1px solid #ebeef5; border-radius: 6px; height: fit-content; }
-.audit-summary h3 { margin: 0 0 12px; font-size: 14px; }
-.audit-summary .btn-block { width: 100%; margin-top: 12px; }
-
-.history-filters { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)) auto; align-items: end; gap: 10px; margin-bottom: 16px; }
-.history-filters label { display: block; }
-.history-filters label span { display: block; margin-bottom: 4px; }
-.filter-wide { grid-column: span 2; }
-.history-table th:nth-child(1) { width: 16%; }
-.history-table th:nth-child(2) { width: 22%; }
-.history-table th:nth-child(8) { width: 16%; }
-.row-actions >>> .el-button--text { padding: 0 4px; }
-.history-pager { margin-top: 16px; text-align: right; }
-.history-detail { margin-top: 20px; padding: 16px; background: #fafbfc; border: 1px solid #ebeef5; border-radius: 6px; }
-.inventory-result > div { display: flex; align-items: center; gap: 8px; padding: 8px 0; font-size: 13px; }
-.done-icon { color: #67c23a; }
+/* 只作为打印内容的载体，不占页面空间 */
+.is-hidden { position: absolute; left: -9999px; top: 0; width: 1000px; }
+.sheet-title { text-align: center; font-weight: 600; font-size: 15px; margin-bottom: 12px; }
+.sheet-meta { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 20px; margin-bottom: 16px; color: #909399; font-size: 12px; }
+.print-table th, .print-table td { border: 1px solid #dcdfe6; }
+.signatures { display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px; margin-top: 38px; text-align: center; color: #909399; }
+.signatures span { padding-top: 8px; border-top: 1px solid #303133; }
 
 @media (max-width: 1100px) {
-  .workflow { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .audit-layout, .review-layout, .form-grid { grid-template-columns: 1fr; }
-  .history-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .form-grid { grid-template-columns: 1fr; }
 }
 </style>

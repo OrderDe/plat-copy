@@ -40,6 +40,9 @@
       <el-table-column label="类型" width="100">
         <template slot-scope="{row}">{{ typeText(row.type) }}</template>
       </el-table-column>
+      <el-table-column label="关联单号" width="180" show-overflow-tooltip>
+        <template slot-scope="{row}">{{ row.relatedCode || '-' }}</template>
+      </el-table-column>
       <el-table-column prop="customerCode" label="客户" width="120" show-overflow-tooltip />
       <el-table-column prop="expressCompany" label="承运商" width="110" />
       <el-table-column label="优先级" width="80">
@@ -62,7 +65,8 @@
         <template slot-scope="{row}">
           <el-button type="text" @click="openDetail(row.id)">详情</el-button>
           <el-button type="text" @click="onPrint(row)">打印</el-button>
-          <el-button v-if="row.status === 0" type="text" @click="goWave">去组波</el-button>
+          <!-- 调拨/报损/领用的库存已由源单扣减，进波次会二次扣减，这里不给入口 -->
+          <el-button v-if="row.status === 0 && !SOURCE_DOC_TYPES.includes(row.type)" type="text" @click="goWave">去组波</el-button>
           <el-button v-if="row.status === 0" type="text" class="danger-text" @click="onCancel(row)">作废</el-button>
         </template>
       </el-table-column>
@@ -87,16 +91,78 @@
         <el-row :gutter="16">
           <el-col :span="12">
             <el-form-item label="仓库" prop="warehouseId">
-              <el-select v-model="form.warehouseId" filterable placeholder="请选择仓库" style="width:100%" @change="onWarehouseChange">
+              <!-- 调拨出库的仓库由调拨单的调出仓决定，选错了后端也会改回去，这里直接锁死 -->
+              <el-select v-model="form.warehouseId" filterable placeholder="请选择仓库" style="width:100%"
+                         :disabled="hasSourceDoc" @change="onWarehouseChange">
                 <el-option v-for="w in warehouseList" :key="w.id" :label="`${w.code} / ${w.name}`" :value="w.id" />
               </el-select>
             </el-form-item>
           </el-col>
           <el-col :span="12">
             <el-form-item label="类型" prop="type">
-              <el-select v-model="form.type" style="width:100%">
+              <el-select v-model="form.type" style="width:100%" @change="onTypeChange">
                 <el-option v-for="t in typeOptions" :key="t.itemValue" :label="t.itemName" :value="t.itemValue" />
               </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col v-if="hasSourceDoc" :span="24">
+            <el-form-item :label="'关联' + sourceDocName" prop="sourceDocId" required>
+              <el-select
+                v-model="form.sourceDocId"
+                filterable
+                :placeholder="`只能选择审批通过且尚未出库的${sourceDocName}`"
+                style="width:100%"
+                :loading="sourceLoading"
+                :disabled="dialogMode === 'view'"
+                @change="onSourceChange"
+              >
+                <el-option
+                  v-for="o in sourceOptions"
+                  :key="o.id"
+                  :label="`${o.code}｜${o.summary}｜${(o.items || []).length} 条明细`"
+                  :value="o.id"
+                />
+              </el-select>
+              <div v-if="dialogMode === 'add' && !sourceLoading && !sourceOptions.length" class="hint-text">
+                没有可关联的{{ sourceDocName }}：需先提交并审批通过，且未被其他出库单占用。
+              </div>
+              <div v-else-if="dialogMode === 'add'" class="hint-text">
+                明细按{{ sourceDocName }}批准的内容自动带出，不可修改；库存已由{{ sourceDocName }}扣减，本单只作出库凭证，不需要组波拣货。
+              </div>
+            </el-form-item>
+          </el-col>
+          <el-col v-if="isSale" :span="24">
+            <el-form-item label="关联订单号" prop="relatedCode" required>
+              <!-- 订单量大，不适合一次性拉全量，走远程搜索：输订单号/收货人再查 -->
+              <el-select
+                v-model="form.relatedCode"
+                filterable
+                remote
+                clearable
+                allow-create
+                default-first-option
+                reserve-keyword
+                placeholder="输入订单号搜索并选择，默认只列待发货订单"
+                style="width:100%"
+                :loading="orderLoading"
+                :remote-method="searchOrders"
+                :disabled="dialogMode === 'view'"
+                @focus="searchOrders('')"
+                @change="onOrderChange"
+              >
+                <el-option
+                  v-for="o in orderOptions"
+                  :key="o.orderNo"
+                  :label="o.orderNo"
+                  :value="o.orderNo"
+                >
+                  <span>{{ o.orderNo }}</span>
+                  <span class="option-extra">{{ o.realName || '-' }} · ￥{{ o.payPrice }} · {{ o.statusText }}</span>
+                </el-option>
+              </el-select>
+              <div v-if="dialogMode === 'add'" class="hint-text">
+                默认只列待发货订单；找不到时可直接输入订单号回车。订单发货、智能分仓自动建的销售出库单会自带订单号。
+              </div>
             </el-form-item>
           </el-col>
           <el-col :span="12">
@@ -136,13 +202,14 @@
         </el-row>
 
         <el-divider content-position="left">出库明细</el-divider>
-        <el-button v-if="dialogMode === 'add'" size="mini" icon="el-icon-plus" @click="addItem">添加行</el-button>
+        <el-button v-if="dialogMode === 'add' && !hasSourceDoc" size="mini" icon="el-icon-plus" @click="addItem">添加行</el-button>
+        <span v-else-if="hasSourceDoc && dialogMode === 'add'" class="hint-text">明细来自关联的{{ sourceDocName }}，如需调整请修改源单并重新审批。</span>
         <div class="dialog-table-scroller">
           <el-table :data="form.items" border size="mini" max-height="360">
             <el-table-column type="index" width="50" fixed="left" />
             <el-table-column label="店铺" width="180" fixed="left">
               <template slot-scope="{row}">
-                <el-select v-model="row.merId" filterable size="mini" style="width:100%" placeholder="选择店铺" @change="onShopChangeWithBatch(row)">
+                <el-select v-model="row.merId" :disabled="hasSourceDoc" filterable size="mini" style="width:100%" placeholder="选择店铺" @change="onShopChangeWithBatch(row)">
                   <el-option v-for="m in merchantList" :key="m.id" :label="m.name" :value="m.id" />
                 </el-select>
               </template>
@@ -150,7 +217,7 @@
             <el-table-column label="商品名称" min-width="220" fixed="left">
               <template slot-scope="{row}">
                 <el-input v-model="row.goodsName" size="mini" readonly placeholder="点击选择商品">
-                  <el-button slot="append" size="mini" icon="el-icon-search" @click="pickProductWithBatch(row)" />
+                  <el-button v-if="!hasSourceDoc" slot="append" size="mini" icon="el-icon-search" @click="pickProductWithBatch(row)" />
                 </el-input>
               </template>
             </el-table-column>
@@ -194,7 +261,7 @@
             </el-table-column>
             <el-table-column label="应出库" width="110">
               <template slot-scope="{row}">
-                <el-input-number v-model="row.outboundTotalNum" :min="0" size="mini" controls-position="right" />
+                <el-input-number v-model="row.outboundTotalNum" :min="0" :disabled="hasSourceDoc" size="mini" controls-position="right" />
               </template>
             </el-table-column>
             <el-table-column label="实出库" width="110">
@@ -202,7 +269,7 @@
                 <el-input-number v-model="row.actualOutboundNum" :min="0" size="mini" controls-position="right" />
               </template>
             </el-table-column>
-            <el-table-column v-if="dialogMode === 'add'" label="操作" width="80" fixed="right">
+            <el-table-column v-if="dialogMode === 'add' && !hasSourceDoc" label="操作" width="80" fixed="right">
               <template slot-scope="{$index}">
                 <el-button type="text" class="danger-text" @click="form.items.splice($index, 1)">删除</el-button>
               </template>
@@ -224,19 +291,31 @@
 
 <script>
 import { outboundApi, batchApi, dictApi } from '@/api/warehouse';
+import { orderListApi } from '@/api/order';
 import warehouseFormMixin from '@/views/warehouse/components/warehouseFormMixin';
 import { doPrint } from '@/views/warehouse/components/printUtil';
+
+// 出库类型，与 wms_dict(outbound_type) 及后端 WmsOutboundServiceImpl 的常量一致
+const TYPE_SALE = 0;
+// 这三类的库存已由源单扣减（调拨发货 / 报损、领用审批通过），出库单只作凭证，不进波次
+const SOURCE_DOC_NAMES = { 1: '调拨单', 2: '报损单', 3: '领用申请单' };
+const SOURCE_DOC_TYPES = Object.keys(SOURCE_DOC_NAMES).map(Number);
 
 export default {
   name: 'WarehouseOutbound',
   mixins: [warehouseFormMixin],
   data() {
     return {
+      SOURCE_DOC_TYPES,
       loading: false, saving: false, total: 0, tableData: [],
       // 出库要从仓里取货，选品时现有库存为 0 的标红提醒
       productPickerRequireStock: true,
       query: { page: 1, limit: 20, code: '', warehouseId: null, type: null, status: null },
       typeOptions: [], // 出库类型，来自 wms_dict(outbound_type)
+      sourceOptions: [], // 可关联的源单（审批通过且未被占用）
+      sourceLoading: false,
+      orderOptions: [], // 销售出库可关联的订单（远程搜索结果）
+      orderLoading: false,
       dialogVisible: false, dialogMode: 'add',
       // 批次下拉缓存：key = 仓+商户+商品+SKU，避免每次展开都请求
       batchOptions: {},
@@ -245,15 +324,81 @@ export default {
         warehouseId: [{ required: true, message: '请选择仓库', trigger: 'change' }],
         type: [{ required: true, message: '请选择类型', trigger: 'change' }],
         applyUserId: [{ required: true, message: '请选择申请人', trigger: 'change' }],
+        sourceDocId: [{ required: true, message: '请关联一张审批通过的源单', trigger: 'change' }],
+        relatedCode: [{ required: true, message: '销售出库必须填写关联订单号', trigger: 'blur' }],
       },
     };
+  },
+  computed: {
+    /** 调拨/报损/领用：单据内容以源单为准，仓库和明细都不允许手工改 */
+    hasSourceDoc() { return !!SOURCE_DOC_NAMES[this.form.type]; },
+    sourceDocName() { return SOURCE_DOC_NAMES[this.form.type] || '源单'; },
+    isSale() { return this.form.type === TYPE_SALE; },
   },
   created() {
     this.loadTypeOptions();
     this.loadPage();
   },
   methods: {
-    emptyForm() { return { warehouseId: null, type: 0, applyUserId: null, applyUserName: '', applyUserPhone: '', customerCode: '', expressCompany: '', priority: 0, remark: '', items: [] }; },
+    emptyForm() { return { warehouseId: null, type: 0, sourceDocId: null, relatedCode: '', applyUserId: null, applyUserName: '', applyUserPhone: '', customerCode: '', expressCompany: '', priority: 0, remark: '', items: [] }; },
+
+    /** 切类型：换了类型原来的关联和带出明细都不再适用，一律清空重来 */
+    onTypeChange() {
+      this.form.sourceDocId = null;
+      this.form.relatedCode = '';
+      this.form.items = [];
+      this.sourceOptions = [];
+      if (this.hasSourceDoc) this.loadSourceOptions();
+    },
+    /**
+     * 远程搜索订单。默认只列待发货的：已发货的订单再建销售出库单基本是误操作。
+     * 查不到时允许手工输入（allow-create），避免历史单或特殊场景被卡死。
+     */
+    async searchOrders(keyword) {
+      this.orderLoading = true;
+      try {
+        const res = await orderListApi({
+          page: 1,
+          limit: 20,
+          status: 'notShipped',
+          orderNo: (keyword || '').trim(),
+          dateLimit: '',
+          type: '',
+        });
+        const list = (res && (res.list || res.data || [])) || [];
+        this.orderOptions = list.map((o) => ({
+          orderNo: o.orderNo,
+          realName: o.realName || o.userNickname,
+          payPrice: o.payPrice,
+          statusText: '待发货',
+        }));
+      } catch (e) {
+        // 订单服务查不通不该挡住建单，退回手工输入
+        this.orderOptions = [];
+      } finally { this.orderLoading = false; }
+    },
+    /** 选中订单后触发校验，避免必填提示残留 */
+    onOrderChange() {
+      this.$refs.formRef && this.$refs.formRef.validateField('relatedCode');
+    },
+    async loadSourceOptions() {
+      this.sourceLoading = true;
+      try {
+        const res = await outboundApi.sourceOptions(this.form.type);
+        this.sourceOptions = (res && (res.data !== undefined ? res.data : res)) || [];
+      } catch (e) {
+        this.sourceOptions = [];
+      } finally { this.sourceLoading = false; }
+    },
+    /** 选定源单：仓库锁成源单的仓库，明细按批准内容带出（后端也会以源单为准重算一遍） */
+    onSourceChange(sourceDocId) {
+      const hit = this.sourceOptions.find((o) => o.id === sourceDocId);
+      if (!hit) return;
+      this.form.warehouseId = hit.warehouseId;
+      this.form.relatedCode = hit.code;
+      this.batchOptions = {};
+      this.form.items = (hit.items || []).map((it) => ({ ...it, batchId: null }));
+    },
     typeText(t) {
       // 类型名来自字典；停用后的历史单据也能显示原名称，字典没这条时退回显示原始值
       const hit = this.typeOptions.find((x) => x.itemValue === t);
@@ -323,11 +468,26 @@ export default {
     },
     onSearch() { this.query.page = 1; this.loadPage(); },
     onReset() { this.query = { page: 1, limit: 20, code: '', warehouseId: null, type: null, status: null }; this.loadPage(); },
-    openDialog() { this.form = this.emptyForm(); this.dialogMode = 'add'; this.dialogVisible = true; },
+    openDialog() {
+      this.form = this.emptyForm();
+      this.dialogMode = 'add';
+      this.dialogVisible = true;
+      if (this.hasSourceDoc) this.loadSourceOptions();
+    },
     async openDetail(id) {
       const res = await outboundApi.detail(id);
       this.form = res || this.emptyForm();
       if (!this.form.items) this.form.items = [];
+      // 详情里下拉只用来显示单号，历史单关联的源单已被占用不在候选里，这里补一条
+      if (this.form.sourceDocId) {
+        this.sourceOptions = [{
+          id: this.form.sourceDocId,
+          code: this.form.relatedCode || ('源单#' + this.form.sourceDocId),
+          warehouseId: this.form.warehouseId,
+          summary: '',
+          items: this.form.items || [],
+        }];
+      }
       this.dialogMode = 'view';
       this.dialogVisible = true;
     },
@@ -337,7 +497,9 @@ export default {
     resetForm() { this.$refs.formRef && this.$refs.formRef.resetFields(); },
     async onSubmitForm() {
       await this.$refs.formRef.validate();
-      if (!this.form.items.length) return this.$message.warning('请至少添加一行明细');
+      if (!this.form.items.length) {
+        return this.$message.warning(this.hasSourceDoc ? `所选${this.sourceDocName}没有明细，无法生成出库单` : '请至少添加一行明细');
+      }
       if (this.form.items.find((i) => !i.productId)) return this.$message.warning('请为每行选择商品');
       // 仓储按 SKU 扣账，缺 attrValueId 会扣不到对应规格的库存行
       const noSku = this.form.items.findIndex((i) => !i.attrValueId);
@@ -378,4 +540,7 @@ export default {
   margin-top: 8px;
 }
 .sku-missing { color: #f56c6c; font-size: 12px; }
+.hint-text { color: #909399; font-size: 12px; line-height: 1.6; }
+/* 下拉里订单的辅助信息靠右淡显，不抢订单号的视觉重心 */
+.option-extra { float: right; color: #8492a6; font-size: 12px; margin-left: 16px; }
 </style>

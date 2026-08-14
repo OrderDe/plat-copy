@@ -424,6 +424,8 @@ export default {
     isWide(field) {
       // 图片和长文本占满整行，短字段两列排布
       if (field.type === 'image' || field.type === 'images') return true;
+      // 多行文本（明细清单）必须独占整行，两列排布会把每条挤断
+      if (String(field.value || '').includes('\n')) return true;
       return String(field.value || '').length > 30;
     },
     recType(result) {
@@ -612,7 +614,8 @@ export default {
 .form-item { min-width: 0; padding: 10px 12px; border: 1px solid #eef0f3; border-radius: 8px; background: #fcfcfd; }
 .form-item-wide { grid-column: 1 / -1; }
 .form-label { color: #98a2b3; font-size: 12px; }
-.form-value { margin-top: 4px; color: #344054; font-size: 13px; line-height: 1.6; word-break: break-all; }
+/* 明细类字段是多行文本（一行一条商品），pre-line 保留换行，否则会挤成一坨 */
+.form-value { margin-top: 4px; color: #344054; font-size: 13px; line-height: 1.6; word-break: break-all; white-space: pre-line; }
 .form-money { color: #d92d20; font-size: 15px; font-weight: 600; }
 .form-image { width: 68px; height: 68px; margin: 2px 8px 2px 0; border: 1px solid #eef0f3; border-radius: 6px; }
 .form-empty { margin: 16px 0 4px; }

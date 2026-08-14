@@ -127,7 +127,8 @@ export const stockApi = {
 
 // ==================== 盘点单 ====================
 // 流程：新增(草稿) → 生成明细(待反馈) → 打印线下盘 → 录入反馈(已反馈)
-//      → 提交领导审核(待审核) → 通过(已归档，联动库存) / 退回(已退回)
+//      → 提交审批(审批中，发起 flowable 流程 wms_stockCheck)
+//      → 审批回调：通过(已归档，联动库存) / 驳回(已驳回，可改反馈后重提)
 export const stockCheckApi = {
   page: (data) => request({ url: '/api/warehouse/stockCheck/page', method: 'post', data, baseURL }),
   detail: (id) => request({ url: `/api/warehouse/stockCheck/detail/${id}`, method: 'get', baseURL }),
@@ -138,8 +139,9 @@ export const stockCheckApi = {
   printData: (id) => request({ url: `/api/warehouse/stockCheck/printData/${id}`, method: 'get', baseURL }),
   /** 保存反馈；data.submit=true 时保存后直接提交审核 */
   feedback: (data) => request({ url: '/api/warehouse/stockCheck/feedback', method: 'post', data, baseURL }),
+  /** 提交审批：以盘点人身份发起 flowable 审批流，回填 approvalInstanceId */
   submitAudit: (id, submitUser) => request({ url: `/api/warehouse/stockCheck/submitAudit/${id}`, method: 'post', params: { submitUser }, baseURL }),
-  /** { checkId, pass, comment, auditUser } */
+  /** 人工兜底审核入口 { checkId, pass, comment, auditUser }，正常流程走审批中心 */
   audit: (data) => request({ url: '/api/warehouse/stockCheck/audit', method: 'post', data, baseURL }),
   cancel: (id) => request({ url: `/api/warehouse/stockCheck/cancel/${id}`, method: 'post', baseURL }),
 };
@@ -160,6 +162,8 @@ export const outboundApi = {
   detail: (id) => request({ url: `/api/warehouse/outbound/detail/${id}`, method: 'get', baseURL }),
   add: (data) => request({ url: '/api/warehouse/outbound/add', method: 'post', data, baseURL }),
   cancel: (id) => request({ url: `/api/warehouse/outbound/cancel/${id}`, method: 'post', baseURL }),
+  /** 可关联的源单（1调拨/2报损/3领用）：审批通过且未被占用，含带出的明细 */
+  sourceOptions: (type, warehouseId) => request({ url: '/api/warehouse/outbound/sourceOptions', method: 'get', params: { type, warehouseId }, baseURL }),
 };
 
 // ==================== 采购发货单 ====================
