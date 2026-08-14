@@ -62,9 +62,16 @@ export default {
       // productPickerRequireStock 由使用本 mixin 的页面自行声明：
       // 出库方向(出库单、报损、领用、调拨、退库)要从仓里取货，现有库存 0 会做不下去；
       // 入库方向(入库单、采购发货单)和盘点则相反，0 库存是常态，不该标红吓人。
+      // 从仓里取货的单据还要按本仓过滤：别的仓的货搬不动，列出来只会选错
+      const fromWarehouseId = this.form.warehouseId || this.form.fromWarehouseId || null;
+      if (this.productPickerRequireStock === true && !fromWarehouseId) {
+        this.$message.warning('请先选择仓库，再选择商品');
+        return;
+      }
       const res = await this.$refs.productPicker.open({
         merId: row.merId,
         requireStock: this.productPickerRequireStock === true,
+        warehouseId: this.productPickerRequireStock === true ? fromWarehouseId : null,
       });
       if (!res || !res.product) return;
       const { product, skus } = res;

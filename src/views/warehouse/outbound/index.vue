@@ -362,7 +362,7 @@ export default {
       this.$router.push({ path: '/warehouse/wave' });
     },
     async onCancel(row) {
-      await this.$confirm(`作废出库单「{row.code}」`, '提示', { type: 'warning' });
+      await this.$confirm(`作废出库单「${row.code}」`, '提示', { type: 'warning' });
       await outboundApi.cancel(row.id);
       this.$message.success('已作废');
       this.loadPage();

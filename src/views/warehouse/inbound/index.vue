@@ -114,6 +114,22 @@
               <el-input v-model="form.applyUserPhone" placeholder="选择申请人后自动带出，可手动修改" />
             </el-form-item>
           </el-col>
+          <el-col :span="12">
+            <!-- 入库人、经办人都允许手工输入：现场收货的人不一定有后台账号，
+                 经办人更常见是承运商/供应商的人，只留姓名即可 -->
+            <el-form-item label="入库人">
+              <el-input v-model="form.inboundUserName" maxlength="64" placeholder="可选择管理员或直接输入姓名">
+                <el-button slot="append" icon="el-icon-user" @click="pickInboundUser">选择</el-button>
+              </el-input>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="经办人">
+              <el-input v-model="form.handlerUserName" maxlength="64" placeholder="送货/交接对接人，可直接输入姓名">
+                <el-button slot="append" icon="el-icon-user" @click="pickHandlerUser">选择</el-button>
+              </el-input>
+            </el-form-item>
+          </el-col>
           <el-col :span="24">
             <el-form-item label="备注">
               <el-input v-model="form.remark" type="textarea" :rows="2" />
@@ -221,7 +237,7 @@
       </div>
     </el-dialog>
 
-    <admin-picker-dialog ref="adminPicker" title="选择申请人" />
+    <admin-picker-dialog ref="adminPicker" :title="adminPickerTitle" />
     <product-picker-dialog ref="productPicker" />
   </div>
 </template>
@@ -241,6 +257,7 @@ export default {
       dialogVisible: false, dialogMode: 'add',
       form: this.emptyForm(),
       shelfCache: [],
+      adminPickerTitle: '选择申请人', // 申请人/入库人/经办人共用一个选择器，标题跟着入口走
       locationCache: {},
       typeOptions: [], // 入库类型，来自 wms_dict(inbound_type)
       rules: {
@@ -264,7 +281,24 @@ export default {
     'form.warehouseId'(v) { this.loadShelves(v); },
   },
   methods: {
-    emptyForm() { return { warehouseId: null, type: 0, applyUserId: null, applyUserName: '', applyUserPhone: '', remark: '', items: [] }; },
+    emptyForm() { return { warehouseId: null, type: 0, applyUserId: null, applyUserName: '', applyUserPhone: '', inboundUserId: null, inboundUserName: '', handlerUserName: '', remark: '', items: [] }; },
+    /** 入库人可以是没有后台账号的现场人员，所以选择器只是省事的入口，输入框本身可编辑 */
+    async pickInboundUser() {
+      this.adminPickerTitle = '选择入库人';
+      const u = await this.$refs.adminPicker.open();
+      this.adminPickerTitle = '选择申请人';
+      if (!u) return;
+      this.$set(this.form, 'inboundUserId', u.id);
+      this.$set(this.form, 'inboundUserName', u.realName || u.account || '');
+    },
+    /** 经办人常是承运商/供应商的人，后台没有账号，只存姓名不存ID */
+    async pickHandlerUser() {
+      this.adminPickerTitle = '选择经办人';
+      const u = await this.$refs.adminPicker.open();
+      this.adminPickerTitle = '选择申请人';
+      if (!u) return;
+      this.$set(this.form, 'handlerUserName', u.realName || u.account || '');
+    },
     async loadShelves(warehouseId) {
       if (!warehouseId) { this.shelfCache = []; this.locationCache = {}; return; }
       try {

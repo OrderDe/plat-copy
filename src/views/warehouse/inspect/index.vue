@@ -90,7 +90,7 @@
         <el-row class="inspect-form-grid" :gutter="20">
           <el-col :span="8">
             <el-form-item label="仓库" prop="warehouseId">
-              <el-select v-model="form.warehouseId" filterable style="width:100%" @change="onWarehouseChange">
+              <el-select v-model="form.warehouseId" filterable style="width:100%" @change="onWarehouseSelect">
                 <el-option v-for="w in warehouseList" :key="w.id" :label="`${w.code} / ${w.name}`" :value="w.id" />
               </el-select>
             </el-form-item>
@@ -151,21 +151,25 @@
         <el-divider class="inspect-section-divider" content-position="left">质检明细</el-divider>
         <div class="inspect-detail-toolbar">
           <div class="inspect-detail-hint">逐行填写送检数量、合格数量及处置方式</div>
-          <el-button v-if="editable" size="mini" type="primary" plain icon="el-icon-plus" @click="addItem">添加行</el-button>
+          <el-button v-if="editable && !fromInbound" size="mini" type="primary" plain icon="el-icon-plus" @click="addItem">添加行</el-button>
+          <span v-if="fromInbound" class="inspect-detail-hint">明细由入库单 {{ form.inboundCode }} 带出，只需填写合格/不合格数量、合格品存放库位与不合格原因</span>
         </div>
         <div class="dialog-table-scroller inspect-table-wrapper">
           <el-table class="inspect-detail-table" :data="form.items" border size="mini" max-height="360">
             <el-table-column type="index" width="50" fixed="left" />
             <el-table-column label="店铺" width="150" fixed="left">
               <template slot-scope="{row}">
-                <el-select v-model="row.merId" filterable size="mini" style="width:100%" placeholder="选择店铺" @change="onShopChange(row)">
+                <span v-if="fromInbound">{{ merchantText(row.merId) }}</span>
+                <el-select v-else v-model="row.merId" filterable size="mini" style="width:100%" placeholder="选择店铺" @change="onShopChange(row)">
                   <el-option v-for="m in merchantList" :key="m.id" :label="m.name" :value="m.id" />
                 </el-select>
               </template>
             </el-table-column>
             <el-table-column label="商品" min-width="200" fixed="left">
               <template slot-scope="{row}">
-                <el-input v-model="row.goodsName" size="mini" readonly>
+                <!-- 关联了入库单的明细由入库单带出，商品不允许改：改了就和实际收的货对不上 -->
+                <span v-if="fromInbound">{{ row.goodsName }}</span>
+                <el-input v-else v-model="row.goodsName" size="mini" readonly>
                   <el-button slot="append" size="mini" icon="el-icon-search" @click="pickProduct(row)" />
                 </el-input>
               </template>
@@ -181,7 +185,11 @@
               <template slot-scope="{row}"><el-input v-model="row.productId" size="mini" readonly /></template>
             </el-table-column>
             <el-table-column label="送检" width="100">
-              <template slot-scope="{row}"><el-input-number v-model="row.qtyReceived" :min="0" size="mini" controls-position="right" /></template>
+              <template slot-scope="{row}">
+                <!-- 送检数量 = 入库单的实入库数量，不由质检员改 -->
+                <span v-if="fromInbound">{{ row.qtyReceived }}</span>
+                <el-input-number v-else v-model="row.qtyReceived" :min="0" size="mini" controls-position="right" />
+              </template>
             </el-table-column>
             <el-table-column label="合格" width="100">
               <template slot-scope="{row}"><el-input-number v-model="row.qtyPass" :min="0" size="mini" controls-position="right" /></template>
@@ -207,15 +215,16 @@
             </el-table-column>
             <el-table-column label="合格品存放-库位" width="170">
               <template slot-scope="{row}">
+                <!-- 只列可售区库位：合格品搬到待检区/隔离区不会计入可售库存，等于白检 -->
                 <el-select v-model="row.passLocationId" size="mini" filterable clearable :disabled="!row.passShelfId" style="width:100%">
-                  <el-option v-for="l in (locationCache[row.passShelfId]||[])" :key="l.id" :label="l.code" :value="l.id" />
+                  <el-option v-for="l in sellableLocations(row.passShelfId)" :key="l.id" :label="l.code" :value="l.id" />
                 </el-select>
               </template>
             </el-table-column>
             <el-table-column label="不合格原因" width="170">
               <template slot-scope="{row}"><el-input v-model="row.failReason" size="mini" /></template>
             </el-table-column>
-            <el-table-column v-if="editable" label="操作" width="80" fixed="right">
+            <el-table-column v-if="editable && !fromInbound" label="操作" width="80" fixed="right">
               <template slot-scope="{$index}"><el-button type="text" class="danger-text" @click="form.items.splice($index,1)">删除</el-button></template>
             </el-table-column>
           </el-table>
@@ -260,6 +269,8 @@ export default {
   },
   computed: {
     editable() { return this.dialogMode === 'add' || this.dialogMode === 'edit'; },
+    /** 明细来自入库单：商品、规格、送检数量都是收货时的既成事实，质检员只填检验结果 */
+    fromInbound() { return !!this.form.inboundId; },
     dialogTitle() {
       if (this.dialogMode === 'add') return '新建质检单';
       return (this.dialogMode === 'edit' ? '编辑质检单 ' : '质检单详情') + (this.form.code || '');
@@ -321,23 +332,95 @@ export default {
       try { const r = await shelfApi.page({ page: 1, limit: 999, warehouseId: this.form.warehouseId, status: 1 }); this.shelfCache = (r && r.list) || []; } catch (e) {}
       this.locationCache = {};
     },
-    /** 只列已生效(status=1)且未生成质检单(inspectStatus=0)的入库单，避免选到重复质检的单 */
+    /**
+     * 只列已生效(status=1)且未生成质检单(inspectStatus=0)的入库单，避免选到重复质检的单。
+     * 已选仓库时按仓库过滤：质检是对本仓实物抽检，关联到别的仓的入库单没有意义，
+     * 明细带出来的库位也不属于当前仓。
+     */
     async loadInboundOptions(keyword) {
       this.inboundLoading = true;
       try {
-        const r = await inboundApi.page({ page: 1, limit: 50, status: 1, inspectStatus: 0, code: keyword || '' });
+        const params = { page: 1, limit: 50, status: 1, inspectStatus: 0, code: keyword || '' };
+        if (this.form.warehouseId) params.warehouseId = this.form.warehouseId;
+        const r = await inboundApi.page(params);
         this.inboundOptions = (r && r.list) || [];
       } catch (e) { this.inboundOptions = []; } finally { this.inboundLoading = false; }
     },
-    /** 选定入库单后带出单号与仓库，仓库变化要重新拉货架 */
+    /**
+     * 用户手动换仓：已选的入库单多半不属于新仓，直接清掉重新拉，
+     * 不能复用 onWarehouseChange —— 那个方法也被 onInboundChange 调用，会把刚选的单清掉。
+     */
+    async onWarehouseSelect() {
+      this.form.inboundId = null;
+      this.form.inboundCode = '';
+      await this.onWarehouseChange();
+      await this.loadInboundOptions();
+    },
+    /** 选定入库单后带出单号、仓库与质检明细，仓库变化要重新拉货架 */
     async onInboundChange(id) {
       const ib = this.inboundOptions.find(x => x.id === id);
-      if (!ib) { this.form.inboundCode = ''; return; }
+      if (!ib) {
+        // 清空关联入库单时把带出来的明细一并清掉，否则会留下一堆改不了的行
+        this.form.inboundCode = '';
+        this.form.items = [];
+        return;
+      }
       this.form.inboundCode = ib.code;
       if (ib.warehouseId && ib.warehouseId !== this.form.warehouseId) {
         this.form.warehouseId = ib.warehouseId;
         await this.onWarehouseChange();
       }
+      await this.loadItemsFromInbound(id);
+    },
+    /**
+     * 按入库单明细生成质检明细：商品、规格、送检数量都取收货时的既成事实，
+     * 质检员只需要填合格/不合格数量、合格品存放库位和不合格原因。
+     * 实入库数量为 0 的行不用检，直接跳过。
+     */
+    async loadItemsFromInbound(inboundId) {
+      try {
+        const d = await inboundApi.detail(inboundId);
+        const list = (d && d.items) || [];
+        const items = [];
+        for (const s of list) {
+          const qty = Number(s.actualInboundNum || 0);
+          if (qty <= 0) continue;
+          items.push({
+            productId: s.productId,
+            attrValueId: s.attrValueId,
+            sku: s.sku || '',
+            barCode: s.barCode || '',
+            merId: s.merId != null ? s.merId : (d.merId || null),
+            platformType: s.platformType != null ? s.platformType : 0,
+            goodsName: s.goodsName || '',
+            batchId: s.batchId || null,
+            qtyReceived: qty,
+            qtyPass: qty, // 默认全合格，质检员按实际改
+            qtyFail: 0,
+            disposition: 0,
+            srcShelfId: s.shelfId || null,
+            srcLocationId: s.locationId || null,
+            // 合格品库位不给默认值：入库的货现在停在待检区，默认成来源库位的话
+            // 质检提交时判定「库位没变」不搬货，合格品会一直留在待检区变不成可售库存
+            passShelfId: null,
+            passLocationId: null,
+            ngLocationId: null,
+            failReason: '',
+          });
+        }
+        this.form.items = items;
+        if (!items.length) this.$message.warning('该入库单没有实入库数量大于 0 的明细，无需质检');
+      } catch (e) {
+        this.$message.error('加载入库单明细失败');
+      }
+    },
+    /** 合格品只能进可售区(usageType=0)；老数据 usageType 为空按可售区处理 */
+    sellableLocations(shelfId) {
+      return (this.locationCache[shelfId] || []).filter((l) => !l.usageType);
+    },
+    merchantText(merId) {
+      const m = this.merchantList.find(x => x.id === merId);
+      return m ? m.name : (merId || '-');
     },
     async loadNgLocations() { await this.ensureLocations(this.form.ngShelfId); },
     ngLocationLabel(l) {
@@ -377,7 +460,12 @@ export default {
     },
     async pickProduct(row) {
       // 质检是对仓内实物抽检，没库存无从检起
-      const res = await this.$refs.productPicker.open({ merId: row.merId, requireStock: true });
+      if (!this.form.warehouseId) return this.$message.warning('请先选择仓库，再选择商品');
+      const res = await this.$refs.productPicker.open({
+        merId: row.merId,
+        requireStock: true,
+        warehouseId: this.form.warehouseId,
+      });
       if (!res || !res.product) return;
       const seen = new Set();
       const skus = (res.skus || []).filter((sku) => {
@@ -417,6 +505,9 @@ export default {
       if (noProduct >= 0) return this.$message.warning(`第 ${noProduct + 1} 行未选择商品`);
       const noSku = this.form.items.findIndex((item) => !item.attrValueId);
       if (noSku >= 0) return this.$message.warning(`第 ${noSku + 1} 行未选择规格`);
+      // 入库的货停在待检区，合格品必须指定一个可售区库位才会真正变成可售库存
+      const noPassLoc = this.form.items.findIndex((item) => Number(item.qtyPass || 0) > 0 && !item.passLocationId);
+      if (noPassLoc >= 0) return this.$message.warning(`第 ${noPassLoc + 1} 行有合格数量，请选择合格品存放的货架与库位`);
       this.saving = true;
       try {
         if (this.dialogMode === 'edit') { await inspectApi.update(this.form); this.$message.success('修改成功'); }
@@ -436,7 +527,7 @@ export default {
       });
       this.$message.success('已完成'); this.loadPage();
     },
-    async onCancel(row) { await this.$confirm(`作废单据「{row.code}」`, '提示', { type: 'warning' }); await inspectApi.cancel(row.id); this.$message.success('已作废'); this.loadPage(); },
+    async onCancel(row) { await this.$confirm(`作废单据「${row.code}」`, '提示', { type: 'warning' }); await inspectApi.cancel(row.id); this.$message.success('已作废'); this.loadPage(); },
   },
 };
 </script>

@@ -101,7 +101,14 @@
         <div class="dialog-table-scroller">
           <el-table :data="form.items" border size="mini" max-height="360">
             <el-table-column type="index" width="50" fixed="left" />
-            <el-table-column label="商品" min-width="200">
+            <el-table-column label="店铺" width="180" fixed="left">
+              <template slot-scope="{row}">
+                <el-select v-model="row.merId" filterable size="mini" style="width:100%" placeholder="选择店铺" @change="onShopChange(row)">
+                  <el-option v-for="m in merchantList" :key="m.id" :label="m.name" :value="m.id" />
+                </el-select>
+              </template>
+            </el-table-column>
+            <el-table-column label="商品" min-width="200" fixed="left">
               <template slot-scope="{row}">
                 <el-input v-model="row.goodsName" size="mini" readonly>
                   <el-button slot="append" size="mini" icon="el-icon-search" @click="pickProduct(row)" />
@@ -176,6 +183,7 @@
 
 <script>
 import { relocateApi, warehouseApi, shelfApi, locationApi, stockApi } from '@/api/warehouse';
+import { merchantListApi } from '@/api/merchant';
 import AdminPickerDialog from '../components/AdminPickerDialog.vue';
 import ProductPickerDialog from '../components/ProductPickerDialog.vue';
 
@@ -185,7 +193,7 @@ export default {
   data() {
     return {
       loading: false, saving: false, total: 0, tableData: [],
-      warehouseList: [], shelfCache: [], locationCache: {},
+      warehouseList: [], merchantList: [], shelfCache: [], locationCache: {},
       query: { page: 1, limit: 20, code: '', warehouseId: null, bizType: null, status: null },
       dialogVisible: false, dialogMode: 'add',
       form: this.emptyForm(),
@@ -204,11 +212,17 @@ export default {
       return (this.dialogMode === 'edit' ? '编辑' + biz + '单 ' : biz + '单详情 ') + (this.form.code || '');
     },
   },
-  created() { this.loadWarehouses(); this.loadPage(); },
+  created() { this.loadWarehouses(); this.loadMerchants(); this.loadPage(); },
   methods: {
     emptyForm() { return { bizType: 1, warehouseId: null, applyUserId: null, applyUserName: '', applyUserPhone: '', remark: '', items: [] }; },
     warehouseText(id) { const w = this.warehouseList.find(x => x.id === id); return w ? `${w.code} / ${w.name}` : id || '-'; },
     async loadWarehouses() { try { const r = await warehouseApi.page({ page: 1, limit: 999 }); this.warehouseList = (r && r.list) || []; } catch (e) {} },
+    async loadMerchants() {
+      try {
+        const r = await merchantListApi({ page: 1, limit: 999 });
+        this.merchantList = (r && r.list) || (r && r.records) || [];
+      } catch (e) { this.merchantList = []; }
+    },
     async loadPage() {
       this.loading = true;
       try { const r = await relocateApi.page(this.query); this.tableData = (r && r.list) || []; this.total = (r && r.total) || 0; }
@@ -262,6 +276,17 @@ export default {
       await this.ensureLocations(side === 'from' ? row.fromShelfId : row.toShelfId);
     },
     addItem() { this.form.items.push({ productId: null, attrValueId: null, merId: null, sku: '', barCode: '', platformType: 0, goodsName: '', fromShelfId: null, fromLocationId: null, fromBatchId: null, toShelfId: null, toLocationId: null, toBatchId: null, num: 1, maxNum: null }); },
+    onShopChange(row) {
+      this.$set(row, 'productId', null);
+      this.$set(row, 'goodsName', '');
+      this.$set(row, 'attrValueId', null);
+      this.$set(row, 'sku', '');
+      this.$set(row, 'barCode', '');
+      this.$set(row, 'fromBatchId', null);
+      this.$set(row, 'toBatchId', null);
+      this.$set(row, 'platformType', 0);
+      this.$set(row, 'maxNum', null);
+    },
     /**
      * 上架单的可上架数量 = 该商品该规格在本仓「还没放进库位」的可用量
      * （wms_stock 里 location_id 为空的行，即收货入仓但未上架的部分）。
@@ -275,7 +300,7 @@ export default {
         if (row.merId) params.merId = row.merId;
         const list = (await stockApi.distribution(params)) || [];
         const pending = list
-          .filter((s) => !s.locationId)
+          .filter((s) => !s.shelfId && !s.locationId)
           .reduce((sum, s) => sum + (Number(s.availableNum) || 0), 0);
         this.$set(row, 'maxNum', pending);
         if (row.num > pending) this.$set(row, 'num', pending > 0 ? pending : 1);
@@ -301,7 +326,12 @@ export default {
      */
     async pickProduct(row) {
       // 上架/移库/补货都是搬动仓内已有的货，没库存搬不了
-      const res = await this.$refs.productPicker.open({ requireStock: true });
+      if (!this.form.warehouseId) return this.$message.warning('请先选择仓库，再选择商品');
+      const res = await this.$refs.productPicker.open({
+        merId: row.merId,
+        requireStock: true,
+        warehouseId: this.form.warehouseId,
+      });
       if (!res || !res.product) return;
       const sku = res.skus && res.skus.length ? res.skus[0] : null;
       this.$set(row, 'productId', res.product.id);
@@ -316,10 +346,17 @@ export default {
     async onSaveForm() {
       await this.$refs.formRef.validate();
       if (!this.form.items.length) return this.$message.warning('请至少添加一行明细');
+      const noShop = this.form.items.findIndex((i) => !i.merId);
+      if (noShop >= 0) return this.$message.warning(`第 ${noShop + 1} 行未选择店铺`);
       if (this.form.items.find((i) => !i.productId)) return this.$message.warning('请为每行选择商品');
       // 移库按 SKU 定位源库位，缺 attrValueId 会搬错规格甚至找不到库存行
       const noSku = this.form.items.findIndex((i) => !i.attrValueId);
       if (noSku >= 0) return this.$message.warning(`第 ${noSku + 1} 行未选择规格，请重新选择商品并指定规格`);
+      // 源和目标是同一个库位等于没搬，提交后库存一进一出净变化为 0，白占一张单据
+      const sameLoc = this.form.items.findIndex(
+        (i) => i.fromLocationId && i.toLocationId && i.fromLocationId === i.toLocationId,
+      );
+      if (sameLoc >= 0) return this.$message.warning(`第 ${sameLoc + 1} 行的源库位与目标库位相同，请重新选择`);
       // 上架是把「收货后还没进库位」的货放上货架：源货架/源库位本来就为空，
       // 但目标货架、目标库位必须指定，否则提交时不知道货放到哪里。
       if (this.form.bizType === 0) {

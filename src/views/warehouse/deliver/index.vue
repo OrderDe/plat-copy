@@ -271,7 +271,7 @@ export default {
       this.loadPage();
     },
     async onCancel(row) {
-      await this.$confirm(`取消发货单「{row.code}」`, '提示', { type: 'warning' });
+      await this.$confirm(`取消发货单「${row.code}」`, '提示', { type: 'warning' });
       await deliverApi.cancel(row.id);
       this.$message.success('已取消');
       this.loadPage();

@@ -48,9 +48,11 @@
       </el-table-column>
     </el-table>
     <p class="list-tips">
-      仅展示<b>已审核</b>商品（无需审核 / 审核成功）；待审核、审核拒绝的不可选。
+      仅展示<b>已纳入仓储管理</b>且<b>已审核</b>的商品（无需审核 / 审核成功）；未纳管、待审核、审核拒绝的不可选。
+      商品未纳管时，请先在「商品列表」里对它执行「纳入仓储管理」。
       未上架的已审核商品（如<b>待入仓</b>）同样可选，入库后会自动上架。
-      <span v-if="requireStock" class="text-danger">本单需要从仓内取货，现有库存为 0 的商品无法完成作业。</span>
+      <span v-if="warehouseId" class="text-danger">本单从当前仓取货，只列该仓有可用库存的商品。</span>
+      <span v-else-if="requireStock" class="text-danger">本单需要从仓内取货，现有库存为 0 的商品无法完成作业。</span>
       <span v-else>本单是入库方向，<b>现有库存为 0 的商品可以正常选择</b>——入库正是给它加库存。</span>
     </p>
     <el-pagination
@@ -149,18 +151,22 @@ export default {
       // 由调用方声明：true = 出库/移库/质检等需要仓内有货的单据，0 库存标红提醒；
       // false = 入库、采购发货、批次、盘点，0 库存是常态，不做视觉警告
       requireStock: false,
+      // 由调用方传入：库内作业/出库/质检等「搬仓内已有的货」的单据传本仓ID，
+      // 只列该仓有可用库存的商品；入库方向不传
+      warehouseId: null,
     };
   },
   methods: {
     renderSkuSelectionHeader(h) {
       return h('span', '选择');
     },
-    async open({ merId = null, requireStock = false } = {}) {
+    async open({ merId = null, requireStock = false, warehouseId = null } = {}) {
       return new Promise((resolve) => {
         this.resolver = resolve;
         this.keyword = '';
         this.merId = merId;
         this.requireStock = requireStock;
+        this.warehouseId = warehouseId;
         this.page = 1;
         this.selectedId = null;
         this.selectedProduct = null;
@@ -187,6 +193,7 @@ export default {
         // type 仍需传（后端 @NotNull 校验），但有 wmsSelectable 时后端会跳过 type 的上架条件。
         const params = { page: this.page, limit: this.limit, type: 1, wmsSelectable: true, keywords: this.keyword };
         if (this.merId) params.merId = this.merId;
+        if (this.warehouseId) params.warehouseId = this.warehouseId;
         const res = await productLstApi(params);
         const rawList = (res && res.list) || (res && res.records) || [];
         // 构建商户ID->名称映射，补全merName
