@@ -325,6 +325,8 @@ export default {
       await this.loadNgLocations();
       // 明细里已选的货架要把库位选项带出来，否则编辑时库位下拉是空的
       for (const it of this.form.items) { if (it.passShelfId) await this.ensureLocations(it.passShelfId); }
+      // 历史草稿可能没存合格品库位，编辑时补个默认值，免得保存被校验一直拦住
+      if (mode === 'edit') await this.fillDefaultPassLocation();
     },
     resetForm() { this.$refs.formRef && this.$refs.formRef.resetFields(); },
     async onWarehouseChange() {
@@ -409,11 +411,37 @@ export default {
           });
         }
         this.form.items = items;
+        await this.fillDefaultPassLocation();
         if (!items.length) this.$message.warning('该入库单没有实入库数量大于 0 的明细，无需质检');
       } catch (e) {
         this.$message.error('加载入库单明细失败');
       }
     },
+    /**
+     * 找本仓第一个可售区库位，作为合格品存放的默认值。
+     * 合格品必须落到可售区才会计入可售库存，让操作员在最右侧的列里自己找一遍太折磨人。
+     * 该仓没有可售区库位时返回 null，由校验提示去配置。
+     */
+    async findDefaultSellableLocation() {
+      for (const shelf of this.shelfCache) {
+        await this.ensureLocations(shelf.id);
+        const hit = (this.locationCache[shelf.id] || []).find((l) => !l.usageType);
+        if (hit) return { shelfId: shelf.id, locationId: hit.id };
+      }
+      return null;
+    },
+    /** 给还没指定合格品库位的明细行补上默认可售库位 */
+    async fillDefaultPassLocation() {
+      const need = this.form.items.filter((it) => !it.passLocationId);
+      if (!need.length) return;
+      const def = await this.findDefaultSellableLocation();
+      if (!def) return;
+      need.forEach((it) => {
+        this.$set(it, 'passShelfId', def.shelfId);
+        this.$set(it, 'passLocationId', def.locationId);
+      });
+    },
+
     /** 合格品只能进可售区(usageType=0)；老数据 usageType 为空按可售区处理 */
     sellableLocations(shelfId) {
       return (this.locationCache[shelfId] || []).filter((l) => !l.usageType);
@@ -507,7 +535,12 @@ export default {
       if (noSku >= 0) return this.$message.warning(`第 ${noSku + 1} 行未选择规格`);
       // 入库的货停在待检区，合格品必须指定一个可售区库位才会真正变成可售库存
       const noPassLoc = this.form.items.findIndex((item) => Number(item.qtyPass || 0) > 0 && !item.passLocationId);
-      if (noPassLoc >= 0) return this.$message.warning(`第 ${noPassLoc + 1} 行有合格数量，请选择合格品存放的货架与库位`);
+      if (noPassLoc >= 0) {
+        return this.$message.warning(
+          `第 ${noPassLoc + 1} 行有合格数量，请在明细表最右侧的「合格品存放-货架 / 库位」里选择一个可售区库位；`
+          + '若下拉为空，说明该仓库还没有可售区库位，请先到货架管理配置',
+        );
+      }
       this.saving = true;
       try {
         if (this.dialogMode === 'edit') { await inspectApi.update(this.form); this.$message.success('修改成功'); }

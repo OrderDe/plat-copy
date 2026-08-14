@@ -142,7 +142,9 @@ export default {
       try {
         const r = await syncFailApi.page(this.query);
         this.list = (r && r.records) || (r && r.list) || [];
-        this.total = (r && r.total) || 0;
+        // 后端为避免 Long 精度丢失会把分页总数序列化成字符串，分页组件要求 Number。
+        const total = Number(r && r.total);
+        this.total = Number.isFinite(total) ? total : 0;
       } finally { this.loading = false; }
     },
     onSearch() { this.query.page = 1; this.load(); },

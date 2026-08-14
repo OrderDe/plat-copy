@@ -49,7 +49,9 @@
                 <span class="items-text">{{ row.items || '—' }}</span>
               </template>
             </el-table-column>
-            <el-table-column prop="createTime" label="时间" width="160" />
+            <el-table-column label="时间" width="160">
+              <template slot-scope="{ row }">{{ formatDateTime(row.createTime) }}</template>
+            </el-table-column>
           </el-table>
 
           <div class="trace-section-title">关联订单</div>
@@ -58,7 +60,9 @@
             <el-table-column prop="realName" label="收货人" width="110" />
             <el-table-column prop="userPhone" label="电话" width="130" />
             <el-table-column prop="userAddress" label="收货地址" min-width="240" show-overflow-tooltip />
-            <el-table-column prop="payTime" label="支付时间" width="160" />
+            <el-table-column label="支付时间" width="160">
+              <template slot-scope="{ row }">{{ formatDateTime(row.payTime) }}</template>
+            </el-table-column>
           </el-table>
 
           <div class="trace-section-title">仓储出库单</div>
@@ -76,7 +80,9 @@
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="createTime" label="创建时间" width="160" />
+            <el-table-column label="创建时间" width="160">
+              <template slot-scope="{ row }">{{ formatDateTime(row.createTime) }}</template>
+            </el-table-column>
           </el-table>
           <div v-if="!(traceResult.outbounds || []).length" class="trace-empty">
             仓储侧没有对应出库单（自己发货的订单不经过仓储，属正常）
@@ -175,7 +181,9 @@
             <span class="items-text">{{ row.items || '—' }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="createTime" label="发货时间" width="160" />
+        <el-table-column label="发货时间" width="160">
+          <template slot-scope="{ row }">{{ formatDateTime(row.createTime) }}</template>
+        </el-table-column>
       </el-table>
 
       <el-pagination
@@ -196,6 +204,7 @@
 <script>
 import { orderShipRecordListApi, waybillTraceApi } from '@/api/order';
 import { warehouseApi } from '@/api/warehouse';
+import { formatDateTime } from '../components/dateTime';
 
 export default {
   name: 'WarehouseShipRecord',
@@ -225,6 +234,7 @@ export default {
     this.loadPage();
   },
   methods: {
+    formatDateTime,
     async loadWarehouses() {
       try {
         const res = await warehouseApi.page({ page: 1, limit: 200 });

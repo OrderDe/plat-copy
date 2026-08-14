@@ -81,7 +81,7 @@
               <el-table-column prop="weight" label="重量/体积" width="125" />
               <el-table-column prop="productName" label="产品类型" min-width="120" />
               <el-table-column label="当前状态" width="120"><template slot-scope="{ row }"><el-tag :type="statusType(row.statusDesc)" size="mini">{{ row.statusDesc || '待查询' }}</el-tag></template></el-table-column>
-              <el-table-column prop="createTime" label="创建时间" width="170" />
+              <el-table-column label="创建时间" width="170"><template slot-scope="{ row }">{{ formatDateTime(row.createTime) }}</template></el-table-column>
               <el-table-column label="操作" width="170" fixed="right"><template slot-scope="{ row }"><el-button type="text" @click="openDetail(row.waybillCode)">详情</el-button><el-button type="text" @click="queryAttachment(row.waybillCode)">附件</el-button></template></el-table-column>
             </el-table>
           </el-card>

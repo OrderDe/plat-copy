@@ -60,6 +60,19 @@
               <el-option label="否" value="false" />
             </el-select>
           </el-form-item>
+          <el-form-item label="纳管来源：">
+            <el-select
+              v-model="tableFrom.wmsManagedSource"
+              clearable
+              size="small"
+              placeholder="全部"
+              class="selWidth"
+              @change="handleSeachList"
+            >
+              <el-option label="商户自选（待确认）" :value="1" />
+              <el-option label="平台指定" :value="0" />
+            </el-select>
+          </el-form-item>
           <el-form-item label="商品类型：">
             <el-select
               v-model="tableFrom.productType"
@@ -232,6 +245,13 @@
           <template slot-scope="scope">
             <el-tag v-if="scope.row.wmsManaged" size="mini" type="warning">仓储管理</el-tag>
             <el-tag v-else size="mini" type="info">商户维护</el-tag>
+            <!-- 商户自己勾的「入仓」，平台还没确认过，挑出来让运营逐一处理 -->
+            <el-tag
+              v-if="scope.row.wmsManaged && Number(scope.row.wmsManagedSource || 0) === 1"
+              size="mini"
+              style="margin-left: 4px;"
+              >商户自选</el-tag
+            >
             <!-- 纳管但从没入过仓：后端不允许上架，标出来便于平台跟进入仓进度 -->
             <el-tag
               v-if="scope.row.wmsManaged && Number(scope.row.wmsInboundStatus || 0) === 0"
@@ -435,6 +455,8 @@ export default {
         merId: null,
         isPaidMember: null,
         productType: null,
+        // 纳管来源：1=商户自选(待平台确认) 0=平台指定，不传=全部
+        wmsManagedSource: null,
       },
       keywords: '',
       categoryList: [],
@@ -744,6 +766,7 @@ export default {
       this.tableFrom.merId = null;
       this.tableFrom.isPaidMember = null;
       this.tableFrom.productType = null;
+      this.tableFrom.wmsManagedSource = null;
       this.getList(1);
       this.goodHeade();
     },

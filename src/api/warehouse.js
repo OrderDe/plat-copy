@@ -149,6 +149,7 @@ export const inboundApi = {
   page: (data) => request({ url: '/api/warehouse/inbound/page', method: 'post', data, baseURL }),
   detail: (id) => request({ url: `/api/warehouse/inbound/detail/${id}`, method: 'get', baseURL }),
   add: (data) => request({ url: '/api/warehouse/inbound/add', method: 'post', data, baseURL }),
+  update: (data) => request({ url: '/api/warehouse/inbound/update', method: 'post', data, baseURL }),
   submit: (id) => request({ url: `/api/warehouse/inbound/submit/${id}`, method: 'post', baseURL }),
   cancel: (id) => request({ url: `/api/warehouse/inbound/cancel/${id}`, method: 'post', baseURL }),
 };

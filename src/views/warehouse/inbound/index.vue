@@ -61,6 +61,7 @@
         <template slot-scope="{row}">
           <el-button type="text" @click="openDetail(row.id)">详情</el-button>
           <el-button type="text" @click="onPrint(row)">打印</el-button>
+          <el-button v-if="row.status === 0" type="text" @click="openEdit(row)">修改</el-button>
           <el-button v-if="row.status === 0" type="text" @click="onSubmit(row)">提交生效</el-button>
           <el-button v-if="row.status === 1 && (row.inspectStatus || 0) === 0" type="text" style="color:#67c23a" @click="onCreateInspect(row)">生成质检单</el-button>
           <el-button v-if="row.inspectCode" type="text" @click="goInspect(row)">查看质检</el-button>
@@ -79,7 +80,7 @@
     />
 
     <el-dialog
-      :title="dialogMode === 'add' ? '新建入库单' : '入库单详情' + (form.code || '')"
+      :title="dialogTitle"
       :visible.sync="dialogVisible"
       width="960px"
       @closed="resetForm"
@@ -138,7 +139,7 @@
         </el-row>
 
         <el-divider content-position="left">入库明细</el-divider>
-        <el-button v-if="dialogMode === 'add'" size="mini" icon="el-icon-plus" @click="addItem">添加行</el-button>
+        <el-button v-if="editable" size="mini" icon="el-icon-plus" @click="addItem">添加行</el-button>
         <div class="dialog-table-scroller">
           <el-table :data="form.items" border size="mini" max-height="360">
             <el-table-column type="index" width="50" fixed="left" />
@@ -222,7 +223,7 @@
             <el-table-column label="供应商批次" width="130">
               <template slot-scope="{row}"><el-input v-model="row.supplierBatchNo" size="mini" /></template>
             </el-table-column>
-            <el-table-column v-if="dialogMode === 'add'" label="操作" width="70" fixed="right">
+            <el-table-column v-if="editable" label="操作" width="70" fixed="right">
               <template slot-scope="{$index}">
                 <el-button type="text" class="danger-text" @click="form.items.splice($index, 1)">删除</el-button>
               </template>
@@ -231,7 +232,7 @@
         </div>
       </el-form>
 
-      <div v-if="dialogMode === 'add'" slot="footer">
+      <div v-if="editable" slot="footer">
         <el-button size="small" @click="dialogVisible = false">取消</el-button>
         <el-button type="primary" size="small" :loading="saving" @click="onSubmitForm">保存</el-button>
       </div>
@@ -268,6 +269,11 @@ export default {
     };
   },
   computed: {
+    editable() { return this.dialogMode === 'add' || this.dialogMode === 'edit'; },
+    dialogTitle() {
+      if (this.dialogMode === 'add') return '新建入库单';
+      return (this.dialogMode === 'edit' ? '编辑入库单 ' : '入库单详情 ') + (this.form.code || '');
+    },
     /** 生产日期不能晚于今天：还没生产出来的货不可能已入库 */
     prodPickerOptions() {
       return { disabledDate: (d) => d.getTime() > Date.now() };
@@ -309,11 +315,14 @@ export default {
     },
     async onShelfChange(row) {
       row.locationId = null;
-      if (!row.shelfId) return;
-      if (this.locationCache[row.shelfId]) return;
+      await this.ensureLocations(row.shelfId);
+    },
+    /** 只补库位下拉选项，不动已选值：编辑草稿时要保留原来选好的库位 */
+    async ensureLocations(shelfId) {
+      if (!shelfId || this.locationCache[shelfId]) return;
       try {
-        const list = await locationApi.list(row.shelfId) || [];
-        this.$set(this.locationCache, row.shelfId, list.filter(l => l.status === 1));
+        const list = await locationApi.list(shelfId) || [];
+        this.$set(this.locationCache, shelfId, list.filter(l => l.status === 1));
       } catch (e) {}
     },
     typeText(t) {
@@ -352,6 +361,20 @@ export default {
       this.dialogMode = 'add';
       this.dialogVisible = true;
     },
+    /** 草稿才可编辑，状态判断以后端为准，这里只做入口控制 */
+    async openEdit(row) {
+      if (row.status !== 0) return this.$message.warning('只有草稿状态的入库单可以修改');
+      const res = await inboundApi.detail(row.id);
+      this.form = res || this.emptyForm();
+      if (!this.form.items) this.form.items = [];
+      // 等 form.warehouseId 的 watcher 先跑完：loadShelves 会清空 locationCache，
+      // 不等它就先填，填进去的库位选项会被清掉，编辑时库位下拉又是空的
+      await this.$nextTick();
+      // 明细里已选的货架要把库位选项带出来，否则编辑时库位下拉是空的
+      for (const it of this.form.items) { if (it.shelfId) await this.ensureLocations(it.shelfId); }
+      this.dialogMode = 'edit';
+      this.dialogVisible = true;
+    },
     async openDetail(id) {
       const res = await inboundApi.detail(id);
       this.form = res || this.emptyForm();
@@ -371,6 +394,13 @@ export default {
       const endOfToday = new Date().setHours(23, 59, 59, 999);
       for (let i = 0; i < this.form.items.length; i++) {
         const it = this.form.items[i];
+        // 批次按生产日期/有效期建档，先进先出和临期预警都依赖它们，留空后面补不回来
+        if (!it.productionDate) {
+          return `第 ${i + 1} 行请选择生产日期`;
+        }
+        if (!it.expiryDate) {
+          return `第 ${i + 1} 行请选择有效期至`;
+        }
         const prod = it.productionDate ? new Date(`${it.productionDate}T00:00:00`).getTime() : null;
         const exp = it.expiryDate ? new Date(`${it.expiryDate}T00:00:00`).getTime() : null;
         if (prod != null && prod > endOfToday) {
@@ -411,8 +441,13 @@ export default {
       this.saving = true;
       try {
         const payload = { ...this.form, items: this.stripItemMeta(this.form.items) };
-        await inboundApi.add(payload);
-        this.$message.success('保存成功');
+        if (this.dialogMode === 'edit') {
+          await inboundApi.update(payload);
+          this.$message.success('修改成功');
+        } else {
+          await inboundApi.add(payload);
+          this.$message.success('保存成功');
+        }
         this.dialogVisible = false;
         this.loadPage();
       } catch (e) {
@@ -424,7 +459,13 @@ export default {
     },
     async onCreateInspect(row) {
       await this.$confirm(`将根据入库单「${row.code}」的明细自动生成质检单（送检数=实入库数），继续？`, '确认', { type: 'warning' });
-      const d = await inspectApi.createFromInbound(row.id, {});
+      // 质检员是必填项，自动生成时先落当前登录用户，避免生成一张必填项为空的草稿
+      const u = this.$store.getters.userInfo || {};
+      const d = await inspectApi.createFromInbound(row.id, {
+        inspectorId: u.id,
+        inspectorName: u.realName || u.account || this.$store.getters.name,
+        inspectorPhone: u.phone,
+      });
       this.$message.success(`已生成质检单 ${d.code}，请到"质检管理"填写质检结果`);
       this.loadPage();
     },

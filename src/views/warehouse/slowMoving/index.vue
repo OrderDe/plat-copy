@@ -20,6 +20,15 @@
       </el-form-item>
     </el-form>
 
+    <el-alert
+      title="什么是呆滞库存？"
+      :description="`当前仍有库存，但连续 ${query.thresholdDays} 天没有发生出库的商品，会被列为呆滞库存；如果从未出库，则从该商品最早的库存创建时间开始计算。用于识别长期未销售、资金占用及临期风险，不代表库存已失效或不可用。`"
+      type="info"
+      show-icon
+      :closable="false"
+      class="definition-alert"
+    />
+
     <el-table v-loading="loading" :data="tableData" border stripe>
       <el-table-column label="仓库" min-width="200"><template slot-scope="{row}">{{ warehouseText(row.warehouseId) }}</template></el-table-column>
       <el-table-column prop="productId" label="商品ID" min-width="110" />
@@ -72,4 +81,5 @@ export default {
 
 <style scoped>
 .filter-container { margin-bottom: 12px; }
+.definition-alert { margin-bottom: 12px; }
 </style>

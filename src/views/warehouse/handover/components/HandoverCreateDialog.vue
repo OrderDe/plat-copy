@@ -94,7 +94,9 @@
           <el-input-number v-model="row.packageNum" :min="1" :max="999" size="mini" controls-position="right" style="width: 100%" />
         </template>
       </el-table-column>
-      <el-table-column prop="createTime" label="出库时间" width="150" />
+      <el-table-column label="出库时间" width="150">
+        <template slot-scope="{ row }">{{ formatDateTime(row.createTime) }}</template>
+      </el-table-column>
     </el-table>
     <div v-if="!loading && !pendingList.length" class="empty-tip">
       该仓没有待交接的出库单。出库单需先「已生效」才会出现在这里。
@@ -109,6 +111,7 @@
 
 <script>
 import { handoverApi, warehouseApi } from '@/api/warehouse';
+import { formatDateTime } from '../../components/dateTime';
 
 export default {
   name: 'HandoverCreateDialog',
@@ -141,6 +144,7 @@ export default {
     },
   },
   methods: {
+    formatDateTime,
     open(warehouseId) {
       this.visible = true;
       this.form = {
