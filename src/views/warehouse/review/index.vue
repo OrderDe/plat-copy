@@ -113,9 +113,47 @@ export default {
         reviewerId: u.id,
         reviewerName: u.realName || u.account || this.$store.getters.name,
       });
-      this.$message.success('复核通过，出库单已生效');
       this.reviewVisible = false;
       this.loadPage();
+      this.notifyShipInfo(this.detail.id);
+    },
+    /**
+     * 复核通过后把取号结果亮出来。
+     *
+     * 向承运商下单就发生在这一步，但整个过程是静默的——界面上只是出库单悄悄多了个
+     * 运单号。不给回执的话，操作员没法判断快递到底通知没通知，只能去出库单列表翻，
+     * 或者干脆以为「交接单」才是通知快递的动作。
+     *
+     * 查不到承运信息不当异常处理：非京东承运商、仓库没配发货地址、取号接口超时
+     * 都会走到这里，复核本身是成功的，退回一句普通提示即可。
+     */
+    async notifyShipInfo(reviewId) {
+      let info = null;
+      try {
+        info = await reviewApi.shipInfo(reviewId);
+      } catch (e) {
+        info = null;
+      }
+      if (!info || !info.expressNo) {
+        this.$notify({
+          title: '复核通过，出库单已生效',
+          message: '未取到运单号，可在「交接管理」新建交接单时手工补录',
+          type: 'warning',
+          duration: 8000,
+        });
+        return;
+      }
+      this.$notify({
+        title: '复核通过，已向承运商下单',
+        dangerouslyUseHTMLString: true,
+        message:
+          `出库单 <b>${info.outboundCode || '-'}</b><br/>` +
+          `承运商 <b>${info.expressCompany || '-'}</b>　运单号 <b>${info.expressNo}</b><br/>` +
+          '承运商已收到揽收通知，等待司机上门取件。<br/>' +
+          '司机取货后请到「交接管理」登记交接，订单才会转为已发货。',
+        type: 'success',
+        duration: 12000,
+      });
     },
     async onReject(row) {
       const { value } = await this.$prompt('请输入驳回原因', '驳回', { inputPattern: /.+/, inputErrorMessage: '不能为空' });

@@ -14,6 +14,19 @@ export function orderListApi(params) {
 }
 
 /**
+ * 仓储销售出库单可关联的订单候选。
+ * 不用订单列表的「待发货」口径：那个口径要让商户看到退款中的单去处理售后，
+ * 而这里选错一张单货就真出去了，服务端另做了收紧过滤。
+ */
+export function outboundOrderCandidatesApi(params) {
+  return request({
+    url: '/admin/platform/order/warehouseCandidates',
+    method: 'get',
+    params,
+  });
+}
+
+/**
  * 订单 列表 获取各状态数量
  * @param params
  */

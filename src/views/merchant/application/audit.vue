@@ -67,10 +67,34 @@
               <div class="value">{{ dataForm.phone | filterEmpty }}</div>
             </li>
             <li class="item">
+              <div class="tips">统一社会信用代码：</div>
+              <div class="value">{{ dataForm.businessLicenseNo || '未填写' }}</div>
+            </li>
+            <li class="item">
+              <div class="tips">联系人：</div>
+              <div class="value">{{ dataForm.contactPerson || '未填写' }}</div>
+            </li>
+            <li class="item">
+              <div class="tips">法人身份证：</div>
+              <div class="value">{{ dataForm.legalPersonCertNo || '未填写' }}</div>
+            </li>
+            <li class="item">
+              <div class="tips">企业认证：</div>
+              <div class="value">
+                <el-tag :type="verifyTagType(dataForm.verifyResult)" size="small">
+                  {{ verifyStatusText(dataForm.verifyResult) }}
+                </el-tag>
+              </div>
+            </li>
+            <li class="item">
               <div class="tips">手续费(%)：</div>
               <div class="value">{{ dataForm.handlingFee }}</div>
             </li>
           </ul>
+          <div class="ivu-mt-16 acea-row">
+            <div class="tips">认证说明：</div>
+            <div class="value">{{ dataForm.verifyMessage || '暂无认证记录' }}</div>
+          </div>
           <div class="ivu-mt-16 acea-row">
             <div class="tips">简介：</div>
             <div class="value">{{ dataForm.keywords || '无' }}</div>
@@ -139,6 +163,7 @@ export default {
         auditStatus: 2,
         id: '',
       },
+      dataForm: {},
       loadingBtn: false,
     };
   },
@@ -166,6 +191,21 @@ export default {
   },
   methods: {
     filterEmpty,
+    verifyStatusText(status) {
+      const labels = {
+        CONSISTENT: '认证通过',
+        CONSISTENT_BUT_ABNORMAL: '经营状态异常',
+        INCONSISTENT: '要素不一致',
+        UNVERIFIABLE: '无法核验',
+        ERROR: '认证异常',
+      };
+      return labels[status] || '未认证';
+    },
+    verifyTagType(status) {
+      if (status === 'CONSISTENT') return 'success';
+      if (status === 'INCONSISTENT' || status === 'CONSISTENT_BUT_ABNORMAL') return 'danger';
+      return 'warning';
+    },
     close() {
       this.dialogVisible = false;
       this.ruleForm = {

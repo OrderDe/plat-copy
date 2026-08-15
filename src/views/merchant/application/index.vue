@@ -71,6 +71,23 @@
               <el-form-item label="商户类别：">
                 <span>{{ props.row.isSelf ? '自营' : '非自营' }}</span>
               </el-form-item>
+              <el-form-item label="统一社会信用代码：">
+                <span>{{ props.row.businessLicenseNo || '未填写' }}</span>
+              </el-form-item>
+              <el-form-item label="联系人：">
+                <span>{{ props.row.contactPerson || '未填写' }}</span>
+              </el-form-item>
+              <el-form-item label="法人身份证：">
+                <span>{{ props.row.legalPersonCertNo || '未填写' }}</span>
+              </el-form-item>
+              <el-form-item label="企业认证：">
+                <el-tag :type="verifyTagType(props.row.verifyResult)" size="small">
+                  {{ verifyStatusText(props.row.verifyResult) }}
+                </el-tag>
+              </el-form-item>
+              <el-form-item label="认证说明：">
+                <span>{{ props.row.verifyMessage || '暂无认证记录' }}</span>
+              </el-form-item>
               <el-form-item label="备注：">
                 <span>{{ props.row.remark }}</span>
               </el-form-item>
@@ -175,6 +192,21 @@ export default {
   },
   methods: {
     checkPermi,
+    verifyStatusText(status) {
+      const labels = {
+        CONSISTENT: '认证通过',
+        CONSISTENT_BUT_ABNORMAL: '经营状态异常',
+        INCONSISTENT: '要素不一致',
+        UNVERIFIABLE: '无法核验',
+        ERROR: '认证异常',
+      };
+      return labels[status] || '未认证';
+    },
+    verifyTagType(status) {
+      if (status === 'CONSISTENT') return 'success';
+      if (status === 'INCONSISTENT' || status === 'CONSISTENT_BUT_ABNORMAL') return 'danger';
+      return 'warning';
+    },
     subSuccess() {
       this.getList('');
     },

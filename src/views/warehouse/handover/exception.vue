@@ -6,6 +6,7 @@
           <div>· <b>已交接但未揽收</b>：登记了交接，但承运商迟迟没有揽收记录 —— 货可能没被真正带走</div>
           <div>· <b>已揽收但无交接记录</b>：承运商说取走了，系统里没人登记 —— 疑似漏登记</div>
           <div>· <b>出库超时未交接</b>：出库已生效（库存已扣）但既无交接也无揽收 —— 货可能仍压在仓内</div>
+          <div>· <b>回写订单发货失败</b>：交接登记成功但订单没能置为已发货 —— 货已出，需到订单管理手工发货</div>
           <div class="alert-note">系统只提醒、不自动改数据：两侧谁对谁错需要人工判断后处置。</div>
         </div>
       </el-alert>
@@ -27,6 +28,8 @@
             <el-option label="已交接但承运商未揽收" :value="1" />
             <el-option label="已揽收但无交接记录" :value="2" />
             <el-option label="出库超时未交接" :value="3" />
+            <el-option label="回写订单发货失败" :value="4" />
+            <el-option label="订单已取消但货已动" :value="5" />
           </el-select>
         </el-form-item>
         <el-form-item label="处理状态">
@@ -190,7 +193,10 @@ export default {
       return w ? w.name : `仓库#${id}`;
     },
     typeText(t) {
-      return { 1: '已交接但未揽收', 2: '已揽收但无交接记录', 3: '出库超时未交接' }[t] || `未知(${t})`;
+      return {
+        1: '已交接但未揽收', 2: '已揽收但无交接记录', 3: '出库超时未交接',
+        4: '回写订单发货失败', 5: '订单已取消但货已动',
+      }[t] || `未知(${t})`;
     },
     typeTagType(t) {
       return { 1: 'danger', 2: 'warning', 3: 'warning' }[t] || 'info';

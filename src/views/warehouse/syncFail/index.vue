@@ -75,6 +75,13 @@
               v-if="row.status === 0 && row.bizType === 'REFUND_INBOUND'"
               type="text" :loading="retryingId === row.id" @click="onRetry(row)"
             >重试</el-button>
+            <!-- 发货异常：货发不出去时的兜底出口，退款成功后记录自动结案 -->
+            <el-button
+              v-if="row.status === 0 && row.bizType === 'ORDER_SHIP'"
+              type="text"
+              class="refund-text"
+              @click="onRefund(row)"
+            >一键退款</el-button>
             <el-button v-if="row.status === 0" type="text" @click="onHandle(row, 1)">标记已处理</el-button>
             <el-button v-if="row.status === 0" type="text" class="danger-text" @click="onHandle(row, 2)">忽略</el-button>
           </template>
@@ -167,6 +174,21 @@ export default {
         this.load();
       } finally { this.batchRetrying = false; }
     },
+    /**
+     * 发货异常一键整单退款。
+     * 买家侧已显示发货但仓储没出货，货确实发不出去时用这个兜底；
+     * 走的是与商户「直接退款」同一套逻辑，不需要买家先申请退款单。
+     */
+    async onRefund(row) {
+      await this.$confirm(
+        `将对订单「${row.bizNo}」执行整单退款，退款后本条异常自动标记为已处理。此操作不可撤销，确认继续？`,
+        '发货异常退款',
+        { type: 'warning', confirmButtonText: '确认退款', confirmButtonClass: 'el-button--danger' },
+      );
+      await syncFailApi.refund(row.id, this.operator());
+      this.$message.success('退款成功，该异常已结案');
+      this.loadPage();
+    },
     async onHandle(row, status) {
       const title = status === 1 ? '标记已处理' : '忽略';
       const { value } = await this.$prompt(`请输入${title}备注`, title, { inputPattern: /.+/, inputErrorMessage: '不能为空' });
@@ -183,6 +205,7 @@ export default {
 </script>
 
 <style scoped>
+.refund-text { color: #e6a23c; }
 .sync-card { border: none; }
 .alert-body { font-size: 12px; line-height: 20px; }
 .alert-note { margin-top: 4px; color: #86909c; }

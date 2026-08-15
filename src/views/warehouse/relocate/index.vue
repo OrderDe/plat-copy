@@ -125,14 +125,14 @@
             <el-table-column label="商品ID" width="110">
               <template slot-scope="{row}"><el-input v-model="row.productId" size="mini" readonly /></template>
             </el-table-column>
-            <el-table-column label="源货架" width="150">
+            <el-table-column v-if="form.bizType === 1" label="源货架" width="150">
               <template slot-scope="{row}">
                 <el-select v-model="row.fromShelfId" size="mini" filterable clearable style="width:100%" @change="onShelfChange(row, 'from')">
                   <el-option v-for="s in shelfCache" :key="s.id" :label="s.code" :value="s.id" />
                 </el-select>
               </template>
             </el-table-column>
-            <el-table-column label="源库位" width="170">
+            <el-table-column v-if="form.bizType === 1" label="源库位" width="170">
               <template slot-scope="{row}">
                 <el-select v-model="row.fromLocationId" size="mini" filterable clearable style="width:100%" :disabled="!row.fromShelfId">
                   <el-option v-for="l in (locationCache[row.fromShelfId]||[])" :key="l.id" :label="l.code" :value="l.id" />
@@ -359,13 +359,14 @@ export default {
       if (sameLoc >= 0) return this.$message.warning(`第 ${sameLoc + 1} 行的源库位与目标库位相同，请重新选择`);
       // 上架是把「收货后还没进库位」的货放上货架：源货架/源库位本来就为空，
       // 但目标货架、目标库位必须指定，否则提交时不知道货放到哪里。
-      if (this.form.bizType === 0) {
+      if (this.form.bizType === 0 || this.form.bizType === 2) {
+        const bizName = this.bizMap[this.form.bizType];
         for (let i = 0; i < this.form.items.length; i++) {
           const it = this.form.items[i];
           if (!it.toShelfId) return this.$message.warning(`第 ${i + 1} 行请选择目标货架`);
           if (!it.toLocationId) return this.$message.warning(`第 ${i + 1} 行请选择目标库位`);
-          if (!it.num || it.num <= 0) return this.$message.warning(`第 ${i + 1} 行请填写上架数量`);
-          if (it.maxNum != null && it.num > it.maxNum) {
+          if (!it.num || it.num <= 0) return this.$message.warning(`第 ${i + 1} 行请填写${bizName}数量`);
+          if (this.form.bizType === 0 && it.maxNum != null && it.num > it.maxNum) {
             return this.$message.warning(`第 ${i + 1} 行上架数量不能大于该规格的未上架数量（${it.maxNum}）`);
           }
         }

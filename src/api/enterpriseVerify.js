@@ -1,20 +1,16 @@
 import request from '@/utils/request';
-import SettingMer from '@/utils/settingMer';
-
-const baseURL = SettingMer.apiBaseURL2;
-
 export function getEnterpriseVerifyConfig() {
-  return request({ url: '/flowable/enterprise-verify-config', method: 'get', baseURL });
+  return request({ url: '/admin/platform/enterprise-verify-config', method: 'get' });
 }
 
 export function saveEnterpriseVerifyConfig(data) {
-  return request({ url: '/flowable/enterprise-verify-config', method: 'put', data, baseURL });
+  return request({ url: '/admin/platform/enterprise-verify-config', method: 'put', data });
 }
 
 export function getEnterpriseVerifyRecords(params) {
-  return request({ url: '/flowable/enterprise-verify-config/records', method: 'get', params, baseURL });
+  return request({ url: '/admin/platform/enterprise-verify-config/records', method: 'get', params });
 }
 
-export function testEnterpriseVerify(params) {
-  return request({ url: '/flowable/enterprise-verify-config/test', method: 'post', params, baseURL });
+export function testEnterpriseVerify(data) {
+  return request({ url: '/admin/platform/enterprise-verify-config/test', method: 'post', data });
 }

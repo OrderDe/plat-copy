@@ -109,6 +109,11 @@
         </el-form-item>
         <el-form-item label="详细地址">
           <el-input v-model="form.detailAddress" type="textarea" :rows="2" />
+          <!-- 复核完成后系统按这里的联系人和地址向京东取运单号，面单上的寄件人就是它 -->
+          <div class="form-tip">
+            联系人、电话、所在地区、详细地址会作为<b>面单寄件人</b>，缺一项就取不到运单号，
+            只能在出库交接时手工录入。
+          </div>
         </el-form-item>
         <el-form-item label="栋">
           <el-input v-model="form.building" maxlength="64" placeholder="如：A栋" />
@@ -350,4 +355,5 @@ export default {
 <style scoped>
 .filter-container { margin-bottom: 12px; }
 .danger-text { color: #f56c6c; }
+.form-tip { color: #909399; font-size: 12px; line-height: 1.5; margin-top: 4px; }
 </style>

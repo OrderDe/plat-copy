@@ -35,13 +35,13 @@
       </el-form>
 
       <div class="toolbar">
-        <el-button type="primary" icon="el-icon-plus" size="small" @click="openCreate">登记交接</el-button>
+        <el-button type="primary" icon="el-icon-plus" size="small" @click="openCreate">确认交货给司机</el-button>
         <el-button icon="el-icon-warning-outline" size="small" @click="goException">
           交接异常
           <el-badge v-if="pendingExceptionCount > 0" :value="pendingExceptionCount" class="badge" />
         </el-button>
         <span class="toolbar-tip">
-          交接记录用于确认「快递员是否真的把货带走了」，与承运商揽收状态自动比对。
+          货交给快递员后在这里登记，提交即把关联订单转为已发货并回写运单号；随后与承运商揽收状态自动比对，对不上会进「交接异常」。
         </span>
       </div>
 
@@ -110,8 +110,19 @@
       <div class="section-title">交接明细</div>
       <el-table :data="detail.items || []" size="mini" border>
         <el-table-column prop="outboundCode" label="出库单号" width="200" />
+        <el-table-column prop="relatedCode" label="关联订单号" width="190">
+          <template slot-scope="{ row }">{{ row.relatedCode || '—' }}</template>
+        </el-table-column>
         <el-table-column prop="expressNo" label="运单号" width="190">
           <template slot-scope="{ row }">{{ row.expressNo || '无运单号' }}</template>
+        </el-table-column>
+        <!-- 回写失败的单货已经出了、订单还挂在待发货，得在这里看得见 -->
+        <el-table-column label="订单发货" width="110" align="center">
+          <template slot-scope="{ row }">
+            <el-tag v-if="row.deliverStatus === 1" type="success" size="mini">已发货</el-tag>
+            <el-tag v-else-if="row.deliverStatus === 2" type="danger" size="mini">回写失败</el-tag>
+            <span v-else class="text-muted">—</span>
+          </template>
         </el-table-column>
         <el-table-column prop="packageNum" label="交接件数" width="100" align="center" />
         <el-table-column label="登记时间" min-width="170">

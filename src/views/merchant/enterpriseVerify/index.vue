@@ -41,7 +41,7 @@
             </el-form-item>
             <el-form-item label="不通过时驳回">
               <el-switch v-model="form.rejectOnFail" />
-              <span class="tip">开启后，要素不一致或企业已注销/吊销时直接驳回入驻提交；关闭则仅记录，放行进人工审核</span>
+              <span class="tip">开启后，只有四要素一致且企业在营才允许提交；接口异常或查无记录也会提示申请人稍后重试/转人工</span>
             </el-form-item>
             <el-form-item label="AccessKey ID">
               <el-input v-model="form.accessKeyId" placeholder="LTAI5t..." style="max-width: 400px;" />
@@ -52,14 +52,15 @@
               <div class="tip">安全考虑,显示时以 **** 开头。留空不修改;若要更新请重新完整粘贴</div>
             </el-form-item>
             <el-form-item label="授权码 AuthCode">
-              <el-input v-model="form.authCode" placeholder="号码百科控制台申请获得" style="max-width: 400px;" />
+              <el-input v-model="form.authCode" type="password" show-password
+                        placeholder="号码百科控制台申请获得；留空保留原值" style="max-width: 400px;" />
             </el-form-item>
             <el-form-item label="结果缓存(小时)">
               <el-input-number v-model="form.cacheHours" :min="0" :max="8760" style="width: 160px;" />
               <span class="tip">同一企业在此时长内复用上次核验结果,不重复计费。0 = 每次都调用</span>
             </el-form-item>
             <el-form-item label="服务端点">
-              <el-input v-model="form.endpoint" style="max-width: 400px;" />
+              <el-input v-model="form.endpoint" disabled style="max-width: 400px;" />
               <div class="tip">默认: dytnsapi.aliyuncs.com</div>
             </el-form-item>
             <el-form-item label="更新时间">
@@ -104,6 +105,9 @@
             <div class="result-detail">
               <div v-if="testResult.reasonCode !== null && testResult.reasonCode !== undefined">
                 ReasonCode: {{ testResult.reasonCode }} — {{ reasonText(testResult.reasonCode) }}
+              </div>
+              <div v-if="testResult.verifyResult !== null && testResult.verifyResult !== undefined">
+                VerifyResult: {{ testResult.verifyResult }}
               </div>
               <div v-if="testResult.enterpriseStatus">企业经营状态: {{ testResult.enterpriseStatus }}</div>
               <div v-if="testResult.inconsistentFields">不一致字段: {{ testResult.inconsistentFields }}</div>
@@ -150,7 +154,9 @@
             <el-table-column prop="enterpriseStatus" label="经营状态" width="100" />
             <el-table-column prop="bizType" label="场景" width="110" />
             <el-table-column prop="requestId" label="RequestId" width="200" show-overflow-tooltip />
-            <el-table-column prop="createTime" label="核验时间" width="160" />
+            <el-table-column label="核验时间" width="170">
+              <template slot-scope="{ row }">{{ formatDateTime(row.createTime) }}</template>
+            </el-table-column>
           </el-table>
 
           <el-pagination
@@ -177,6 +183,7 @@ import {
   getEnterpriseVerifyRecords,
   testEnterpriseVerify,
 } from '@/api/enterpriseVerify';
+import { formatDateTime } from '@/views/warehouse/components/dateTime';
 
 const STATUS_MAP = {
   CONSISTENT: { label: '一致且在营', tag: 'success', alert: 'success' },
@@ -187,12 +194,9 @@ const STATUS_MAP = {
 };
 
 const REASON_MAP = {
-  0: '四要素属于同一企业,且企业在营',
-  1: '四要素属于同一企业,但经营状态异常',
-  2: '法人信息与企业信息不匹配',
-  3: '四要素不属于同一企业',
-  4: '未查询到该企业信息',
-  5: '未查询到该法人信息',
+  0: '核验通过：四要素一致且企业在营',
+  1: '核验未通过，请结合不一致字段核对',
+  2: '核验未通过，企业或法人信息不一致',
 };
 
 export default {
@@ -204,7 +208,7 @@ export default {
       form: {
         enabled: false,
         provider: 'ALIYUN',
-        verifyMode: 'THREE',
+        verifyMode: 'FOUR',
         accessKeyId: '',
         accessKeySecret: '',
         authCode: '',
@@ -234,6 +238,7 @@ export default {
     this.loadRecords();
   },
   methods: {
+    formatDateTime,
     unwrap(res) {
       return res && (res.data !== undefined ? res.data : res);
     },
@@ -261,8 +266,8 @@ export default {
       }
     },
     async save() {
-      if (this.form.enabled && !this.form.authCode) {
-        return this.$message.warning('启用状态下,授权码 AuthCode 必填');
+      if (this.form.enabled && (!this.form.accessKeyId || !this.form.accessKeySecret || !this.form.authCode)) {
+        return this.$message.warning('启用前请完整填写 AccessKey ID、Secret 和 AuthCode');
       }
       try {
         await saveEnterpriseVerifyConfig(this.form);
@@ -289,7 +294,7 @@ export default {
       try {
         const data = this.unwrap(await getEnterpriseVerifyRecords(this.query));
         this.records = (data && data.records) || [];
-        this.total = (data && data.total) || 0;
+        this.total = Number(data && data.total) || 0;
       } catch (e) {
         this.$message.error('加载记录失败: ' + (e.message || e));
       } finally {

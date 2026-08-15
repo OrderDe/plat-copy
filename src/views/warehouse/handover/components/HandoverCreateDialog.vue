@@ -4,8 +4,8 @@
       type="info"
       :closable="false"
       show-icon
-      title="快递员上门取件时当面清点后登记"
-      description="只有「已生效」且未交接的出库单可以交接。登记后系统会与承运商的揽收状态比对，对不上会挂到交接异常清单。"
+      title="快递员上门取件、当面清点无误后再提交——提交后订单立即转为已发货"
+      description="只有「已生效」且未交接的出库单可以交接。提交即视为货已交给快递员：系统会立刻把这些出库单关联的订单改为已发货并回写运单号，买家马上能查到物流。之后系统还会与承运商的揽收状态比对，对不上会挂到交接异常清单。"
       style="margin-bottom: 14px"
     />
 
@@ -80,10 +80,18 @@
       <el-table-column prop="relatedCode" label="关联订单号" width="180">
         <template slot-scope="{ row }">{{ row.relatedCode || '—' }}</template>
       </el-table-column>
-      <el-table-column label="运单号" width="170">
+      <!-- 仓库自建的销售出库单没有运单号，在这里补录：它要跟着回写到订单上，
+           不然订单发了货用户查不到物流 -->
+      <el-table-column label="运单号" width="190">
         <template slot-scope="{ row }">
           <span v-if="row.expressNo">{{ row.expressNo }}</span>
-          <span v-else class="text-muted">无运单号</span>
+          <el-input
+            v-else
+            v-model="row.inputExpressNo"
+            size="mini"
+            clearable
+            placeholder="留空则订单按无需物流发货"
+          />
         </template>
       </el-table-column>
       <el-table-column prop="expressCompany" label="承运商" width="90">
@@ -104,7 +112,7 @@
 
     <div slot="footer">
       <el-button size="small" @click="visible = false">取消</el-button>
-      <el-button type="primary" size="small" :loading="submitting" @click="submit">确认交接</el-button>
+      <el-button type="primary" size="small" :loading="submitting" @click="submit">确认交货并发货</el-button>
     </div>
   </el-dialog>
 </template>
@@ -183,7 +191,7 @@ export default {
         if (this.form.expressCompany) params.expressCompany = this.form.expressCompany;
         const data = this.unwrap(await handoverApi.pending(params));
         // 件数默认按 1 计，仓管可逐单改
-        this.pendingList = (data || []).map((r) => ({ ...r, packageNum: 1 }));
+        this.pendingList = (data || []).map((r) => ({ ...r, packageNum: 1, inputExpressNo: '' }));
         if (this.$refs.table) this.$refs.table.clearSelection();
         this.selection = [];
       } catch (e) {
@@ -204,7 +212,11 @@ export default {
         try {
           const payload = {
             ...this.form,
-            items: this.selection.map((r) => ({ outboundId: r.id, packageNum: r.packageNum || 1 })),
+            items: this.selection.map((r) => ({
+              outboundId: r.id,
+              packageNum: r.packageNum || 1,
+              expressNo: (r.inputExpressNo || '').trim() || undefined,
+            })),
           };
           if (!payload.handoverTime) delete payload.handoverTime;
           const data = this.unwrap(await handoverApi.create(payload));

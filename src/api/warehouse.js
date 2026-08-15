@@ -37,6 +37,8 @@ export const shelfApi = {
 // ==================== 库位 ====================
 export const locationApi = {
   list: (shelfId) => request({ url: '/api/warehouse/location/list', method: 'get', params: { shelfId }, baseURL }),
+  /** 按仓库列出启用中的库位：拣货时货没上架、库存分布没库位时兜底给拣货员挑 */
+  listByWarehouse: (warehouseId) => request({ url: '/api/warehouse/location/listByWarehouse', method: 'get', params: { warehouseId }, baseURL }),
   add: (data) => request({ url: '/api/warehouse/location/add', method: 'post', data, baseURL }),
   edit: (data) => request({ url: '/api/warehouse/location/edit', method: 'post', data, baseURL }),
   del: (id) => request({ url: `/api/warehouse/location/delete/${id}`, method: 'post', baseURL }),
@@ -101,6 +103,10 @@ export const pickApi = {
   detail: (id) => request({ url: `/api/warehouse/pick/detail/${id}`, method: 'get', baseURL }),
   assign: (id, pickerId, pickerName) => request({ url: `/api/warehouse/pick/assign/${id}`, method: 'post', params: { pickerId, pickerName }, baseURL }),
   confirm: (id, pickedMap, params) => request({ url: `/api/warehouse/pick/confirm/${id}`, method: 'post', data: pickedMap, params, baseURL }),
+  /** 保存拣货库位选择：{ pickItemId: locationId }，值为 null 表示改回通用池 */
+  saveLocations: (id, locationMap) => request({ url: `/api/warehouse/pick/locations/${id}`, method: 'post', data: locationMap, baseURL }),
+  /** 缺货终止：整单拣不到货，作废拣货单并记录原因 */
+  shortage: (id, reason, params) => request({ url: `/api/warehouse/pick/shortage/${id}`, method: 'post', params: { reason, ...params }, baseURL }),
 };
 
 // ==================== 复核 ====================
@@ -110,6 +116,8 @@ export const reviewApi = {
   createFromPick: (pickOrderId, params) => request({ url: `/api/warehouse/review/createFromPick/${pickOrderId}`, method: 'post', params, baseURL }),
   confirm: (id, reviewedMap, params) => request({ url: `/api/warehouse/review/confirm/${id}`, method: 'post', data: reviewedMap, params, baseURL }),
   reject: (id, reason) => request({ url: `/api/warehouse/review/reject/${id}`, method: 'post', params: { reason }, baseURL }),
+  /** 复核通过后取号的结果：出库单号 + 承运商 + 运单号，用于给操作员一个明确回执 */
+  shipInfo: (id) => request({ url: `/api/warehouse/review/shipInfo/${id}`, method: 'get', baseURL }),
 };
 
 // ==================== 库存 ====================
@@ -258,6 +266,8 @@ export const syncFailApi = {
   page: (params) => request({ url: '/admin/platform/warehouse/sync-fail/list', method: 'get', params }),
   retry: (id, operator) => request({ url: `/admin/platform/warehouse/sync-fail/retry/${id}`, method: 'post', params: { operator } }),
   handle: (id, status, remark, operator) => request({ url: `/admin/platform/warehouse/sync-fail/handle/${id}`, method: 'post', params: { status, remark, operator } }),
+  /** 发货异常一键整单退款：仅 ORDER_SHIP 待处理记录可用，退款成功后自动标记已处理 */
+  refund: (id, operator) => request({ url: `/admin/platform/warehouse/sync-fail/refund/${id}`, method: 'post', params: { operator } }),
   // 复用定时任务的兜底触发入口，批量重试行为与自动补偿完全一致
   retryAll: () => request({ url: '/admin/warehouse/refund-inbound/retry-once', method: 'post' }),
 };

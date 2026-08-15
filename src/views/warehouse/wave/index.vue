@@ -328,8 +328,31 @@
         </el-table-column>
         <el-table-column prop="goodsName" label="商品" min-width="160" />
         <el-table-column prop="productId" label="商品ID" width="80" />
-        <el-table-column prop="locationCode" label="库位" width="130">
-          <template slot-scope="{row}"><b class="loc">{{ row.locationCode || '通用池' }}</b></template>
+        <!-- 货没上架时释放波次分配不出库位，只能显示「通用池」，
+             拣货员不知道去哪儿取货，这里允许自己选实际取货的库位 -->
+        <el-table-column label="库位" width="230">
+          <template slot-scope="{row}">
+            <b v-if="pickDetail.status >= 2" class="loc">{{ row.locationCode || '通用池' }}</b>
+            <el-select
+              v-else
+              v-model="row.locationId"
+              size="mini"
+              clearable
+              filterable
+              placeholder="通用池（未指定库位）"
+              style="width:100%"
+              :loading="locLoading[locKey(row)]"
+              @visible-change="v => v && loadLocationOptions(row)"
+              @change="() => onLocationChange(row)"
+            >
+              <el-option
+                v-for="l in (locOptions[locKey(row)] || [])"
+                :key="l.locationId"
+                :label="l.availableNum > 0 ? l.locationCode + '（可用 ' + l.availableNum + '）' : l.locationCode"
+                :value="l.locationId"
+              />
+            </el-select>
+          </template>
         </el-table-column>
         <el-table-column prop="batchNo" label="批次号" width="150" />
         <el-table-column label="应拣" width="80"><template slot-scope="{row}"><b>{{ row.planNum }}</b></template></el-table-column>
@@ -344,6 +367,8 @@
       </el-table>
       <div slot="footer">
         <el-button size="small" @click="pickVisible=false">关闭</el-button>
+        <!-- 整单拣不到货时的出口：作废本单并记原因，出库单可补货后重新组波 -->
+        <el-button v-if="pickDetail.status < 2" type="danger" plain size="small" @click="onShortage">缺货终止</el-button>
         <el-button v-if="pickDetail.status < 2" type="primary" size="small" @click="onFillAll">按应拣填满</el-button>
         <el-button v-if="pickDetail.status < 2" type="primary" size="small" @click="onConfirmPick">确认拣货</el-button>
       </div>
@@ -354,7 +379,7 @@
 </template>
 
 <script>
-import { waveApi, warehouseApi, outboundApi, pickApi, reviewApi } from '@/api/warehouse';
+import { waveApi, warehouseApi, outboundApi, pickApi, reviewApi, stockApi, locationApi } from '@/api/warehouse';
 import AdminPickerDialog from '../components/AdminPickerDialog.vue';
 import { doPrint } from '../components/printUtil';
 import { formatDateTime } from '../components/dateTime';
@@ -377,6 +402,8 @@ export default {
       currentPick: {},
       assignVisible: false, assignForm: { pickerId: null, pickerName: '' },
       pickVisible: false, pickDetail: {},
+      // 库位候选缓存 / 加载态，key 见 locKey()
+      locOptions: {}, locLoading: {},
       statusMap: { 0: '草稿', 1: '已释放', 2: '已完成', 3: '已作废' },
       pickStatusMap: { 0: '待拣', 1: '拣货中', 2: '已拣完', 3: '已复核', 4: '已作废' },
       groupByMap: { 0: '按仓', 1: '按客户', 2: '按承运商', 3: '按优先级' },
@@ -443,7 +470,8 @@ export default {
     openBuild() { this.buildForm = { warehouseId: null, strategy: 1, remark: '' }; this.candidates = []; this.selectedOutbounds = []; this.buildVisible = true; },
     async loadOutboundCandidates() {
       if (!this.buildForm.warehouseId) return;
-      const r = await outboundApi.page({ page: 1, limit: 200, warehouseId: this.buildForm.warehouseId, status: 0 });
+      // notInWave：已进过波次的单不能再组，列出来只会让人白勾一次
+      const r = await outboundApi.page({ page: 1, limit: 200, warehouseId: this.buildForm.warehouseId, status: 0, notInWave: true });
       this.candidates = (r && r.list) || [];
     },
     // release=true 时组完直接释放，省掉「建草稿 → 找到它 → 再点释放」三步
@@ -510,19 +538,92 @@ export default {
     async openPick(row) {
       this.pickDetail = await pickApi.detail(row.id) || {};
       if (!this.pickDetail.items) this.pickDetail.items = [];
+      this.locOptions = {};
+      this.locLoading = {};
       this.pickVisible = true;
     },
     onFillAll() { (this.pickDetail.items || []).forEach(i => { i.pickedNum = i.planNum; }); },
+
+    /** 库位候选按 商品+SKU+商户+批次 隔离缓存，避免每次展开都请求 */
+    locKey(row) {
+      return [row.productId, row.attrValueId || 0, row.merId || '', row.batchId || ''].join('_');
+    },
+    /**
+     * 拉该行商品在本仓有可用库存的库位。
+     * 批次已定的行只列该批次所在的库位——拣别的批次会让批次账和库位账对不上。
+     */
+    async loadLocationOptions(row) {
+      const key = this.locKey(row);
+      if (this.locOptions[key]) return;
+      this.$set(this.locLoading, key, true);
+      try {
+        const list = await stockApi.distribution({
+          warehouseId: this.pickDetail.warehouseId || this.currentWave.warehouseId,
+          productId: row.productId,
+          attrValueId: row.attrValueId || 0,
+          merId: row.merId || undefined,
+        });
+        const options = (list || [])
+          .filter((s) => s.locationId && (s.availableNum || 0) > 0)
+          .filter((s) => !row.batchId || String(s.batchId) === String(row.batchId))
+          .map((s) => ({ locationId: s.locationId, locationCode: s.locationCode || `库位#${s.locationId}`, availableNum: s.availableNum }));
+        // 货全在通用池（从没上架过）时上面一个候选都没有，拣货员依旧无处可选；
+        // 兜底列出本仓所有启用库位，让他按实物所在货位登记
+        if (!options.length) {
+          const locs = await locationApi.listByWarehouse(
+            this.pickDetail.warehouseId || this.currentWave.warehouseId,
+          );
+          (locs || []).forEach((l) => options.push({ locationId: l.id, locationCode: l.code, availableNum: 0 }));
+        }
+        this.$set(this.locOptions, key, options);
+      } catch (e) {
+        this.$set(this.locOptions, key, []);
+      } finally { this.$set(this.locLoading, key, false); }
+    },
+    /** 选中后回填库位码，确认拣货时会连同实拣数一起保存 */
+    onLocationChange(row) {
+      const hit = (this.locOptions[this.locKey(row)] || []).find((l) => l.locationId === row.locationId);
+      this.$set(row, 'locationCode', hit ? hit.locationCode : null);
+    },
     async onConfirmPick() {
       const map = {};
       (this.pickDetail.items || []).forEach(i => { map[i.id] = i.pickedNum == null ? 0 : i.pickedNum; });
+      // 一件都没拣到还提交，复核会拿到一张空单；后端同样会拦，这里先省一次往返
+      const total = Object.values(map).reduce((sum, n) => sum + (Number(n) || 0), 0);
+      if ((this.pickDetail.items || []).length && total <= 0) {
+        return this.$message.warning('实拣数量全部为 0，不能提交；请确认是否漏填实拣数量');
+      }
       // 没指派拣货员就直接拣的，把当前登录用户记为拣货员
       const u = this.$store.getters.userInfo || {};
+      // 先落库位再确认：复核按库位扣减，库位没保存的话拣货员选了等于白选
+      const locationMap = {};
+      (this.pickDetail.items || []).forEach((i) => { locationMap[i.id] = i.locationId || null; });
+      await pickApi.saveLocations(this.pickDetail.id, locationMap);
       await pickApi.confirm(this.pickDetail.id, map, {
         pickerId: u.id,
         pickerName: u.realName || u.account || this.$store.getters.name,
       });
       this.$message.success('拣货完成');
+      this.pickVisible = false;
+      this.loadPickOrders();
+      if (this.activeTab === 'batch') this.loadBatchRows();
+    },
+    /**
+     * 缺货终止：整单拣不到货。作废拣货单并记录原因，不进复核；
+     * 关联出库单仍是草稿，补货后可以重新组波再拣。
+     */
+    async onShortage() {
+      const { value } = await this.$prompt('请填写缺货原因（库存不足、货损、找不到货位等）', '缺货终止', {
+        inputPlaceholder: '例如：A-02-1-01 库位实物为 0，账实不符待盘点',
+        inputValidator: (v) => (v && v.trim() ? true : '缺货原因必填'),
+        type: 'warning',
+      });
+      const u = this.$store.getters.userInfo || {};
+      await pickApi.shortage(this.pickDetail.id, value.trim(), {
+        operatorId: u.id,
+        operatorName: u.realName || u.account || this.$store.getters.name,
+      });
+      this.$message.success('已按缺货终止，本单作废；出库单可补货后重新组波');
       this.pickVisible = false;
       this.loadPickOrders();
       if (this.activeTab === 'batch') this.loadBatchRows();

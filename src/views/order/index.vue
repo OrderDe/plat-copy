@@ -120,6 +120,22 @@
               <font v-show="scope.row.type === 2" class="mr5">[拼团]</font>
               <span style="display: block" v-text="scope.row.orderNo" />
             </div>
+            <!-- 发货同步仓储失败：买家侧已显示发货，但仓储没扣库存也没出货，
+                 不打标就只能靠人去「仓储同步异常」页里翻，两边对不起来 -->
+            <el-tooltip
+              v-if="scope.row.warehouseShipFail"
+              effect="dark"
+              placement="top"
+              :content="'发货未同步到仓储，货可能没出库。原因：' + (scope.row.warehouseShipFailMsg || '未知')"
+            >
+              <el-tag
+                type="danger"
+                size="mini"
+                effect="dark"
+                class="ship-fail-tag"
+                @click.native="goShipFail"
+              >仓储异常</el-tag>
+            </el-tooltip>
             <div class="flex">
               <span class="colorPrompt" v-show="parseInt(scope.row.refundStatus) > 0" style="display: block">{{
                 scope.row.refundStatus | orderRefundStatusFilter
@@ -360,6 +376,10 @@ export default {
       this.getOrderStatusNum();
     },
     // 详情
+    /** 跳到「仓储同步异常」页处理：重试、一键退款都在那边 */
+    goShipFail() {
+      this.$router.push({ path: '/warehouse/sync-fail' });
+    },
     onOrderDetails(id) {
       this.orderNo = id;
       this.$refs.orderDetail.getDetail(id);
@@ -582,4 +602,5 @@ font {
 .tag-background {
   padding: 3px 8px;
 }
+.ship-fail-tag { margin-top: 4px; cursor: pointer; }
 </style>
