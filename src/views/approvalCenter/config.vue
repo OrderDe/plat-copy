@@ -190,10 +190,17 @@
 
     <!-- 接入位置选择弹窗 -->
     <el-dialog title="选择接入位置" :visible.sync="endpointDialogVisible" width="780px" append-to-body>
+      <!-- 用这个弹窗的多半不是开发，先说清「在选什么」，别让人对着 Controller#方法 发愣 -->
+      <el-alert type="info" :closable="false" style="margin-bottom:10px">
+        <div slot="title" style="font-size:12px; line-height:1.7;">
+          在这里选<b>触发审批的那个动作</b>——用户在业务页面点了它，就自动发起本场景的审批。
+          按业务名搜最快，例如「盘点」「报损」「调拨」「优惠券」。
+        </div>
+      </el-alert>
       <div style="display:flex; gap:8px; margin-bottom: 10px;">
         <el-input
           v-model="endpointFilter"
-          placeholder="🔍 搜索控制器名 / 方法名 / 描述 / URL 路径 / HTTP方法"
+          placeholder="🔍 按业务名或动作搜，如：提交盘点审批 / 报损 / 优惠券"
           clearable
           size="small"
           style="flex:1;" />
@@ -202,7 +209,20 @@
         </el-select>
         <el-button class="approval-toolbar-btn" size="small" type="primary" plain icon="el-icon-refresh" @click="loadEndpoints">刷新</el-button>
       </div>
-      <div style="font-size: 12px; color: #909399; margin-bottom: 6px;">共 {{ flatFilteredEndpoints.length }} 条</div>
+      <div style="font-size: 12px; color: #909399; margin-bottom: 6px;">
+        共 {{ flatFilteredEndpoints.length }} 条
+        <span v-if="endpointFuzzy" style="color:#e6a23c;">
+          · 没有完全匹配「{{ endpointFilter }}」，以下按相近程度排序（接口描述用的是后端方法名，可能和页面按钮文案不同）
+        </span>
+      </div>
+      <!-- 搜不到时最常见的原因是拿页面按钮文案去搜接口描述，直说比让人反复试有用 -->
+      <el-alert
+        v-if="endpointFilter && !flatFilteredEndpoints.length"
+        type="info"
+        :closable="false"
+        style="margin-bottom:8px"
+        title="没搜到？试试更短的关键词，比如只搜「盘点」「调拨」「报损」；也可能这个业务已内建审批，不需要在这里挂接口。"
+      />
       <el-table :data="flatFilteredEndpoints" size="mini" height="420" highlight-current-row @row-click="pickEndpoint">
         <el-table-column label="模块" prop="module" width="90">
           <template slot-scope="{ row }"><el-tag size="mini" type="info">{{ row.module }}</el-tag></template>
@@ -347,25 +367,60 @@ export default {
       const used = new Set(this.scenes.map(s => s.flowKey).filter(Boolean));
       return this.flowList.filter(f => !used.has(f.flowKey));
     },
-    flatFilteredEndpoints() {
-      const kw = (this.endpointFilter || '').toLowerCase().trim();
+    /** 当前模块筛选下的全部接口，搜索在此基础上做 */
+    endpointsInModule() {
       const mod = this.endpointModuleFilter || '';
       const rows = [];
       this.endpointGroups.forEach(g => {
         if (mod && g.module !== mod) return;
-        (g.items || []).forEach(it => {
-          if (!kw
-            || (it.controller && it.controller.toLowerCase().includes(kw))
-            || (it.method && it.method.toLowerCase().includes(kw))
-            || (it.description && it.description.toLowerCase().includes(kw))
-            || (it.path && it.path.toLowerCase().includes(kw))
-            || (it.httpMethod && it.httpMethod.toLowerCase().includes(kw))
-          ) {
-            rows.push({ ...it, module: g.module });
-          }
-        });
+        (g.items || []).forEach(it => rows.push({ ...it, module: g.module }));
       });
       return rows;
+    },
+    /**
+     * 接入位置搜索。
+     *
+     * 原来是整串 includes，而人搜的是页面上看到的按钮文案（「保存并提交审核」），
+     * 接口描述却是「盘点列表 - 提交领导审核」——一个字都不差地包含才算命中，
+     * 结果就是明明有这个接口却搜出 0 条。
+     *
+     * 改成两级：先整串/分词精确匹配；一条都没有时退化成二字片段匹配，
+     * 「保存并提交审核」会被切成 保存/存并/并提/提交/交审/审核，命中「提交」「审核」
+     * 的接口就能浮出来，并按命中片段数排序，最相关的排最前。
+     */
+    /** 一级：空格分词，每个词都要命中（英文/多词搜索按这个走） */
+    endpointExactMatches() {
+      const kw = (this.endpointFilter || '').toLowerCase().trim();
+      if (!kw) return this.endpointsInModule;
+      const words = kw.split(/\s+/).filter(Boolean);
+      return this.endpointsInModule.filter(it => {
+        const t = this.endpointText(it);
+        return words.every(w => t.includes(w));
+      });
+    },
+    /** 二级：二字片段兜底，只对中文长串有意义；英文短词不拆，免得全表命中 */
+    endpointFuzzyMatches() {
+      const kw = (this.endpointFilter || '').toLowerCase().trim();
+      if (kw.length < 3) return [];
+      const grams = [];
+      for (let i = 0; i + 2 <= kw.length; i += 1) grams.push(kw.slice(i, i + 2));
+      return this.endpointsInModule
+        .map(it => {
+          const t = this.endpointText(it);
+          return { it, hits: grams.filter(g => t.includes(g)).length };
+        })
+        .filter(x => x.hits > 0)
+        .sort((a, b) => b.hits - a.hits)
+        .map(x => x.it);
+    },
+    /** 精确匹配一条都没有时才用模糊结果，界面上要说明这是「近似结果」 */
+    endpointFuzzy() {
+      return Boolean(this.endpointFilter)
+        && this.endpointExactMatches.length === 0
+        && this.endpointFuzzyMatches.length > 0;
+    },
+    flatFilteredEndpoints() {
+      return this.endpointFuzzy ? this.endpointFuzzyMatches : this.endpointExactMatches;
     },
   },
   created() {
@@ -390,6 +445,11 @@ export default {
       } finally {
         this.loading = false;
       }
+    },
+    /** 一条接入位置的可搜索文本：控制器、方法、描述、路径、请求方法拼在一起 */
+    endpointText(it) {
+      return [it.controller, it.method, it.description, it.path, it.httpMethod]
+        .filter(Boolean).join(' ').toLowerCase();
     },
     async loadEndpoints() {
       try {
