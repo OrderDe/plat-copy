@@ -13,7 +13,7 @@ import { isPlatform } from '@/utils/settingMer';
 // 过滤已下线的菜单项
 function removeHiddenMenus(routes) {
   if (!Array.isArray(routes)) return routes;
-  const hiddenTitles = ['物料列表', '购销存数据', '统计管理', '装箱管理', '智能补货', '智能分仓', '循环盘点计划', '采购发货单'];
+  const hiddenTitles = ['物料列表', '购销存数据', '统计管理', '装箱管理', '智能补货', '智能分仓', '循环盘点计划'];
   const hiddenPaths = [
     '/warehouse/material',
     'warehouse/material',
@@ -28,8 +28,6 @@ function removeHiddenMenus(routes) {
     'warehouse/allocate',
     '/warehouse/stock-check-plan',
     'warehouse/stock-check-plan',
-    '/warehouse/deliver',
-    'warehouse/deliver',
     // 已下线的流程模型、审批案例、消息事件、信号事件页面。
     '/ryFlowAble/activiti',
     '/ryFlowAble/activiti/leave',
