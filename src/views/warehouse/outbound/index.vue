@@ -22,7 +22,7 @@
       </el-form-item>
       <el-form-item label="状态">
         <el-select v-model="query.status" clearable placeholder="全部" style="width:120px">
-          <el-option label="草稿" :value="0" />
+          <el-option label="待组波" :value="0" />
           <el-option label="已生效" :value="1" />
           <el-option label="已作废" :value="2" />
         </el-select>
@@ -527,7 +527,12 @@ export default {
         this.$set(this.batchOptions, key, []);
       }
     },
-    statusText(s) { return ({ 0: '草稿', 1: '已生效', 2: '已作废' })[s] || '-'; },
+    /**
+     * status=0 不是「还没提交的草稿」——手工「提交生效」入口已下线，出库一律走
+     * 波次 → 拣货 → 复核，库存在复核时才扣。这个状态的实际含义是「已受理，等着组波」，
+     * 叫草稿会让人以为还缺一步人工操作。status=1 则代表库存已经扣完。
+     */
+    statusText(s) { return ({ 0: '待组波', 1: '已生效', 2: '已作废' })[s] || '-'; },
     statusType(s) { return ({ 0: 'info', 1: 'success', 2: 'danger' })[s] || ''; },
     /**
      * 物流阶段。非销售出库和作废单不展示物流流程。
@@ -549,7 +554,7 @@ export default {
       return {
         none: '-',
         canceled: '已作废',
-        waiting: '待生效',
+        waiting: '待拣货',
         noWaybill: '未取号',
         notified: '已通知承运商',
         handed: '已交接承运商',
@@ -565,7 +570,7 @@ export default {
       return {
         none: '非销售出库单不涉及订单物流',
         canceled: '出库单已作废，未进入物流',
-        waiting: '出库单尚未生效，审批通过后自动向承运商下单取号',
+        waiting: '出库单已受理，组波拣货复核完成后自动向承运商下单取号',
         noWaybill: '已生效但没有运单号，请检查仓库联系人和地址配置',
         notified: `已向承运商下单，运单号 ${row.expressNo}，等待司机取货`,
         handed: '已交接给承运商，订单已回写为已发货',
