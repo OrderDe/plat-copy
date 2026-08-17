@@ -189,8 +189,9 @@
             <el-table-column label="库位" width="150">
               <template slot-scope="{row}">
                 <el-select v-model="row.locationId" size="mini" filterable clearable style="width:100%" :disabled="!row.shelfId">
-                  <el-option v-for="l in (locationCache[row.shelfId] || [])" :key="l.id" :label="l.code" :value="l.id" />
+                  <el-option v-for="l in (locationCache[row.shelfId] || [])" :key="l.id" :label="locationOptionLabel(l)" :value="l.id" :disabled="locationOptionDisabled(l, row.locationId)" />
                 </el-select>
+                <div v-if="capacityHint(row)" class="cap-warn">{{ capacityHint(row) }}</div>
               </template>
             </el-table-column>
             <!-- 这两个日期会在入库确认时带进自动生成的批次，不是可有可无的装饰 -->
@@ -223,9 +224,12 @@
             <el-table-column label="供应商批次" width="130">
               <template slot-scope="{row}"><el-input v-model="row.supplierBatchNo" size="mini" /></template>
             </el-table-column>
-            <el-table-column v-if="editable" label="操作" width="70" fixed="right">
-              <template slot-scope="{$index}">
+            <el-table-column v-if="editable" label="操作" width="110" fixed="right">
+              <template slot-scope="{row, $index}">
                 <el-button type="text" class="danger-text" @click="form.items.splice($index, 1)">删除</el-button>
+                <!-- 一个库位放不下就得分几个库位放。明细行本身只能带一个库位，
+                     所以这里按选中的库位把这一行拆成多行，每行一个库位 -->
+                <el-button type="text" @click="openSplit(row, $index)">拆分库位</el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -238,6 +242,55 @@
       </div>
     </el-dialog>
 
+    <!-- 拆分库位：一行明细的数量分摊到多个库位，确认后拆成多行明细 -->
+    <el-dialog title="拆分到多个库位" :visible.sync="splitVisible" width="620px" append-to-body>
+      <div class="split-head">
+        <span>{{ splitRow.goodsName || '商品' }}</span>
+        <span class="split-total">待分配 {{ splitRemain }} / {{ splitTotal }} 件</span>
+      </div>
+      <el-table :data="splitRows" border size="mini" max-height="300">
+        <el-table-column type="index" width="45" />
+        <el-table-column label="货架" width="150">
+          <template slot-scope="{row}">
+            <el-select v-model="row.shelfId" size="mini" filterable clearable style="width:100%" @change="onSplitShelfChange(row)">
+              <el-option v-for="s in shelfCache" :key="s.id" :label="s.code" :value="s.id" />
+            </el-select>
+          </template>
+        </el-table-column>
+        <el-table-column label="库位" min-width="200">
+          <template slot-scope="{row}">
+            <el-select v-model="row.locationId" size="mini" filterable clearable style="width:100%" :disabled="!row.shelfId">
+              <el-option
+                v-for="l in (locationCache[row.shelfId] || [])"
+                :key="l.id"
+                :label="locationOptionLabel(l)"
+                :value="l.id"
+                :disabled="locationOptionDisabled(l, row.locationId)"
+              />
+            </el-select>
+          </template>
+        </el-table-column>
+        <el-table-column label="数量" width="120">
+          <template slot-scope="{row}">
+            <el-input-number v-model="row.num" :min="0" size="mini" controls-position="right" style="width:100%" />
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="60">
+          <template slot-scope="{$index}">
+            <el-button type="text" class="danger-text" @click="splitRows.splice($index, 1)">删除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+      <el-button size="mini" icon="el-icon-plus" style="margin-top:8px" @click="addSplitRow">添加库位</el-button>
+      <p class="split-tip">
+        各库位数量之和必须等于该行实入库数量；库位余量不足的会在确认时提示。
+      </p>
+      <div slot="footer">
+        <el-button size="small" @click="splitVisible = false">取消</el-button>
+        <el-button type="primary" size="small" @click="confirmSplit">确认拆分</el-button>
+      </div>
+    </el-dialog>
+
     <admin-picker-dialog ref="adminPicker" :title="adminPickerTitle" />
     <product-picker-dialog ref="productPicker" />
   </div>
@@ -247,6 +300,7 @@
 import { inboundApi, shelfApi, locationApi, inspectApi, dictApi } from '@/api/warehouse';
 import warehouseFormMixin from '@/views/warehouse/components/warehouseFormMixin';
 import { doPrint } from '@/views/warehouse/components/printUtil';
+import { locationLabel, locationDisabled, findOverCapacity, overCapacityMessage } from '@/views/warehouse/components/locationCapacity';
 
 export default {
   name: 'WarehouseInbound',
@@ -260,6 +314,8 @@ export default {
       shelfCache: [],
       adminPickerTitle: '选择申请人', // 申请人/入库人/经办人共用一个选择器，标题跟着入口走
       locationCache: {},
+      // 拆分库位弹窗：splitIndex 记住是哪一行，确认时用拆出来的多行替换它
+      splitVisible: false, splitIndex: -1, splitRow: {}, splitRows: [],
       typeOptions: [], // 入库类型，来自 wms_dict(inbound_type)
       rules: {
         warehouseId: [{ required: true, message: '请选择仓库', trigger: 'change' }],
@@ -270,6 +326,13 @@ export default {
   },
   computed: {
     editable() { return this.dialogMode === 'add' || this.dialogMode === 'edit'; },
+    /** 拆分弹窗：这一行明细一共要分配多少件 */
+    splitTotal() { return this.splitTotalOf(this.splitRow || {}); },
+    /** 还剩多少没分配，添加库位时默认带上，省得自己算 */
+    splitRemain() {
+      const used = this.splitRows.reduce((a, r) => a + (Number(r.num) || 0), 0);
+      return this.splitTotal - used;
+    },
     dialogTitle() {
       if (this.dialogMode === 'add') return '新建入库单';
       return (this.dialogMode === 'edit' ? '编辑入库单 ' : '入库单详情 ') + (this.form.code || '');
@@ -287,6 +350,78 @@ export default {
     'form.warehouseId'(v) { this.loadShelves(v); },
   },
   methods: {
+    locationLabel,
+    locationDisabled,
+    /** 本单所有超容库位；按库位汇总，同一库位被多行选中时看的是合计 */
+    overCapacityRows() {
+      return findOverCapacity(
+        this.form.items,
+        (id) => Object.values(this.locationCache).flat().find((l) => l.id === id),
+        (row) => (row.actualInboundNum != null ? row.actualInboundNum : row.inboundTotalNum),
+        (row) => row.locationId,
+      );
+    },
+    /** 拆分弹窗里这一行明细的总数（以实入库为准，没填则按应入库） */
+    splitTotalOf(row) {
+      const n = row.actualInboundNum != null ? row.actualInboundNum : row.inboundTotalNum;
+      return Number(n) || 0;
+    },
+    openSplit(row, index) {
+      if (!this.form.warehouseId) return this.$message.warning('请先选择仓库');
+      const total = this.splitTotalOf(row);
+      if (total <= 0) return this.$message.warning('请先填写该行的入库数量');
+      this.splitIndex = index;
+      this.splitRow = row;
+      // 原来的库位作为第一条，数量先给满，剩下的由操作员往下拆
+      this.splitRows = [{ shelfId: row.shelfId || null, locationId: row.locationId || null, num: total }];
+      this.splitVisible = true;
+    },
+    addSplitRow() {
+      this.splitRows.push({ shelfId: null, locationId: null, num: Math.max(0, this.splitRemain) });
+    },
+    async onSplitShelfChange(row) {
+      row.locationId = null;
+      await this.ensureLocations(row.shelfId);
+    },
+    /**
+     * 确认拆分：把一行明细换成 N 行，每行一个库位。
+     *
+     * 数量必须刚好分完——分少了这批货有一部分没库位，分多了等于凭空多入库；
+     * 两种都要等到提交生效时才被后端发现，那时候单据已经存下去了。
+     */
+    confirmSplit() {
+      const rows = this.splitRows.filter((r) => Number(r.num) > 0);
+      if (!rows.length) return this.$message.warning('请至少填写一个库位和数量');
+      const noLoc = rows.findIndex((r) => !r.locationId);
+      if (noLoc >= 0) return this.$message.warning(`第 ${noLoc + 1} 行未选择库位`);
+      const dup = rows.map((r) => r.locationId).filter((id, i, arr) => arr.indexOf(id) !== i);
+      if (dup.length) return this.$message.warning('同一个库位不要拆成多行，合并成一行即可');
+      const sum = rows.reduce((a, r) => a + Number(r.num || 0), 0);
+      const total = this.splitTotalOf(this.splitRow);
+      if (sum !== total) {
+        return this.$message.warning(`各库位数量合计 ${sum} 件，与该行入库数量 ${total} 件对不上`);
+      }
+      const base = this.form.items[this.splitIndex];
+      const created = rows.map((r) => ({
+        ...base,
+        shelfId: r.shelfId,
+        locationId: r.locationId,
+        inboundTotalNum: Number(r.num),
+        actualInboundNum: Number(r.num),
+      }));
+      this.form.items.splice(this.splitIndex, 1, ...created);
+      this.splitVisible = false;
+      // 拆完立刻按累计口径复查一遍，哪个库位放不下当场就说
+      const over = this.overCapacityRows();
+      if (over.length) this.$message.warning(overCapacityMessage(over));
+      else this.$message.success(`已拆分为 ${created.length} 行`);
+    },
+    /** 该行所在库位是否超容，超了给一句行内红字，不用等到保存 */
+    capacityHint(row) {
+      if (!row.locationId) return '';
+      const hit = this.overCapacityRows().find((o) => o.locationId === row.locationId);
+      return hit ? `超出容量，只剩 ${hit.remain} 件` : '';
+    },
     emptyForm() { return { warehouseId: null, type: 0, applyUserId: null, applyUserName: '', applyUserPhone: '', inboundUserId: null, inboundUserName: '', handlerUserName: '', remark: '', items: [] }; },
     /** 入库人可以是没有后台账号的现场人员，所以选择器只是省事的入口，输入框本身可编辑 */
     async pickInboundUser() {
@@ -305,25 +440,53 @@ export default {
       if (!u) return;
       this.$set(this.form, 'handlerUserName', u.realName || u.account || '');
     },
+    /**
+     * 库位选项按 shelfId 缓存，且切仓库时不清空。
+     *
+     * 清空会和编辑单据抢时序：打开编辑时先给 form 赋值，watcher 排队去 loadShelves，
+     * 而 openEdit 这边同时按明细里的 shelfId 拉库位；loadShelves 的清空动作发生在
+     * 网络请求之后，正好把刚填好的库位选项抹掉，于是下拉「无数据」、
+     * el-select 找不到匹配项只能把 value（库位ID）当文本显示出来。
+     * shelfId 全局唯一，留着别的仓库的缓存不会串，行只按自己的 shelfId 取。
+     */
     async loadShelves(warehouseId) {
-      if (!warehouseId) { this.shelfCache = []; this.locationCache = {}; return; }
+      if (!warehouseId) { this.shelfCache = []; return; }
       try {
         const res = await shelfApi.page({ page: 1, limit: 999, warehouseId, status: 1 });
         this.shelfCache = (res && res.list) || [];
       } catch (e) { this.shelfCache = []; }
-      this.locationCache = {};
     },
     async onShelfChange(row) {
       row.locationId = null;
       await this.ensureLocations(row.shelfId);
     },
-    /** 只补库位下拉选项，不动已选值：编辑草稿时要保留原来选好的库位 */
+    /**
+     * 只补库位下拉选项，不动已选值：编辑草稿时要保留原来选好的库位。
+     *
+     * 停用/锁定的库位也留在选项里、只是禁选——过滤掉的话，草稿里选的库位一旦被停用，
+     * 下拉里就没有匹配项，el-select 会退化成直接显示 value（库位ID）。
+     */
     async ensureLocations(shelfId) {
       if (!shelfId || this.locationCache[shelfId]) return;
       try {
         const list = await locationApi.list(shelfId) || [];
-        this.$set(this.locationCache, shelfId, list.filter(l => l.status === 1));
+        this.$set(this.locationCache, shelfId, list);
       } catch (e) {}
+    },
+    /** 明细里已选的货架要把库位选项带出来，否则下拉无数据、已选库位显示成 ID */
+    async loadItemLocations() {
+      const ids = [...new Set((this.form.items || []).map((it) => it.shelfId).filter(Boolean))];
+      await Promise.all(ids.map((id) => this.ensureLocations(id)));
+    },
+    /** 库位下拉展示：停用/锁定的标出来，免得操作员选了才被后端打回 */
+    locationOptionLabel(loc) {
+      const base = locationLabel(loc);
+      if (loc && loc.status !== 1) return `${base}（${loc.status === 2 ? '已锁定' : '已停用'}）`;
+      return base;
+    },
+    locationOptionDisabled(loc, currentId) {
+      if (loc && loc.status !== 1 && loc.id !== currentId) return true;
+      return locationDisabled(loc, currentId);
     },
     typeText(t) {
       // 类型名来自字典；停用后的历史单据也能显示原名称，字典没这条时退回显示原始值
@@ -367,11 +530,8 @@ export default {
       const res = await inboundApi.detail(row.id);
       this.form = res || this.emptyForm();
       if (!this.form.items) this.form.items = [];
-      // 等 form.warehouseId 的 watcher 先跑完：loadShelves 会清空 locationCache，
-      // 不等它就先填，填进去的库位选项会被清掉，编辑时库位下拉又是空的
-      await this.$nextTick();
-      // 明细里已选的货架要把库位选项带出来，否则编辑时库位下拉是空的
-      for (const it of this.form.items) { if (it.shelfId) await this.ensureLocations(it.shelfId); }
+      // 货架下拉和库位下拉都要在弹窗打开前备好，否则先看到的是空下拉
+      await Promise.all([this.loadShelves(this.form.warehouseId), this.loadItemLocations()]);
       this.dialogMode = 'edit';
       this.dialogVisible = true;
     },
@@ -379,6 +539,8 @@ export default {
       const res = await inboundApi.detail(id);
       this.form = res || this.emptyForm();
       if (!this.form.items) this.form.items = [];
+      // 详情用的是同一个弹窗，库位列也是下拉，不备选项照样只显示库位ID
+      await Promise.all([this.loadShelves(this.form.warehouseId), this.loadItemLocations()]);
       this.dialogMode = 'view';
       this.dialogVisible = true;
     },
@@ -438,6 +600,10 @@ export default {
       // picker 的 disabledDate 只挡鼠标点选，手输能绕过，保存前统一再查一遍
       const badDate = this.checkItemDates();
       if (badDate) return this.$message.warning(badDate);
+      // 容量在后端是硬约束，但那道拦截在「提交生效」时才触发、而且一行一行报。
+      // 这里一次把所有放不下的库位说清楚，省得改一轮报一个。
+      const over = this.overCapacityRows();
+      if (over.length) return this.$message.warning(overCapacityMessage(over));
       this.saving = true;
       try {
         const payload = { ...this.form, items: this.stripItemMeta(this.form.items) };
@@ -509,4 +675,8 @@ export default {
   line-height: 1.3;
   color: #909399;
 }
+.cap-warn { color: #f56c6c; font-size: 12px; line-height: 1.4; margin-top: 2px; }
+.split-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 13px; }
+.split-total { color: #909399; }
+.split-tip { margin: 8px 0 0; font-size: 12px; color: #909399; line-height: 1.5; }
 </style>

@@ -191,11 +191,17 @@
                 <el-input-number v-else v-model="row.qtyReceived" :min="0" size="mini" controls-position="right" />
               </template>
             </el-table-column>
+            <!-- 合格 + 不合格 不能超过送检数：多填多少就凭空多出多少库存，
+                 max 按「送检 - 另一栏」动态算，两栏加起来自然封顶 -->
             <el-table-column label="合格" width="100">
-              <template slot-scope="{row}"><el-input-number v-model="row.qtyPass" :min="0" size="mini" controls-position="right" /></template>
+              <template slot-scope="{row}">
+                <el-input-number v-model="row.qtyPass" :min="0" :max="maxQty(row, 'pass')" size="mini" controls-position="right" />
+              </template>
             </el-table-column>
             <el-table-column label="不合格" width="100">
-              <template slot-scope="{row}"><el-input-number v-model="row.qtyFail" :min="0" size="mini" controls-position="right" /></template>
+              <template slot-scope="{row}">
+                <el-input-number v-model="row.qtyFail" :min="0" :max="maxQty(row, 'fail')" size="mini" controls-position="right" />
+              </template>
             </el-table-column>
             <el-table-column label="处置" width="140">
               <template slot-scope="{row}">
@@ -217,7 +223,7 @@
               <template slot-scope="{row}">
                 <!-- 只列可售区库位：合格品搬到待检区/隔离区不会计入可售库存，等于白检 -->
                 <el-select v-model="row.passLocationId" size="mini" filterable clearable :disabled="!row.passShelfId" style="width:100%">
-                  <el-option v-for="l in sellableLocations(row.passShelfId)" :key="l.id" :label="l.code" :value="l.id" />
+                  <el-option v-for="l in sellableLocations(row.passShelfId)" :key="l.id" :label="locationLabel(l)" :value="l.id" :disabled="locationDisabled(l, row.passLocationId)" />
                 </el-select>
               </template>
             </el-table-column>
@@ -248,6 +254,7 @@ import { merchantListApi } from '@/api/merchant';
 import { doPrint } from '@/views/warehouse/components/printUtil';
 import AdminPickerDialog from '../components/AdminPickerDialog.vue';
 import ProductPickerDialog from '../components/ProductPickerDialog.vue';
+import { locationLabel, locationDisabled } from '@/views/warehouse/components/locationCapacity';
 
 export default {
   name: 'WarehouseInspect',
@@ -283,6 +290,14 @@ export default {
     this.loadPage();
   },
   methods: {
+    locationLabel,
+    locationDisabled,
+    /** 合格/不合格各自的上限：送检数减掉另一栏已填的数 */
+    maxQty(row, which) {
+      const received = Number(row.qtyReceived || 0);
+      const other = which === 'pass' ? Number(row.qtyFail || 0) : Number(row.qtyPass || 0);
+      return Math.max(0, received - other);
+    },
     emptyForm() { return { warehouseId: null, inboundId: null, inboundCode: '', inspectorId: null, inspectorName: '', inspectorPhone: '', ngShelfId: null, ngLocationId: null, remark: '', items: [] }; },
     /** 有不合格数即判为「存在不合格」，草稿还没填结果时不下结论 */
     resultText(row) {
@@ -453,7 +468,10 @@ export default {
     async loadNgLocations() { await this.ensureLocations(this.form.ngShelfId); },
     ngLocationLabel(l) {
       const rc = [l.rowNo, l.colNo, l.layerNo].filter(v => v != null && v !== '');
-      return rc.length ? `${l.code}（${rc.join('-')}）` : l.code;
+      const pos = rc.length ? `（${rc.join('-')}）` : '';
+      // 不良品库位同样受容量约束，位置标注之外再补一段余量
+      const room = l.remainNum == null ? '' : (l.remainNum <= 0 ? '（已满）' : `（剩余 ${l.remainNum}/${l.capacity}）`);
+      return `${l.code}${pos}${room}`;
     },
     async onNgShelfChange() {
       this.form.ngLocationId = null;
@@ -533,6 +551,18 @@ export default {
       if (noProduct >= 0) return this.$message.warning(`第 ${noProduct + 1} 行未选择商品`);
       const noSku = this.form.items.findIndex((item) => !item.attrValueId);
       if (noSku >= 0) return this.$message.warning(`第 ${noSku + 1} 行未选择规格`);
+      // 数量先于库位校验：数量填错是更基础的错，先让人把数改对再去挑库位
+      // input-number 的 max 只挡加减按钮和失焦校正，手输仍可能越界，保存前再算一遍
+      const overQty = this.form.items.findIndex(
+        (item) => Number(item.qtyPass || 0) + Number(item.qtyFail || 0) > Number(item.qtyReceived || 0),
+      );
+      if (overQty >= 0) {
+        const it = this.form.items[overQty];
+        return this.$message.warning(
+          `第 ${overQty + 1} 行合格 ${Number(it.qtyPass || 0)} + 不合格 ${Number(it.qtyFail || 0)}`
+          + ` 超过送检数 ${Number(it.qtyReceived || 0)}`,
+        );
+      }
       // 入库的货停在待检区，合格品必须指定一个可售区库位才会真正变成可售库存
       const noPassLoc = this.form.items.findIndex((item) => Number(item.qtyPass || 0) > 0 && !item.passLocationId);
       if (noPassLoc >= 0) {

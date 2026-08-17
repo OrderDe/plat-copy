@@ -21,6 +21,7 @@
     </section>
 
     <section class="metric-grid">
+      <div class="metric-card stock-card"><div class="metric-icon"><i class="el-icon-box" /></div><div><span>当前页期初库存</span><strong>{{ formatNumber(pageSummary.beginStock) }}</strong><small>件</small></div></div>
       <div class="metric-card stock-card"><div class="metric-icon"><i class="el-icon-box" /></div><div><span>当前页期末库存</span><strong>{{ formatNumber(pageSummary.endingStock) }}</strong><small>件</small></div></div>
       <div class="metric-card in-card"><div class="metric-icon"><i class="el-icon-bottom" /></div><div><span>期间入库量</span><strong>{{ formatNumber(pageSummary.inQty) }}</strong><small>件</small></div></div>
       <div class="metric-card out-card"><div class="metric-icon"><i class="el-icon-top" /></div><div><span>期间出库量</span><strong>{{ formatNumber(pageSummary.outQty) }}</strong><small>件</small></div></div>
@@ -29,14 +30,24 @@
 
     <section class="table-panel">
       <div class="panel-header">
-        <div><h3>周转明细</h3><p>周转率越高表示库存流动效率越好</p></div>
+        <div><h3>周转明细</h3><p>期初 + 入库 - 出库 + 其他调整 = 期末；周转率越高表示库存流动效率越好</p></div>
         <div class="rate-legend"><span class="legend high-dot" />高效 <span class="legend mid-dot" />一般 <span class="legend low-dot" />偏低</div>
       </div>
       <el-table :data="tableData" stripe class="report-table">
         <el-table-column label="仓库" min-width="230"><template slot-scope="{row}"><b class="warehouse-name">{{ warehouseText(row.warehouseId) }}</b></template></el-table-column>
         <el-table-column label="商品ID" min-width="120"><template slot-scope="{row}"><el-tag size="mini" type="info">{{ row.productId }}</el-tag></template></el-table-column>
+        <!-- 期初单列出来，三个数才凑得成「期初 + 入 - 出 = 期末」这句话；
+             少了期初，看的人只会拿入库量减出库量去对期末，怎么对都对不上 -->
+        <el-table-column label="期初库存" min-width="110"><template slot-scope="{row}">{{ row.beginStock == null ? '-' : row.beginStock }}</template></el-table-column>
         <el-table-column label="入库量" min-width="110"><template slot-scope="{row}"><span class="flow-value flow-in"><i class="el-icon-bottom" />{{ row.inQty || 0 }}</span></template></el-table-column>
         <el-table-column label="出库量" min-width="110"><template slot-scope="{row}"><span class="flow-value flow-out"><i class="el-icon-top" />{{ row.outQty || 0 }}</span></template></el-table-column>
+        <!-- 盘点、报损这些不是出入库单、但确实改了库存，单列出来才对得平 -->
+        <el-table-column label="其他调整" min-width="110">
+          <template slot-scope="{row}">
+            <span v-if="!row.otherQty">0</span>
+            <span v-else :class="row.otherQty > 0 ? 'flow-in' : 'flow-out'">{{ row.otherQty > 0 ? '+' : '' }}{{ row.otherQty }}</span>
+          </template>
+        </el-table-column>
         <el-table-column label="期末库存" min-width="120"><template slot-scope="{row}"><b>{{ row.endingStock || 0 }}</b></template></el-table-column>
         <el-table-column label="周转率" min-width="140">
           <template slot-scope="{row}"><span class="rate-badge" :class="rateColor(row.turnoverRate)">{{ row.turnoverRate == null ? '-' : (row.turnoverRate * 100).toFixed(2) + '%' }}</span></template>
@@ -73,9 +84,10 @@ export default {
         summary.inQty += Number(row.inQty || 0);
         summary.outQty += Number(row.outQty || 0);
         summary.endingStock += Number(row.endingStock || 0);
+        summary.beginStock += Number(row.beginStock || 0);
         if (row.turnoverRate != null) { summary.rateTotal += Number(row.turnoverRate || 0); summary.rateCount += 1; }
         return summary;
-      }, { inQty: 0, outQty: 0, endingStock: 0, rateTotal: 0, rateCount: 0 });
+      }, { inQty: 0, outQty: 0, endingStock: 0, beginStock: 0, rateTotal: 0, rateCount: 0 });
       return { ...result, avgRate: result.rateCount ? (result.rateTotal * 100 / result.rateCount).toFixed(2) : '0.00' };
     },
   },

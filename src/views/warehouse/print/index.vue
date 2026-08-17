@@ -254,6 +254,7 @@ export default {
           info: [
             { key: 'code', label: '入库单号' }, { key: 'warehouseName', label: '仓库' },
             { key: 'type', label: '入库类型' }, { key: 'applyUserName', label: '入库人' },
+            { key: 'statusText', label: '单据状态' }, { key: 'inspectStatusText', label: '质检状态' },
             { key: 'createTime', label: '创建时间' },
           ],
           columns: [
@@ -569,7 +570,10 @@ export default {
         boxLabel: '1 / 3', sizeText: '60×40×35 cm', weightKg: '12.6', volumeWeightKg: '16.8',
         chargeWeightKg: '16.8', packUserName: '陈七', totalNum: '28',
         inboundCode: 'IN202608070006', inspectorName: '张质检', inspectorPhone: '13800000000',
-        statusText: '已完成', resultText: '存在不合格', totalReceived: 28, totalPass: 26, totalFail: 2,
+        // statusText 是入库单和质检单共用的键，两边取值集合不同，预览按当前单据类型给样例
+        statusText: this.form.bizType === 'IN' ? '已生效' : '已完成',
+        inspectStatusText: '已质检',
+        resultText: '存在不合格', totalReceived: 28, totalPass: 26, totalFail: 2,
       };
       const rows = [
         { _index: 1, productId: 1001, goodsName: '示例商品A', sku: '红色,XL', plan: 10, num: 10, productionDate: '2026-08-01', expiryDate: '2027-08-01', locationCode: 'A01-01-01', batchNo: 'B20260801', planNum: 10, actualPick: '', pickedNum: 10, reviewedNum: 10, bookStock: 50, actualStock: 50, diffNum: 0, qtyReceived: 10, qtyPass: 10, qtyFail: 0, dispositionText: '合格入库', failReason: '' },

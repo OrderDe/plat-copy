@@ -154,7 +154,7 @@
             <el-table-column label="目标库位" width="170">
               <template slot-scope="{row}">
                 <el-select v-model="row.toLocationId" size="mini" filterable clearable style="width:100%" :disabled="!row.toShelfId">
-                  <el-option v-for="l in (locationCache[row.toShelfId]||[])" :key="l.id" :label="l.code" :value="l.id" />
+                  <el-option v-for="l in (locationCache[row.toShelfId]||[])" :key="l.id" :label="locationLabel(l)" :value="l.id" :disabled="locationDisabled(l, row.toLocationId)" />
                 </el-select>
               </template>
             </el-table-column>
@@ -186,6 +186,7 @@ import { relocateApi, warehouseApi, shelfApi, locationApi, stockApi } from '@/ap
 import { merchantListApi } from '@/api/merchant';
 import AdminPickerDialog from '../components/AdminPickerDialog.vue';
 import ProductPickerDialog from '../components/ProductPickerDialog.vue';
+import { locationLabel, locationDisabled } from '@/views/warehouse/components/locationCapacity';
 
 export default {
   name: 'WarehouseRelocate',
@@ -214,6 +215,8 @@ export default {
   },
   created() { this.loadWarehouses(); this.loadMerchants(); this.loadPage(); },
   methods: {
+    locationLabel,
+    locationDisabled,
     emptyForm() { return { bizType: 1, warehouseId: null, applyUserId: null, applyUserName: '', applyUserPhone: '', remark: '', items: [] }; },
     warehouseText(id) { const w = this.warehouseList.find(x => x.id === id); return w ? `${w.code} / ${w.name}` : id || '-'; },
     async loadWarehouses() { try { const r = await warehouseApi.page({ page: 1, limit: 999 }); this.warehouseList = (r && r.list) || []; } catch (e) {} },

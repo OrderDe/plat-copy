@@ -170,12 +170,19 @@
               <td>{{ d.goodsName }} {{ d.specName }}</td>
               <td>{{ d.bookStock == null ? '—' : d.bookStock }}</td>
               <td>
-                <el-input-number v-model="d.actualStock" :min="0" :disabled="!feedbackEditable" size="mini" controls-position="right" style="width:100%" />
+                <el-input-number v-model="d.actualStock" :min="0" :disabled="!feedbackEditable" size="mini" controls-position="right" style="width:100%" @change="onActualStockChange(d)" />
               </td>
               <td :class="diffClass(d)">{{ diffLabel(d) }}</td>
               <td>
+                <!-- 有差异就不能报「正常」：差异会照着调库存，标正常等于让审核人无从判断 -->
                 <el-select v-model="d.goodsStatus" size="mini" :disabled="!feedbackEditable" style="width:100%" @change="onGoodsStatusChange(d)">
-                  <el-option v-for="g in goodsStatusOptions" :key="g.value" :label="g.label" :value="g.value" />
+                  <el-option
+                    v-for="g in goodsStatusOptions"
+                    :key="g.value"
+                    :label="g.value === 'NORMAL' && diffOf(d) !== 0 ? '正常（有差异不可选）' : g.label"
+                    :value="g.value"
+                    :disabled="g.value === 'NORMAL' && diffOf(d) !== 0"
+                  />
                 </el-select>
               </td>
               <td>
@@ -467,6 +474,24 @@ export default {
       if (row.goodsStatus === 'NORMAL' && !row.feedbackRemark) this.$set(row, 'feedbackRemark', '无异常');
     },
 
+    /**
+     * 改了实盘数就重新评估状态。
+     *
+     * 盘出差异时把状态从「正常」清空，逼盘点员选一个异常原因——
+     * 不清空的话默认值一直是「正常」，一路点到底就能提交一张「有差异但全部正常」的单子。
+     */
+    onActualStockChange(row) {
+      const diff = this.diffOf(row);
+      if (diff !== 0 && row.goodsStatus === 'NORMAL') {
+        this.$set(row, 'goodsStatus', '');
+        if (String(row.feedbackRemark || '').trim() === '无异常') this.$set(row, 'feedbackRemark', '');
+      }
+      if (diff === 0 && !row.goodsStatus) {
+        this.$set(row, 'goodsStatus', 'NORMAL');
+        if (!String(row.feedbackRemark || '').trim()) this.$set(row, 'feedbackRemark', '无异常');
+      }
+    },
+
     onPrint() {
       const sheet = document.getElementById('check-print-sheet');
       if (!sheet) return;
@@ -493,6 +518,12 @@ export default {
      */
     async onSaveFeedback(silent = false) {
       // 前端先拦一道，省去异常行还要等后端来回；后端同样有校验，是最终防线
+      const diffNormal = this.details.find((d) => this.diffOf(d) !== 0 && d.goodsStatus === 'NORMAL');
+      if (diffNormal) {
+        this.feedbackError = `${diffNormal.sku || diffNormal.goodsName} 实盘与账面差异 ${this.diffOf(diffNormal)}，`
+          + '状态不能选「正常」，请选择损坏/缺失/其他并填写反馈说明。';
+        return false;
+      }
       const invalid = this.details.find((d) => d.goodsStatus !== 'NORMAL' && !String(d.feedbackRemark || '').trim());
       if (invalid) {
         this.feedbackError = `${invalid.sku || invalid.goodsName} 为异常状态，请填写具体反馈说明。`;

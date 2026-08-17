@@ -41,7 +41,10 @@
     <!-- 单个新增/编辑 -->
     <el-dialog :title="form.id ? '编辑库位' : '新增库位'" :visible.sync="editVisible" width="420px" append-to-body>
       <el-form :model="form" label-width="70px" size="small">
-        <el-form-item label="编码"><el-input v-model="form.code" /></el-form-item>
+        <!-- 留空由后端按批量生成那套规则补齐，两边编码格式保持一致 -->
+        <el-form-item label="编码">
+          <el-input v-model="form.code" placeholder="留空则按「货架编码-层-行-列」自动生成" />
+        </el-form-item>
         <el-row :gutter="8">
           <el-col :span="8"><el-form-item label="层" label-width="40px"><el-input-number v-model="form.layerNo" :min="1" controls-position="right" style="width:100%" /></el-form-item></el-col>
           <el-col :span="8"><el-form-item label="行" label-width="40px"><el-input-number v-model="form.rowNo" :min="1" controls-position="right" style="width:100%" /></el-form-item></el-col>
