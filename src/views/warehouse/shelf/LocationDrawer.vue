@@ -43,7 +43,11 @@
       <el-form :model="form" label-width="70px" size="small">
         <!-- 留空由后端按批量生成那套规则补齐，两边编码格式保持一致 -->
         <el-form-item label="编码">
-          <el-input v-model="form.code" placeholder="留空则按「货架编码-层-行-列」自动生成" />
+          <el-input v-model="form.code" :placeholder="`留空自动生成：${autoCode}`" />
+          <p v-if="!form.code" class="usage-tip">
+            将生成 <b>{{ autoCode }}</b>
+            <span v-if="autoCodeTaken">（该编码已被占用，保存时自动顺延为 {{ autoCode }}-2 这类后缀）</span>
+          </p>
         </el-form-item>
         <el-row :gutter="8">
           <el-col :span="8"><el-form-item label="层" label-width="40px"><el-input-number v-model="form.layerNo" :min="1" controls-position="right" style="width:100%" /></el-form-item></el-col>
@@ -120,8 +124,40 @@ export default {
       usageMap: { 0: '可售区', 1: '待检区', 2: '隔离区' },
     };
   },
+  computed: {
+    /** 编码留空时后端会生成的编码，先在界面上摆出来，省得存完才知道叫什么 */
+    autoCode() {
+      if (!this.shelf) return '';
+      const pad = (v) => String(Math.max(1, Number(v) || 1)).padStart(2, '0');
+      return `${this.shelf.code}-${Math.max(1, Number(this.form.layerNo) || 1)}-${pad(this.form.rowNo)}-${pad(this.form.colNo)}`;
+    },
+    autoCodeTaken() {
+      return this.list.some((l) => l.code === this.autoCode && l.id !== this.form.id);
+    },
+  },
   methods: {
     emptyForm() { return { id: null, warehouseId: null, shelfId: null, code: '', rowNo: 1, colNo: 1, layerNo: 1, capacity: 100, tempZone: 0, usageType: 0, status: 1 }; },
+    /**
+     * 新增时默认落到该货架第一个没被占用的层/行/列。
+     *
+     * 默认永远是 1-01-01 的话，货架上但凡建过一个库位，第一次保存必然撞车，
+     * 然后就得自己一格一格试哪儿是空的——「自动生成」等于白给。
+     */
+    nextFreeSlot() {
+      const used = new Set(this.list.map((l) => `${l.layerNo}-${l.rowNo}-${l.colNo}`));
+      const maxLayer = Math.max(1, ...this.list.map((l) => Number(l.layerNo) || 1));
+      const maxRow = Math.max(1, ...this.list.map((l) => Number(l.rowNo) || 1));
+      const maxCol = Math.max(1, ...this.list.map((l) => Number(l.colNo) || 1));
+      for (let layer = 1; layer <= maxLayer; layer++) {
+        for (let row = 1; row <= maxRow; row++) {
+          for (let col = 1; col <= maxCol; col++) {
+            if (!used.has(`${layer}-${row}-${col}`)) return { layerNo: layer, rowNo: row, colNo: col };
+          }
+        }
+      }
+      // 货架排满了就往上加一层，不要退回 1-1-1 去撞已有库位
+      return { layerNo: maxLayer + 1, rowNo: 1, colNo: 1 };
+    },
     usageTagType(u) { return ({ 0: 'success', 1: 'warning', 2: 'danger' })[u || 0]; },
     open(shelf) { this.shelf = shelf; this.visible = true; this.load(); },
     async load() {
@@ -130,7 +166,9 @@ export default {
       try { this.list = await locationApi.list(this.shelf.id) || []; } finally { this.loading = false; }
     },
     openEdit(row) {
-      this.form = row ? { ...row } : { ...this.emptyForm(), warehouseId: this.shelf.warehouseId, shelfId: this.shelf.id };
+      this.form = row
+        ? { ...row }
+        : { ...this.emptyForm(), ...this.nextFreeSlot(), warehouseId: this.shelf.warehouseId, shelfId: this.shelf.id };
       this.editVisible = true;
     },
     async onSubmit() {

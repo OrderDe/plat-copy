@@ -80,7 +80,7 @@
             <el-option v-for="w in warehouseList" :key="w.id" :label="`${w.code} / ${w.name}`" :value="w.id" />
           </el-select>
         </el-form-item>
-        <el-form-item label="货架编码" prop="code"><el-input v-model="form.code" placeholder="濡?A-01" /></el-form-item>
+        <el-form-item label="货架编码" prop="code"><el-input v-model="form.code" placeholder="如：A-01" /></el-form-item>
         <el-form-item label="货架名称"><el-input v-model="form.name" /></el-form-item>
         <el-form-item label="类型" prop="type">
           <el-select v-model="form.type" style="width:100%">
