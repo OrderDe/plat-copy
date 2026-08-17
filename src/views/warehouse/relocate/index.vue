@@ -23,17 +23,38 @@
       </el-form-item>
     </el-form>
 
+    <!-- 三种单据只搬货不加货，建单前先把区别摆在眼前，省得拿入库单去补货 -->
+    <el-alert type="info" :closable="false" class="biz-intro">
+      <div slot="title" class="biz-intro-body">
+        <div v-for="(desc, k) in bizDescMap" :key="k" class="biz-intro-line">
+          <el-tag size="mini" class="biz-intro-tag">{{ bizMap[k] }}</el-tag>
+          <span>{{ desc }}</span>
+        </div>
+        <div class="biz-intro-common">共同点：{{ bizCommonTip }}</div>
+      </div>
+    </el-alert>
+
     <div class="create-buttons">
-      <el-button class="create-action-btn" type="primary" icon="el-icon-upload2" size="small" @click="openDialog(0)">新建上架单</el-button>
-      <el-button class="create-action-btn" type="primary" icon="el-icon-sort" size="small" @click="openDialog(1)">新建移库单</el-button>
-      <el-button class="create-action-btn" type="primary" icon="el-icon-box" size="small" @click="openDialog(2)">新建补货单</el-button>
+      <el-tooltip v-for="bt in [0, 1, 2]" :key="bt" placement="bottom" :content="bizDescMap[bt]">
+        <el-button
+          class="create-action-btn"
+          type="primary"
+          :icon="bizIconMap[bt]"
+          size="small"
+          @click="openDialog(bt)"
+        >新建{{ bizMap[bt] }}单</el-button>
+      </el-tooltip>
     </div>
 
     <el-table class="relocate-table" v-loading="loading" :data="tableData" border stripe>
       <el-table-column prop="id" label="ID" width="70" />
       <el-table-column prop="code" label="单号" width="180" />
       <el-table-column label="业务" width="90">
-        <template slot-scope="{row}"><el-tag size="mini">{{ bizMap[row.bizType] }}</el-tag></template>
+        <template slot-scope="{row}">
+          <el-tooltip placement="top" :content="bizDescMap[row.bizType]">
+            <el-tag size="mini">{{ bizMap[row.bizType] }}</el-tag>
+          </el-tooltip>
+        </template>
       </el-table-column>
       <el-table-column label="仓库" width="200">
         <template slot-scope="{row}">{{ warehouseText(row.warehouseId) }}</template>
@@ -70,6 +91,13 @@
     />
 
     <el-dialog :title="dialogTitle" :visible.sync="dialogVisible" width="1080px" @closed="resetForm">
+      <!-- 建单过程中也要能看到本单是什么意思，不用退出去翻列表上方的说明 -->
+      <el-alert type="info" :closable="false" class="biz-dialog-tip">
+        <div slot="title" class="biz-dialog-tip-body">
+          {{ bizDescMap[form.bizType] }}
+          <span class="biz-dialog-tip-common">{{ bizCommonTip }}</span>
+        </div>
+      </el-alert>
       <el-form ref="formRef" :model="form" :rules="rules" label-width="90px" size="small" :disabled="dialogMode==='view'">
         <el-row :gutter="16">
           <el-col :span="12">
@@ -199,6 +227,18 @@ export default {
       dialogVisible: false, dialogMode: 'add',
       form: this.emptyForm(),
       bizMap: { 0: '上架', 1: '移库', 2: '补货' },
+      /**
+       * 三种单据的说明。共同点是货本来就在仓里，只换库位，仓库总数不变——
+       * 这一点必须说清楚：拿入库单代替它们会让账面凭空多出货，且只能等盘点才发现。
+       */
+      bizDescMap: {
+        0: '把收货后还没进库位的货放上货架。货已在仓，只是从「未上架」变成落在具体库位，仓库总数不变。',
+        1: '把货从一个库位搬到另一个库位，仓库总数不变。需要指定源库位和目标库位。',
+        2: '把货从存储区补到拣货区，补足拣货位的量，仓库总数不变。不用填来源，系统按效期（先到期先出）自动挑。',
+      },
+      /** 三种单据都不增加库存，容易被误当成入库单用，统一在页面上点破 */
+      bizCommonTip: '货是从仓库里挪的，总数不会增加；供应商送货、退货回仓请用「入库管理」新建入库单。',
+      bizIconMap: { 0: 'el-icon-upload2', 1: 'el-icon-sort', 2: 'el-icon-box' },
       rules: {
         warehouseId: [{ required: true, message: '请选择仓库', trigger: 'change' }],
         applyUserId: [{ required: true, message: '请选择申请人', trigger: 'change' }],
@@ -408,6 +448,16 @@ export default {
 .relocate-filter-card >>> .el-form-item__label { color: #53657b; font-weight: 500; }
 .relocate-filter-card >>> .el-input__inner,
 .relocate-filter-card >>> .el-select .el-input__inner { border-color: #dce4ef; border-radius: 6px; }
+.biz-intro { margin-bottom: 14px; border-radius: 8px; }
+.biz-intro >>> .el-alert__title { font-weight: 400; }
+.biz-intro-body { font-size: 12px; line-height: 1.9; color: #53657b; }
+.biz-intro-line { display: flex; align-items: flex-start; gap: 8px; }
+.biz-intro-tag { flex: none; margin-top: 3px; }
+.biz-intro-common { margin-top: 4px; color: #e6a23c; }
+.biz-dialog-tip { margin-bottom: 14px; border-radius: 6px; }
+.biz-dialog-tip >>> .el-alert__title { font-weight: 400; }
+.biz-dialog-tip-body { font-size: 12px; line-height: 1.8; color: #53657b; }
+.biz-dialog-tip-common { color: #e6a23c; }
 .create-buttons {
   display: flex;
   flex-wrap: wrap;
