@@ -40,6 +40,10 @@
       <el-table-column label="类型" width="100">
         <template slot-scope="{row}">{{ typeText(row.type) }}</template>
       </el-table-column>
+      <!-- 退货入库的来源单号，列表上直接能核对到售后单 -->
+      <el-table-column label="关联退货单" width="180" show-overflow-tooltip>
+        <template slot-scope="{row}">{{ row.relatedCode || '-' }}</template>
+      </el-table-column>
       <el-table-column label="状态" width="100">
         <template slot-scope="{row}">
           <el-tag :type="statusType(row.status)" size="mini">{{ statusText(row.status) }}</el-tag>
@@ -96,9 +100,36 @@
           </el-col>
           <el-col :span="12">
             <el-form-item label="类型" prop="type">
-              <el-select v-model="form.type" style="width:100%">
+              <el-select v-model="form.type" style="width:100%" @change="onTypeChange">
                 <el-option v-for="t in typeOptions" :key="t.itemValue" :label="t.itemName" :value="t.itemValue" />
               </el-select>
+            </el-form-item>
+          </el-col>
+          <!-- 退货入库才需要关联售后单：没有它入库单和售后单对不上，
+               自动同步补偿成功后还会再入一次库 -->
+          <el-col v-if="isReturnType" :span="24">
+            <el-form-item label="关联退货单" :prop="editable ? 'relatedCode' : ''" :required="editable">
+              <el-select
+                v-model="form.relatedCode"
+                filterable
+                remote
+                clearable
+                :remote-method="loadRefundOptions"
+                :loading="refundLoading"
+                placeholder="搜索售后单号 / 订单号，选中后自动带出退货明细"
+                style="width:100%"
+                @change="onRefundChange"
+              >
+                <el-option
+                  v-for="r in refundOptions"
+                  :key="r.refundOrderNo"
+                  :label="`${r.refundOrderNo}（订单 ${r.orderNo || '-'}）· ${r.summary}`"
+                  :value="r.refundOrderNo"
+                />
+              </el-select>
+              <div class="form-tip">
+                正常退货由商家确认收货后自动生成入库单，这里只用于同步失败后的人工补录；已建过入库单的退货单不会出现在列表里。
+              </div>
             </el-form-item>
           </el-col>
           <el-col :span="12">
@@ -263,9 +294,9 @@
               <el-option
                 v-for="l in (locationCache[row.shelfId] || [])"
                 :key="l.id"
-                :label="locationOptionLabel(l)"
+                :label="splitLocationLabel(l, row)"
                 :value="l.id"
-                :disabled="locationOptionDisabled(l, row.locationId)"
+                :disabled="splitLocationDisabled(l, row)"
               />
             </el-select>
           </template>
@@ -302,6 +333,9 @@ import warehouseFormMixin from '@/views/warehouse/components/warehouseFormMixin'
 import { doPrint } from '@/views/warehouse/components/printUtil';
 import { locationLabel, locationDisabled, findOverCapacity, overCapacityMessage } from '@/views/warehouse/components/locationCapacity';
 
+/** 字典里查不到「退货」类型时的兜底值，与后端 WmsInboundServiceImpl.TYPE_RETURN 一致 */
+const RETURN_TYPE_FALLBACK = 2;
+
 export default {
   name: 'WarehouseInbound',
   mixins: [warehouseFormMixin],
@@ -317,15 +351,27 @@ export default {
       // 拆分库位弹窗：splitIndex 记住是哪一行，确认时用拆出来的多行替换它
       splitVisible: false, splitIndex: -1, splitRow: {}, splitRows: [],
       typeOptions: [], // 入库类型，来自 wms_dict(inbound_type)
+      refundOptions: [],   // 可关联的售后退货单
+      refundLoading: false,
       rules: {
         warehouseId: [{ required: true, message: '请选择仓库', trigger: 'change' }],
         type: [{ required: true, message: '请选择类型', trigger: 'change' }],
         applyUserId: [{ required: true, message: '请选择申请人', trigger: 'change' }],
+        relatedCode: [{ required: true, message: '请选择关联的退货单', trigger: 'change' }],
       },
     };
   },
   computed: {
     editable() { return this.dialogMode === 'add' || this.dialogMode === 'edit'; },
+    /**
+     * 退货入库类型。取字典里名称含「退货」的项，而不是写死 2——
+     * 类型是字典维护的，平台改了配置这里不该跟着失效。
+     */
+    returnTypeValue() {
+      const hit = this.typeOptions.find((t) => (t.itemName || '').includes('退货'));
+      return hit ? hit.itemValue : RETURN_TYPE_FALLBACK;
+    },
+    isReturnType() { return this.form.type === this.returnTypeValue; },
     /** 拆分弹窗：这一行明细一共要分配多少件 */
     splitTotal() { return this.splitTotalOf(this.splitRow || {}); },
     /** 还剩多少没分配，添加库位时默认带上，省得自己算 */
@@ -416,13 +462,79 @@ export default {
       if (over.length) this.$message.warning(overCapacityMessage(over));
       else this.$message.success(`已拆分为 ${created.length} 行`);
     },
-    /** 该行所在库位是否超容，超了给一句行内红字，不用等到保存 */
+    /**
+     * 该行所在库位是否超容，超了给一句行内红字，不用等到保存。
+     *
+     * <p>只在草稿可编辑时算。单据一旦生效，货就已经进了库位、库位的 remainNum 里
+     * 已经扣掉了本单这批货；这时再拿本单数量去比剩余容量，等于把自己算了两遍，
+     * 明明放得下也会一直显示「超出容量」。
+     */
     capacityHint(row) {
+      if (!this.editable) return '';
       if (!row.locationId) return '';
       const hit = this.overCapacityRows().find((o) => o.locationId === row.locationId);
       return hit ? `超出容量，只剩 ${hit.remain} 件` : '';
     },
-    emptyForm() { return { warehouseId: null, type: 0, applyUserId: null, applyUserName: '', applyUserPhone: '', inboundUserId: null, inboundUserName: '', handlerUserName: '', remark: '', items: [] }; },
+    emptyForm() { return { warehouseId: null, type: 0, relatedCode: '', applyUserId: null, applyUserName: '', applyUserPhone: '', inboundUserId: null, inboundUserName: '', handlerUserName: '', remark: '', items: [] }; },
+    /** 换类型时清掉不再适用的关联单，免得建了张「采购入库」却挂着退货单号 */
+    onTypeChange() {
+      if (!this.isReturnType) {
+        this.form.relatedCode = '';
+        return;
+      }
+      if (!this.refundOptions.length) this.loadRefundOptions('');
+    },
+    /**
+     * 已建过入库单的退货单不在下拉选项里（防重复入库），打开老单据时选项就匹配不上，
+     * el-select 只会显示一串裸单号。补一条占位选项，让详情页照常显示。
+     */
+    ensureRefundOption() {
+      const no = this.form.relatedCode;
+      if (!no || this.refundOptions.some((r) => r.refundOrderNo === no)) return;
+      this.refundOptions = [
+        { refundOrderNo: no, orderNo: '', summary: '本单已关联', items: [] },
+        ...this.refundOptions,
+      ];
+    },
+    async loadRefundOptions(keyword) {
+      this.refundLoading = true;
+      try {
+        const res = await inboundApi.refundOptions({ keyword: keyword || undefined });
+        this.refundOptions = res || [];
+      } catch (e) {
+        this.refundOptions = [];
+        this.$message.warning('退货单加载失败，请重试或手动核对售后单号');
+      } finally {
+        this.refundLoading = false;
+      }
+    },
+    /**
+     * 选中退货单后带出明细。
+     * 明细直接用售后单的商品和数量，与自动同步走的是同一份数据，避免人工录错件数。
+     */
+    onRefundChange(no) {
+      if (!no) return;
+      const hit = this.refundOptions.find((r) => r.refundOrderNo === no);
+      if (!hit) return;
+      if (this.form.items.length && !this.itemsEmpty()) {
+        this.$confirm('带出退货明细会覆盖已填写的明细，继续?', '提示', { type: 'warning' })
+          .then(() => this.fillItemsFromRefund(hit))
+          .catch(() => {});
+        return;
+      }
+      this.fillItemsFromRefund(hit);
+    },
+    itemsEmpty() {
+      return this.form.items.every((it) => !it.productId);
+    },
+    fillItemsFromRefund(hit) {
+      this.form.items = (hit.items || []).map((it) => ({ ...it }));
+      if (hit.orderNo) {
+        const tip = `售后单 ${hit.refundOrderNo}（订单 ${hit.orderNo}）`;
+        this.form.remark = this.form.remark ? `${this.form.remark} ${tip}` : tip;
+      }
+      this.$message.success(`已带出 ${this.form.items.length} 行退货明细`);
+    },
     /** 入库人可以是没有后台账号的现场人员，所以选择器只是省事的入口，输入框本身可编辑 */
     async pickInboundUser() {
       this.adminPickerTitle = '选择入库人';
@@ -488,6 +600,25 @@ export default {
       if (loc && loc.status !== 1 && loc.id !== currentId) return true;
       return locationDisabled(loc, currentId);
     },
+    /**
+     * 拆分弹窗里同一个库位只能出现一次。
+     *
+     * 拆分的意义是把一行货分散到不同库位，重复选同一个库位没有意义；更要紧的是每行的
+     * 剩余容量是各算各的，两行选同一库位时校验都判通过，合计却超容，生效时才被后端打回。
+     */
+    splitLocationDisabled(loc, row) {
+      if (this.locationOptionDisabled(loc, row.locationId)) return true;
+      return this.splitLocationTaken(loc, row);
+    },
+    splitLocationTaken(loc, row) {
+      if (!loc) return false;
+      return this.splitRows.some((r) => r !== row && r.locationId === loc.id);
+    },
+    /** 被别的行占掉的库位标注出来，否则只是灰着，操作员不知道为什么选不了 */
+    splitLocationLabel(loc, row) {
+      const base = this.locationOptionLabel(loc);
+      return this.splitLocationTaken(loc, row) ? `${base}（已在其他行选择）` : base;
+    },
     typeText(t) {
       // 类型名来自字典；停用后的历史单据也能显示原名称，字典没这条时退回显示原始值
       const hit = this.typeOptions.find((x) => x.itemValue === t);
@@ -530,6 +661,7 @@ export default {
       const res = await inboundApi.detail(row.id);
       this.form = res || this.emptyForm();
       if (!this.form.items) this.form.items = [];
+      this.ensureRefundOption();
       // 货架下拉和库位下拉都要在弹窗打开前备好，否则先看到的是空下拉
       await Promise.all([this.loadShelves(this.form.warehouseId), this.loadItemLocations()]);
       this.dialogMode = 'edit';
@@ -539,6 +671,7 @@ export default {
       const res = await inboundApi.detail(id);
       this.form = res || this.emptyForm();
       if (!this.form.items) this.form.items = [];
+      this.ensureRefundOption();
       // 详情用的是同一个弹窗，库位列也是下拉，不备选项照样只显示库位ID
       await Promise.all([this.loadShelves(this.form.warehouseId), this.loadItemLocations()]);
       this.dialogMode = 'view';
@@ -597,6 +730,9 @@ export default {
       // 店铺决定库存的商户归属，漏填会落成 mer_id=NULL 的「历史数据」，后续无法按商户对账
       const noShop = this.form.items.findIndex(i => !i.merId);
       if (noShop >= 0) return this.$message.warning(`第 ${noShop + 1} 行未选择店铺，库存将无法归属商户`);
+      // 应入库是「这批该到多少」，填 0 的行就是录错了，留着只会让人以为漏发货
+      const zeroPlan = this.form.items.findIndex(i => !(Number(i.inboundTotalNum) > 0));
+      if (zeroPlan >= 0) return this.$message.warning(`第 ${zeroPlan + 1} 行应入库数量必须大于 0`);
       // picker 的 disabledDate 只挡鼠标点选，手输能绕过，保存前统一再查一遍
       const badDate = this.checkItemDates();
       if (badDate) return this.$message.warning(badDate);
@@ -639,10 +775,32 @@ export default {
       this.$router.push({ path: '/warehouse/inspect', query: { inboundId: row.id } });
     },
     async onSubmit(row) {
-      await this.$confirm('提交后将增加库存、写流水、反写商品库，不可撤销。继续？', '确认', { type: 'warning' });
-      await inboundApi.submit(row.id);
-      this.$message.success('已生效');
-      this.loadPage();
+      // 实入库全 0 的单生效后什么也没入，却再也改不了，只能作废重开——先问清楚。
+      // 这里的 detail 失败必须报出来：不接住的话 promise 静默 reject，
+      // 按钮点下去毫无反应，操作员只会以为页面卡了。
+      let total = 0;
+      try {
+        const detail = await inboundApi.detail(row.id);
+        const items = (detail && detail.items) || [];
+        total = items.reduce((a, it) => a + (Number(it.actualInboundNum) || 0), 0);
+      } catch (e) {
+        return this.$message.error((e && (e.message || e.msg)) || '入库单详情加载失败，请重试');
+      }
+      if (total <= 0) {
+        return this.$message.warning('实入库数量合计为 0，没有货可入库；请先填写实际到货数量，若确实未到货请作废本单');
+      }
+      try {
+        await this.$confirm(`提交后将增加库存 ${total} 件、写流水、反写商品库，不可撤销。继续？`, '确认', { type: 'warning' });
+      } catch (e) {
+        return; // 用户点了取消
+      }
+      try {
+        await inboundApi.submit(row.id);
+        this.$message.success('已生效');
+        this.loadPage();
+      } catch (e) {
+        this.$message.error((e && (e.message || e.msg)) || '提交生效失败');
+      }
     },
     async onCancel(row) {
       await this.$confirm(`作废入库单「${row.code}」`, '提示', { type: 'warning' });
@@ -656,6 +814,7 @@ export default {
 
 <style scoped>
 .filter-container { margin-bottom: 12px; }
+.form-tip { margin-top: 2px; font-size: 12px; line-height: 1.6; color: #909399; }
 .danger-text { color: #f56c6c; }
 .amount { color: #e6a23c; }
 /*
