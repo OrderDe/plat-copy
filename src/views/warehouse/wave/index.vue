@@ -24,9 +24,9 @@
       </div>
     </el-alert>
 
-    <div class="wave-layout">
+    <div ref="waveLayout" class="wave-layout" :class="{ 'is-resizing': resizing }">
       <!-- 左：波次列表 -->
-      <div class="wave-master">
+      <div class="wave-master" :style="{ flexBasis: `${masterWidth}px` }">
         <div class="wave-panel-head">
           <span class="wave-panel-title">波次</span>
           <div>
@@ -37,6 +37,9 @@
 
         <el-form :model="query" size="mini" class="wave-filter">
           <el-input v-model="query.code" placeholder="波次号" clearable @keyup.enter.native="onSearch" />
+          <!-- 现场更常见的是「手上有张出库单，想知道它在哪个波次里」，
+               波次号反而记不住，所以出库单号也要能查，且按片段模糊匹配 -->
+          <el-input v-model="query.outboundCode" placeholder="出库单号" clearable @keyup.enter.native="onSearch" />
           <el-select v-model="query.warehouseId" filterable clearable placeholder="全部仓库" @change="onSearch">
             <el-option v-for="w in warehouseList" :key="w.id" :label="`${w.code} / ${w.name}`" :value="w.id" />
           </el-select>
@@ -58,6 +61,9 @@
           @current-change="onSelectWave"
         >
           <el-table-column prop="code" label="波次号" min-width="140" show-overflow-tooltip />
+          <el-table-column label="出库单号" min-width="150" show-overflow-tooltip>
+            <template slot-scope="{row}">{{ outboundCodesText(row) }}</template>
+          </el-table-column>
           <el-table-column label="仓库" min-width="90" show-overflow-tooltip>
             <template slot-scope="{row}">{{ warehouseText(row.warehouseId) }}</template>
           </el-table-column>
@@ -74,6 +80,24 @@
           :current-page.sync="query.page" :page-size.sync="query.limit" :total="total"
           layout="total, prev, pager, next" @current-change="loadPage"
         />
+      </div>
+
+      <div
+        class="wave-resizer"
+        :class="{ 'is-active': resizing }"
+        role="separator"
+        aria-orientation="vertical"
+        tabindex="0"
+        :aria-valuemin="masterMinWidth"
+        :aria-valuemax="masterMaxWidth"
+        :aria-valuenow="Math.round(masterWidth)"
+        title="左右拖动调整列表宽度，双击恢复默认宽度"
+        @mousedown.prevent="startResize"
+        @keydown.left.prevent="resizeMasterBy(-20)"
+        @keydown.right.prevent="resizeMasterBy(20)"
+        @dblclick.prevent="resetMasterWidth"
+      >
+        <span class="wave-resizer-handle" />
       </div>
 
       <!-- 右：选中波次的拣货作业 -->
@@ -117,7 +141,7 @@
                 波次为<b>草稿</b>状态，尚未生成拣货单。点右上角<b>「释放」</b>后系统会按
                 <b>{{ strategyMap[currentWave.strategy] || 'FIFO' }}</b> 分配批次库位并生成拣货单。
               </el-alert>
-              <el-table v-loading="pickLoading" :data="pickOrders" border stripe size="mini" max-height="46vh">
+              <el-table ref="pickTable" v-loading="pickLoading" :data="pickOrders" border stripe size="mini" max-height="46vh">
                 <el-table-column prop="code" label="拣货单号" min-width="170" show-overflow-tooltip />
                 <el-table-column prop="outboundCode" label="出库单" min-width="150" show-overflow-tooltip />
                 <el-table-column label="状态" width="80">
@@ -150,7 +174,7 @@
               <el-alert type="info" :closable="false" style="margin-bottom:10px">
                 同一库位 × 批次 × 商品的拣货需求已合并，按库位路径顺序排列。拣完后请回「拣货单」页签逐单确认。
               </el-alert>
-              <el-table v-loading="batchLoading" :data="batchRows" border stripe size="mini" max-height="42vh">
+              <el-table ref="batchTable" v-loading="batchLoading" :data="batchRows" border stripe size="mini" max-height="42vh">
                 <el-table-column type="index" width="45" />
                 <el-table-column prop="locationCode" label="库位" width="140">
                   <template slot-scope="{row}"><b class="loc">{{ row.locationCode || '通用池' }}</b></template>
@@ -384,13 +408,16 @@ import AdminPickerDialog from '../components/AdminPickerDialog.vue';
 import { doPrint } from '../components/printUtil';
 import { formatDateTime } from '../components/dateTime';
 
+const WAVE_MASTER_DEFAULT_WIDTH = 400;
+const WAVE_MASTER_STORAGE_KEY = 'warehouse-wave-master-width';
+
 export default {
   name: 'WarehouseWave',
   components: { AdminPickerDialog },
   data() {
     return {
       loading: false, saving: false, total: 0, tableData: [], warehouseList: [],
-      query: { page: 1, limit: 20, code: '', warehouseId: null, status: null },
+      query: { page: 1, limit: 20, code: '', outboundCode: '', warehouseId: null, status: null },
       buildVisible: false, buildForm: { warehouseId: null, strategy: 1, remark: '' },
       candidates: [], selectedOutbounds: [],
       autoDialog: false, autoLoading: false,
@@ -408,16 +435,108 @@ export default {
       pickStatusMap: { 0: '待拣', 1: '拣货中', 2: '已拣完', 3: '已复核', 4: '已作废' },
       groupByMap: { 0: '按仓', 1: '按客户', 2: '按承运商', 3: '按优先级' },
       strategyMap: { 0: 'FIFO', 1: 'FEFO', 2: '最少剩余优先' },
+      // 主从面板可拖拽宽度；右侧至少保留 560px，避免作业表格和操作列被挤没
+      masterWidth: WAVE_MASTER_DEFAULT_WIDTH,
+      masterMinWidth: 320,
+      masterMaxWidth: 900,
+      detailMinWidth: 560,
+      resizerWidth: 14,
+      resizing: false,
+      resizeStartX: 0,
+      resizeStartWidth: WAVE_MASTER_DEFAULT_WIDTH,
     };
   },
   computed: {
     batchTotal() { return this.batchRows.reduce((s, r) => s + (r.totalPlan || 0), 0); },
   },
   created() { this.loadWarehouses(); this.loadPage(); },
+  mounted() {
+    try {
+      const saved = Number(window.localStorage.getItem(WAVE_MASTER_STORAGE_KEY));
+      if (Number.isFinite(saved) && saved > 0) this.masterWidth = saved;
+    } catch (e) { /* 浏览器禁用本地存储时沿用默认宽度 */ }
+    window.addEventListener('resize', this.onWaveWindowResize);
+    this.$nextTick(this.syncMasterBounds);
+  },
+  beforeDestroy() {
+    window.removeEventListener('resize', this.onWaveWindowResize);
+    document.removeEventListener('mousemove', this.onResizeMove);
+    document.removeEventListener('mouseup', this.stopResize);
+    document.body.classList.remove('wave-column-resizing');
+  },
   methods: {
     formatDateTime,
+    /** 桌面端主从面板拖拽；窄屏会切成上下布局，因此不启用分隔条 */
+    startResize(event) {
+      if (window.innerWidth <= 1500) return;
+      this.syncMasterBounds();
+      this.resizing = true;
+      this.resizeStartX = event.clientX;
+      this.resizeStartWidth = this.masterWidth;
+      document.addEventListener('mousemove', this.onResizeMove);
+      document.addEventListener('mouseup', this.stopResize);
+      document.body.classList.add('wave-column-resizing');
+    },
+    onResizeMove(event) {
+      if (!this.resizing) return;
+      this.masterWidth = this.clampMasterWidth(this.resizeStartWidth + event.clientX - this.resizeStartX);
+    },
+    stopResize() {
+      if (!this.resizing) return;
+      this.resizing = false;
+      document.removeEventListener('mousemove', this.onResizeMove);
+      document.removeEventListener('mouseup', this.stopResize);
+      document.body.classList.remove('wave-column-resizing');
+      this.persistMasterWidth();
+      this.relayoutWaveTables();
+    },
+    resizeMasterBy(delta) {
+      this.syncMasterBounds();
+      this.masterWidth = this.clampMasterWidth(this.masterWidth + delta);
+      this.persistMasterWidth();
+      this.relayoutWaveTables();
+    },
+    resetMasterWidth() {
+      this.syncMasterBounds();
+      this.masterWidth = this.clampMasterWidth(WAVE_MASTER_DEFAULT_WIDTH);
+      this.persistMasterWidth();
+      this.relayoutWaveTables();
+    },
+    clampMasterWidth(width) {
+      return Math.min(this.masterMaxWidth, Math.max(this.masterMinWidth, Math.round(width)));
+    },
+    syncMasterBounds() {
+      if (window.innerWidth <= 1500) return;
+      const layout = this.$refs.waveLayout;
+      if (!layout || !layout.clientWidth) return;
+      this.masterMaxWidth = Math.max(
+        this.masterMinWidth,
+        Math.floor(layout.clientWidth - this.resizerWidth - this.detailMinWidth),
+      );
+      this.masterWidth = this.clampMasterWidth(this.masterWidth);
+    },
+    onWaveWindowResize() {
+      if (window.innerWidth <= 1500 && this.resizing) this.stopResize();
+      this.syncMasterBounds();
+      this.relayoutWaveTables();
+    },
+    persistMasterWidth() {
+      try { window.localStorage.setItem(WAVE_MASTER_STORAGE_KEY, String(this.masterWidth)); } catch (e) { /* ignore */ }
+    },
+    relayoutWaveTables() {
+      this.$nextTick(() => {
+        ['waveTable', 'pickTable', 'batchTable'].forEach((ref) => {
+          const table = this.$refs[ref];
+          if (table && table.doLayout) table.doLayout();
+        });
+      });
+    },
     shortTime(t) { return t ? t.replace('T', ' ').substring(0, 19) : ''; },
     warehouseText(id) { const w = this.warehouseList.find(x => x.id === id); return w ? `${w.code} / ${w.name}` : id || '-'; },
+    /** 列表接口补充出库单号；兼容旧接口只有 outboundCode 的情况 */
+    outboundCodesText(row) {
+      return (row && (row.outboundCodes || row.outboundCode)) || '-';
+    },
     statusType(s) { return ({ 0: 'info', 1: 'warning', 2: 'success', 3: 'danger' })[s] || ''; },
     pickStatusType(s) { return ({ 0: 'info', 1: 'warning', 2: 'success', 3: 'primary', 4: 'danger' })[s] || 'info'; },
     async loadWarehouses() { try { const r = await warehouseApi.page({ page: 1, limit: 999 }); this.warehouseList = (r && r.list) || []; } catch (e) { /* ignore */ } },
@@ -431,7 +550,7 @@ export default {
       } finally { this.loading = false; }
     },
     onSearch() { this.query.page = 1; this.loadPage(); },
-    onReset() { this.query = { page: 1, limit: 20, code: '', warehouseId: null, status: null }; this.loadPage(); },
+    onReset() { this.query = { page: 1, limit: 20, code: '', outboundCode: '', warehouseId: null, status: null }; this.loadPage(); },
 
     // ---- 主从联动 ----
     // 翻页/刷新后列表是新对象，靠 id 找回当前行，避免右侧面板被清空
@@ -656,9 +775,18 @@ export default {
 .wave-intro-link { cursor: pointer; text-decoration: underline; }
 .wave-intro-note { color: #86909c; }
 
-.wave-layout { display: flex; align-items: flex-start; gap: 12px; }
-/* 左侧只是选单，右侧才是作业区，宽度按 4:6 给，且右侧不允许被表格撑破 */
+.wave-layout { display: flex; align-items: flex-start; gap: 0; }
+/* 左侧只是选单，右侧才是作业区；左侧宽度由拖拽分隔条控制 */
 .wave-master { flex: 0 0 400px; min-width: 0; padding: 12px; border: 1px solid #ebeef5; border-radius: 6px; background: #fff; }
+.wave-resizer { position: relative; align-self: stretch; flex: 0 0 14px; min-height: 560px; cursor: col-resize; outline: none; touch-action: none; }
+.wave-resizer::before { content: ''; position: absolute; top: 6px; bottom: 6px; left: 50%; width: 1px; transform: translateX(-50%); background: #ebeef5; transition: background-color .15s, width .15s; }
+.wave-resizer-handle { position: absolute; top: 50%; left: 50%; width: 6px; height: 48px; transform: translate(-50%, -50%); border-radius: 4px; background: #dcdfe6; box-shadow: 0 0 0 1px #fff; transition: background-color .15s, height .15s; }
+.wave-resizer:hover::before,
+.wave-resizer:focus::before,
+.wave-resizer.is-active::before { width: 3px; background: #409eff; }
+.wave-resizer:hover .wave-resizer-handle,
+.wave-resizer:focus .wave-resizer-handle,
+.wave-resizer.is-active .wave-resizer-handle { height: 64px; background: #409eff; }
 .wave-detail { flex: 1 1 auto; width: 0; min-width: 0; min-height: 560px; padding: 12px; border: 1px solid #ebeef5; border-radius: 6px; background: #fff; overflow: hidden; }
 
 /* 操作按钮不参与收缩，元信息再挤也不能把「释放/作废」推出可视区 */
@@ -689,13 +817,16 @@ export default {
 .wave-dialog-summary--bottom { display: flex; justify-content: flex-end; margin: 12px 2px 0; color: #606266; font-size: 12px; }
 
 @media (max-width: 1500px) {
-  .wave-layout { flex-direction: column; }
-  .wave-master { flex: none; width: 100%; }
+  .wave-layout { flex-direction: column; gap: 12px; }
+  .wave-master { flex: none !important; width: 100%; }
+  .wave-resizer { display: none; }
   .wave-detail { width: 100%; }
 }
 </style>
 
 <style>
+body.wave-column-resizing { cursor: col-resize !important; user-select: none; }
+
 .warehouse-wave-dialog {
   display: flex;
   flex-direction: column;
