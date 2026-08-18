@@ -40,8 +40,8 @@
       <el-table-column label="类型" width="100">
         <template slot-scope="{row}">{{ typeText(row.type) }}</template>
       </el-table-column>
-      <!-- 退货入库的来源单号，列表上直接能核对到售后单 -->
-      <el-table-column label="关联退货单" width="180" show-overflow-tooltip>
+      <!-- 来源单号：退货入库是售后单，调拨入库是调拨单，列表上直接能核对 -->
+      <el-table-column label="关联单据" width="180" show-overflow-tooltip>
         <template slot-scope="{row}">{{ row.relatedCode || '-' }}</template>
       </el-table-column>
       <el-table-column label="状态" width="100">
@@ -132,6 +132,31 @@
               </div>
             </el-form-item>
           </el-col>
+          <!-- 调拨入库必须挂在一张调拨申请单上：没有它就对不出这批货是哪张调拨单调来的，
+               也挡不住同一张调拨单被入库两次（调出仓扣一次、调入仓加两次） -->
+          <el-col v-if="isTransferType" :span="24">
+            <el-form-item label="关联调拨单" :prop="editable ? 'relatedCode' : ''" :required="editable">
+              <el-select
+                v-model="form.relatedCode"
+                filterable
+                clearable
+                :loading="transferLoading"
+                placeholder="选择在途的调拨单，选中后自动带出调拨明细"
+                style="width:100%"
+                @change="onTransferChange"
+              >
+                <el-option
+                  v-for="t in transferOptions"
+                  :key="t.transferCode"
+                  :label="`${t.transferCode} · ${t.summary}`"
+                  :value="t.transferCode"
+                />
+              </el-select>
+              <div class="form-tip">
+                只列出<b>调入仓是当前仓库、且已发货在途</b>的调拨单；待发货的货还在调出仓，已到货的收过了，都不在这里。已建过入库单的也不会出现。
+              </div>
+            </el-form-item>
+          </el-col>
           <el-col :span="12">
             <!-- 校验 applyUserId 而不是 applyUserName：审批流按用户ID派人，只有名字没有ID
                  照样会在 flowable 侧炸掉 -->
@@ -213,14 +238,15 @@
             <el-table-column label="货架" width="130">
               <template slot-scope="{row}">
                 <el-select v-model="row.shelfId" size="mini" filterable clearable style="width:100%" @change="onShelfChange(row)" :disabled="!form.warehouseId">
-                  <el-option v-for="s in shelfCache" :key="s.id" :label="s.code" :value="s.id" />
+                  <el-option v-for="s in shelfOptions" :key="s.id" :label="s.code" :value="s.id" />
                 </el-select>
+                <div v-if="zoneRule && !shelfOptions.length" class="cap-warn">该仓没有{{ zoneRule.name }}货架，请先到货架管理配置</div>
               </template>
             </el-table-column>
             <el-table-column label="库位" width="150">
               <template slot-scope="{row}">
                 <el-select v-model="row.locationId" size="mini" filterable clearable style="width:100%" :disabled="!row.shelfId">
-                  <el-option v-for="l in (locationCache[row.shelfId] || [])" :key="l.id" :label="locationOptionLabel(l)" :value="l.id" :disabled="locationOptionDisabled(l, row.locationId)" />
+                  <el-option v-for="l in zoneLocations(row.shelfId)" :key="l.id" :label="locationOptionLabel(l)" :value="l.id" :disabled="locationOptionDisabled(l, row.locationId)" />
                 </el-select>
                 <div v-if="capacityHint(row)" class="cap-warn">{{ capacityHint(row) }}</div>
               </template>
@@ -284,7 +310,7 @@
         <el-table-column label="货架" width="150">
           <template slot-scope="{row}">
             <el-select v-model="row.shelfId" size="mini" filterable clearable style="width:100%" @change="onSplitShelfChange(row)">
-              <el-option v-for="s in shelfCache" :key="s.id" :label="s.code" :value="s.id" />
+              <el-option v-for="s in shelfOptions" :key="s.id" :label="s.code" :value="s.id" />
             </el-select>
           </template>
         </el-table-column>
@@ -292,7 +318,7 @@
           <template slot-scope="{row}">
             <el-select v-model="row.locationId" size="mini" filterable clearable style="width:100%" :disabled="!row.shelfId">
               <el-option
-                v-for="l in (locationCache[row.shelfId] || [])"
+                v-for="l in zoneLocations(row.shelfId)"
                 :key="l.id"
                 :label="splitLocationLabel(l, row)"
                 :value="l.id"
@@ -335,6 +361,12 @@ import { locationLabel, locationDisabled, findOverCapacity, overCapacityMessage 
 
 /** 字典里查不到「退货」类型时的兜底值，与后端 WmsInboundServiceImpl.TYPE_RETURN 一致 */
 const RETURN_TYPE_FALLBACK = 2;
+const TRANSFER_TYPE_FALLBACK = 1;
+/** 货架类型：3退货区 7待检区（见 wms_shelf.type） */
+const SHELF_TYPE_RETURN = 3;
+const SHELF_TYPE_QC = 7;
+/** 库位用途：1待检区（见 wms_location.usage_type） */
+const USAGE_QC = 1;
 
 export default {
   name: 'WarehouseInbound',
@@ -353,11 +385,13 @@ export default {
       typeOptions: [], // 入库类型，来自 wms_dict(inbound_type)
       refundOptions: [],   // 可关联的售后退货单
       refundLoading: false,
+      transferOptions: [], // 可关联的调拨申请单（在途）
+      transferLoading: false,
       rules: {
         warehouseId: [{ required: true, message: '请选择仓库', trigger: 'change' }],
         type: [{ required: true, message: '请选择类型', trigger: 'change' }],
         applyUserId: [{ required: true, message: '请选择申请人', trigger: 'change' }],
-        relatedCode: [{ required: true, message: '请选择关联的退货单', trigger: 'change' }],
+        relatedCode: [{ required: true, message: '请选择关联单据', trigger: 'change' }],
       },
     };
   },
@@ -372,6 +406,36 @@ export default {
       return hit ? hit.itemValue : RETURN_TYPE_FALLBACK;
     },
     isReturnType() { return this.form.type === this.returnTypeValue; },
+    /** 调拨入库类型，同样按字典名称取，不写死 1 */
+    transferTypeValue() {
+      const hit = this.typeOptions.find((t) => (t.itemName || '').includes('调拨'));
+      return hit ? hit.itemValue : TRANSFER_TYPE_FALLBACK;
+    },
+    isTransferType() { return this.form.type === this.transferTypeValue; },
+    /**
+     * 本单的货该落在哪个区。
+     *
+     * 只有可售区库位的库存会同步成商城可售库存，所以未质检的货（平台/采购入库）必须先进待检区、
+     * 客户退回的货必须进退货区。以前下拉列的是全仓货架库位，选到可售区就等于把这批货直接上架卖了，
+     * 而且没有任何一步会报错。这里把不该选的直接从下拉里去掉。
+     * 返回 null 表示该类型不限制（调拨入库的货在调出仓已经检过，其他是兜底类型）。
+     */
+    zoneRule() {
+      if (this.isReturnType) return { shelfType: SHELF_TYPE_RETURN, usage: null, name: '退货区' };
+      if (this.form.type === this.transferTypeValue) return null;
+      const t = this.typeText(this.form.type) || '';
+      // 平台入库 / 采购入库：待检区货架 + 待检区库位
+      if (t.includes('平台') || t.includes('采购')) {
+        return { shelfType: SHELF_TYPE_QC, usage: USAGE_QC, name: '待检区' };
+      }
+      return null;
+    },
+    /** 按分区规则过滤后的货架下拉选项 */
+    shelfOptions() {
+      const rule = this.zoneRule;
+      if (!rule || rule.shelfType == null) return this.shelfCache;
+      return this.shelfCache.filter((s) => s.type === rule.shelfType);
+    },
     /** 拆分弹窗：这一行明细一共要分配多少件 */
     splitTotal() { return this.splitTotalOf(this.splitRow || {}); },
     /** 还剩多少没分配，添加库位时默认带上，省得自己算 */
@@ -476,13 +540,65 @@ export default {
       return hit ? `超出容量，只剩 ${hit.remain} 件` : '';
     },
     emptyForm() { return { warehouseId: null, type: 0, relatedCode: '', applyUserId: null, applyUserName: '', applyUserPhone: '', inboundUserId: null, inboundUserName: '', handlerUserName: '', remark: '', items: [] }; },
+    /**
+     * 按分区规则过滤某个货架下的库位。
+     * 货架已经按类型筛过一轮，但同一个货架下的库位用途可以各不相同，这里再按用途筛一次。
+     */
+    zoneLocations(shelfId) {
+      const list = this.locationCache[shelfId] || [];
+      const rule = this.zoneRule;
+      if (!rule || rule.usage == null) return list;
+      return list.filter((l) => (l.usageType == null ? 0 : l.usageType) === rule.usage);
+    },
     /** 换类型时清掉不再适用的关联单，免得建了张「采购入库」却挂着退货单号 */
     onTypeChange() {
-      if (!this.isReturnType) {
+      // 类型一变，原来选的货架/库位多半就不在新类型允许的区里了，留着只会在保存时才报错
+      (this.form.items || []).forEach((it) => { it.shelfId = null; it.locationId = null; });
+      if (this.isReturnType) {
         this.form.relatedCode = '';
+        if (!this.refundOptions.length) this.loadRefundOptions('');
         return;
       }
-      if (!this.refundOptions.length) this.loadRefundOptions('');
+      if (this.isTransferType) {
+        this.form.relatedCode = '';
+        this.loadTransferOptions();
+        return;
+      }
+      this.form.relatedCode = '';
+    },
+    async loadTransferOptions() {
+      this.transferLoading = true;
+      try {
+        const res = await inboundApi.transferOptions({ warehouseId: this.form.warehouseId || undefined });
+        this.transferOptions = res || [];
+      } catch (e) {
+        this.transferOptions = [];
+        this.$message.warning('调拨单加载失败，请重试');
+      } finally {
+        this.transferLoading = false;
+      }
+    },
+    /** 同 ensureRefundOption：已建过入库单的调拨单不在下拉里，打开老单据要能显示出单号 */
+    ensureTransferOption() {
+      const no = this.form.relatedCode;
+      if (!no || this.transferOptions.some((t) => t.transferCode === no)) return;
+      this.transferOptions = [{ transferCode: no, summary: '本单已关联', items: [] }, ...this.transferOptions];
+    },
+    /** 选中调拨单后带出明细，数量以调拨单为准，避免人工录错件数 */
+    onTransferChange(no) {
+      if (!no) return;
+      const hit = this.transferOptions.find((t) => t.transferCode === no);
+      if (!hit || !(hit.items || []).length) return;
+      const fill = () => {
+        this.form.items = (hit.items || []).map((it) => ({ ...it }));
+        this.$message.success(`已带出 ${this.form.items.length} 行调拨明细`);
+      };
+      if (this.form.items.length && !this.itemsEmpty()) {
+        this.$confirm('带出调拨明细会覆盖已填写的明细，继续?', '提示', { type: 'warning' })
+          .then(fill).catch(() => {});
+        return;
+      }
+      fill();
     },
     /**
      * 已建过入库单的退货单不在下拉选项里（防重复入库），打开老单据时选项就匹配不上，
@@ -662,6 +778,7 @@ export default {
       this.form = res || this.emptyForm();
       if (!this.form.items) this.form.items = [];
       this.ensureRefundOption();
+      if (this.isTransferType) { await this.loadTransferOptions(); this.ensureTransferOption(); }
       // 货架下拉和库位下拉都要在弹窗打开前备好，否则先看到的是空下拉
       await Promise.all([this.loadShelves(this.form.warehouseId), this.loadItemLocations()]);
       this.dialogMode = 'edit';
@@ -672,6 +789,7 @@ export default {
       this.form = res || this.emptyForm();
       if (!this.form.items) this.form.items = [];
       this.ensureRefundOption();
+      if (this.isTransferType) this.ensureTransferOption();
       // 详情用的是同一个弹窗，库位列也是下拉，不备选项照样只显示库位ID
       await Promise.all([this.loadShelves(this.form.warehouseId), this.loadItemLocations()]);
       this.dialogMode = 'view';

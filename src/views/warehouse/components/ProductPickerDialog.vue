@@ -73,10 +73,10 @@
       <div ref="skuSection" v-loading="skuLoading">
         <el-alert
           v-if="!skuLoading && skuList.length === 1"
-          type="success"
+          :type="skuSelectable(skuList[0]) ? 'success' : 'warning'"
           :closable="false"
           show-icon
-          :title="`单规格商品，已自动选中：${skuList[0].sku || '默认规格'}`"
+          :title="skuSelectable(skuList[0]) ? ('单规格商品，已自动选中：' + (skuList[0].sku || '默认规格')) : ('单规格商品库存为0，不可选择：' + (skuList[0].sku || '默认规格'))"
         />
         <template v-else-if="!skuLoading && skuList.length > 1">
           <p class="sku-tips">可勾选多个规格，确定后会为每个规格各生成一行明细。</p>
@@ -89,7 +89,7 @@
             @selection-change="onSkuSelectionChange"
           >
             <!-- 不提供表头“全选”，避免误点后把所有规格一次性带回明细；仍可逐项勾选多个规格 -->
-            <el-table-column type="selection" width="55" :render-header="renderSkuSelectionHeader" />
+            <el-table-column type="selection" width="55" :selectable="skuSelectable" :render-header="renderSkuSelectionHeader" />
             <el-table-column prop="sku" label="规格" min-width="160" show-overflow-tooltip>
               <template slot-scope="{row}">{{ row.sku || '默认' }}</template>
             </el-table-column>
@@ -98,7 +98,7 @@
             <el-table-column prop="price" label="售价" width="90" />
             <el-table-column label="现有库存" width="90">
               <template slot-scope="{row}">
-                <span :class="{ 'text-danger': requireStock && !row.stock }">{{ row.stock == null ? '-' : row.stock }}</span>
+                <span :class="{ 'text-danger': requireStock && !skuSelectable(row) }">{{ skuStockText(row) }}</span>
               </template>
             </el-table-column>
           </el-table>
@@ -125,6 +125,7 @@
 <script>
 import { productLstApi, productDetailApi } from '@/api/product';
 import { merchantListApi } from '@/api/merchant';
+import { stockApi } from '@/api/warehouse';
 
 export default {
   name: 'ProductPickerDialog',
@@ -145,6 +146,9 @@ export default {
       selectedSkus: [],
       skuLoading: false,
       skuRequestId: 0,
+      stockMap: {},
+      stockLoading: false,
+      skuStockError: false,
       resolver: null,
       // 后端只会返回 0/2 两种（见 wmsSelectable 口径），1/3 列出来只是为了兜底不显示空白
       auditMap: { 0: '无需审核', 1: '待审核', 2: '审核成功', 3: '审核拒绝' },
@@ -172,6 +176,9 @@ export default {
         this.selectedProduct = null;
         this.skuList = [];
         this.selectedSkus = [];
+        this.stockMap = {};
+        this.stockLoading = false;
+        this.skuStockError = false;
         this.skuRequestId += 1;
         this.visible = true;
       });
@@ -230,14 +237,43 @@ export default {
       const requestId = ++this.skuRequestId;
       this.skuList = [];
       this.selectedSkus = [];
+      this.stockMap = {};
+      this.stockLoading = false;
+      this.skuStockError = false;
       this.skuLoading = true;
       try {
         const res = await productDetailApi(productId);
         // 快速切换商品时，旧请求不能覆盖当前商品的规格。
         if (requestId !== this.skuRequestId || this.selectedId !== productId) return;
         this.skuList = this.uniqueSkus((res && res.attrValueList) || []);
-        // 单规格没有选择余地，直接选中；多规格等用户勾选
-        if (this.skuList.length === 1) {
+        if (this.requireStock && this.warehouseId && this.skuList.length) {
+          this.stockLoading = true;
+          try {
+            const list = await stockApi.distribution({
+              warehouseId: this.warehouseId,
+              productId,
+              merId: this.selectedProduct && this.selectedProduct.merId != null
+                ? this.selectedProduct.merId
+                : (this.merId != null ? this.merId : undefined),
+            });
+            if (requestId !== this.skuRequestId || this.selectedId !== productId) return;
+            const totals = {};
+            (list || []).forEach((stock) => {
+              const key = this.stockKey(stock.attrValueId);
+              totals[key] = (totals[key] || 0) + (Number(stock.availableNum) || 0);
+            });
+            this.stockMap = totals;
+          } catch (e) {
+            if (requestId !== this.skuRequestId || this.selectedId !== productId) return;
+            this.skuStockError = true;
+            this.$message.error('加载仓库库存失败，请稍后重试');
+          } finally {
+            if (requestId === this.skuRequestId) this.stockLoading = false;
+          }
+        }
+        if (requestId !== this.skuRequestId || this.selectedId !== productId) return;
+        // 单规格只有在当前仓库确实有可用库存时才自动选中。
+        if (this.skuList.length === 1 && this.skuSelectable(this.skuList[0])) {
           this.selectedSkus = [this.skuList[0]];
         }
       } catch (e) {
@@ -247,7 +283,7 @@ export default {
       }
     },
     onSkuSelectionChange(rows) {
-      this.selectedSkus = this.uniqueSkus(rows);
+      this.selectedSkus = this.uniqueSkus(rows).filter((sku) => this.skuSelectable(sku));
     },
     uniqueSkus(skus) {
       const seen = new Set();
@@ -261,6 +297,25 @@ export default {
         return true;
       });
     },
+    stockKey(id) {
+      return String(id == null ? 0 : id);
+    },
+    skuStock(sku) {
+      if (!sku) return 0;
+      if (!this.requireStock || !this.warehouseId) {
+        return sku.stock == null ? null : (Number(sku.stock) || 0);
+      }
+      const value = this.stockMap[this.stockKey(sku.id)];
+      return value == null ? 0 : value;
+    },
+    skuStockText(sku) {
+      const value = this.skuStock(sku);
+      return value == null ? '-' : value;
+    },
+    skuSelectable(sku) {
+      if (!this.requireStock || !this.warehouseId) return true;
+      return !this.stockLoading && !this.skuStockError && this.skuStock(sku) > 0;
+    },
     scrollToSku() {
       this.$nextTick(() => {
         const el = this.$refs.skuSection;
@@ -270,13 +325,24 @@ export default {
     confirm() {
       if (!this.selectedId) return this.$message.warning('请先选择商品');
       if (this.skuLoading) return this.$message.warning('规格加载中，请稍候');
+      if (this.stockLoading) return this.$message.warning('库存加载中，请稍候');
+      if (this.skuStockError) return this.$message.warning('仓库库存加载失败，请重新选择商品');
       if (!this.skuList.length) {
         this.scrollToSku();
         return this.$message.warning('该商品没有可用规格，请先在商品管理中维护规格');
       }
+      if (this.requireStock && !this.skuList.some((sku) => this.skuSelectable(sku))) {
+        this.scrollToSku();
+        return this.$message.warning('当前仓库的所有规格都没有可用库存');
+      }
       if (!this.selectedSkus.length) {
         this.scrollToSku();
         return this.$message.warning('请在下方「规格（SKU）」中勾选至少一个规格');
+      }
+      const unavailable = this.selectedSkus.find((sku) => !this.skuSelectable(sku));
+      if (unavailable) {
+        this.scrollToSku();
+        return this.$message.warning('所选规格在当前仓库没有可用库存');
       }
       const p = this.selectedProduct || this.list.find((x) => x.id === this.selectedId);
       if (this.resolver) this.resolver({ product: p, skus: this.uniqueSkus(this.selectedSkus) });

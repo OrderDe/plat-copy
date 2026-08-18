@@ -164,6 +164,7 @@ export const inboundApi = {
   cancel: (id) => request({ url: `/api/warehouse/inbound/cancel/${id}`, method: 'post', baseURL }),
   /** 退货入库可关联的售后单（已排除建过入库单的） */
   refundOptions: (params) => request({ url: '/api/warehouse/inbound/refundOptions', method: 'get', params, baseURL }),
+  transferOptions: (params) => request({ url: '/api/warehouse/inbound/transferOptions', method: 'get', params, baseURL }),
 };
 
 // ==================== 出库 ====================

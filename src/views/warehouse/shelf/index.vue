@@ -158,7 +158,8 @@ export default {
       editVisible: false, batchDialog: false,
       form: this.emptyForm(),
       batchForm: { warehouseId: null, prefix: 'A', startNo: 1, shelfCount: 5, type: 0, rowNum: 1, colNum: 4, layerNum: 3, locationCapacity: 100 },
-      typeMap: { 0: '普通货架', 1: '托盘位', 2: '零散区', 3: '退货区', 4: '不合格区', 5: '冷藏区', 6: '冷冻区' },
+      // 7待检区：平台/采购入库的货先落这里等质检，质检合格后才移去可售区
+      typeMap: { 0: '普通货架', 1: '托盘位', 2: '零散区', 3: '退货区', 4: '不合格区', 5: '冷藏区', 6: '冷冻区', 7: '待检区' },
       rules: {
         warehouseId: [{ required: true, message: '请选择仓库', trigger: 'change' }],
         code: [{ required: true, message: '请输入编码', trigger: 'blur' }],

@@ -171,9 +171,10 @@
           </div>
 
           <div v-for="rule in view.filterRules" :key="rule.ruleCode" class="rule-row">
-            <el-switch v-model="rule.enabled" />
+            <!-- 未上线的规则不给开：开关能拨、拨了也不生效，运营会以为它在挡货 -->
+            <el-switch v-model="rule.enabled" :disabled="isUnbuiltRule(rule)" />
             <div class="rule-body">
-              <div class="rule-name">
+              <div class="rule-name" :class="{ 'rule-unbuilt': isUnbuiltRule(rule) }">
                 {{ ruleNameBefore(rule) }}
                 <el-select
                   v-if="ruleValueOptions(rule).length"
@@ -185,7 +186,13 @@
                 </el-select>
                 {{ ruleNameAfter(rule) }}
               </div>
-              <div class="rule-desc">{{ rule.ruleDesc }}</div>
+              <div class="rule-desc">
+                {{ rule.ruleDesc }}
+                <el-tag v-if="isUnbuiltRule(rule)" size="mini" type="info" class="rule-unbuilt-tag">开发中</el-tag>
+                <span v-if="isUnbuiltRule(rule)" class="rule-unbuilt-tip">
+                  该规则尚未上线，暂时不会对推荐结果产生任何影响。
+                </span>
+              </div>
 
               <!-- 黑名单是唯一一条要挑具体商品/类目的规则，单独给一块编辑区 -->
               <div v-if="rule.ruleCode === 'blacklist'" class="black-box">
@@ -433,6 +440,10 @@ import {
 import store from '@/store';
 import GoodList from '@/components/goodList/index.vue';
 
+
+/** 配置页有、后端还没实现的过滤规则，禁用并标「开发中」 */
+const UNBUILT_RULES = ['region_filter'];
+
 export default {
   name: 'RecommendConfig',
   components: { GoodList },
@@ -555,7 +566,14 @@ export default {
     applyResult(res, message) {
       this.view = res;
       this.saving = false;
-      this.$message.success(message || '已保存，推荐配置已下发');
+      // 配置写进 Redis 是秒级的，但每个应用实例读快照带 30 秒本地缓存
+      // （RecConfigReader.CACHE_MILLIS），所以点完保存立刻去 App 看多半还是旧效果。
+      // 不写清楚的话，运营会以为没保存上，回来反复点。
+      this.$notify.success({
+        title: message || '已保存，推荐配置已下发',
+        message: '推荐引擎最多 30 秒后全量生效，期间 App 上可能仍是旧效果，属正常现象。',
+        duration: 5000,
+      });
       this.loadLogs();
     },
 
@@ -707,7 +725,11 @@ export default {
 
     onPublish() {
       publishConfig().then(() => {
-        this.$message.success('已重新下发到推荐引擎');
+        this.$notify.success({
+          title: '已重新下发到推荐引擎',
+          message: '推荐引擎最多 30 秒后全量生效，期间 App 上可能仍是旧效果，属正常现象。',
+          duration: 5000,
+        });
         this.reload();
       });
     },
@@ -720,6 +742,17 @@ export default {
     // 只有曝光、停留这类动作才需要「看够几秒才算」
     supportThreshold(row) {
       return row.actionType === 'view' || row.actionType === 'stay';
+    },
+
+    /**
+     * 这条规则是否还没实现。
+     *
+     * region_filter（地区发不了货的不推）在配置页和数据库里都有，开关默认还是开的，
+     * 但整个后端没有一处代码读它 —— 运营看着它开着，会以为发不到的货已经被挡住了，
+     * 实际照推不误，顾客点进去才发现下不了单。在实现之前先禁用并标注，别给假信号。
+     */
+    isUnbuiltRule(rule) {
+      return UNBUILT_RULES.includes(rule.ruleCode);
     },
 
     // 规则名称里的 N 是可选参数，拆成前后两段把下拉框嵌进句子中间
@@ -828,6 +861,19 @@ export default {
     color: #a9aeb8;
     border-bottom: 1px solid #e5e6eb;
   }
+  .rule-unbuilt {
+    color: #b0b3bb;
+  }
+
+  .rule-unbuilt-tag {
+    margin-left: 6px;
+  }
+
+  .rule-unbuilt-tip {
+    color: #e6a23c;
+    margin-left: 6px;
+  }
+
   .bcol-switch {
     width: 50px;
     flex-shrink: 0;

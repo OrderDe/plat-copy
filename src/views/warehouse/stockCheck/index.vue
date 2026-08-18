@@ -10,6 +10,7 @@
         </div>
       </div>
       <div class="header-actions">
+        <el-button size="small" icon="el-icon-time" @click="showStep('history')">历史记录</el-button>
         <el-button type="primary" size="small" icon="el-icon-plus" @click="onNewCheck">新建盘点单</el-button>
       </div>
     </header>
@@ -255,6 +256,119 @@
           <div class="signatures"><span>盘点人签字</span><span>复核人签字</span><span>领导签字</span></div>
         </article>
       </section>
+      <!-- 3. 历史记录：保留盘点单列表和归档详情，方便追溯历史盘点结果 -->
+      <section v-show="activeStep === 'history'" class="screen">
+        <div class="section-heading">
+          <div>
+            <h2>盘点历史记录</h2>
+            <p class="text-muted">查询盘点单，查看盘点范围、明细、反馈、审批意见和库存调整结果。</p>
+          </div>
+          <div class="button-group">
+            <el-button size="small" @click="onReset">重置</el-button>
+            <el-button type="primary" size="small" icon="el-icon-refresh" :loading="loading" @click="loadPage">刷新</el-button>
+          </div>
+        </div>
+
+        <div class="history-filters">
+          <label><span class="text-small text-muted">盘点单号</span>
+            <el-input v-model="query.checkNo" size="small" placeholder="输入盘点单号" clearable @keyup.enter.native="onSearch" />
+          </label>
+          <label><span class="text-small text-muted">仓库</span>
+            <el-select v-model="query.warehouseId" size="small" clearable filterable placeholder="全部仓库" style="width:100%">
+              <el-option v-for="w in warehouseList" :key="w.id" :label="`${w.code} / ${w.name}`" :value="w.id" />
+            </el-select>
+          </label>
+          <label><span class="text-small text-muted">品类</span>
+            <el-select v-model="query.categoryId" size="small" clearable filterable placeholder="全部品类" style="width:100%">
+              <el-option v-for="c in categoryList" :key="c.id" :label="c.name" :value="c.id" />
+            </el-select>
+          </label>
+          <label><span class="text-small text-muted">状态</span>
+            <el-select v-model="query.status" size="small" clearable placeholder="全部状态" style="width:100%">
+              <el-option v-for="status in statusOptions" :key="status.value" :label="status.label" :value="status.value" />
+            </el-select>
+          </label>
+          <label class="filter-wide"><span class="text-small text-muted">盘点日期</span>
+            <el-date-picker
+              v-model="dateRange" size="small" type="daterange" value-format="yyyy-MM-dd"
+              range-separator="至" start-placeholder="开始" end-placeholder="结束" style="width:100%"
+            />
+          </label>
+          <el-button type="primary" size="small" icon="el-icon-search" @click="onSearch">查询</el-button>
+        </div>
+
+        <table v-loading="loading" class="data-table history-table">
+          <thead>
+            <tr><th>盘点单号</th><th>仓库 / 品类</th><th>盘点人</th><th>盘点日期</th><th>差异</th><th>差异金额</th><th>状态</th><th>操作</th></tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in tableData" :key="row.id">
+              <td>{{ row.checkNo }}</td>
+              <td>{{ warehouseText(row.warehouseId) }} · {{ row.categoryName || '全部品类' }}</td>
+              <td>{{ row.checkPeople || '-' }}</td>
+              <td>{{ row.checkDate || '-' }}</td>
+              <td>{{ row.totalDiff || 0 }}</td>
+              <td>¥{{ Number(row.diffAmount || 0).toFixed(2) }}</td>
+              <td><span class="badge" :class="statusBadgeClass(row.status)">{{ statusText(row.status) }}</span></td>
+              <td class="row-actions">
+                <el-button type="text" @click="openHistory(row)">详情</el-button>
+                <el-button type="text" @click="openHistory(row, true)">打印</el-button>
+                <el-button v-if="canCancelHistory(row)" type="text" class="danger-text" @click="cancelHistory(row)">作废</el-button>
+              </td>
+            </tr>
+            <tr v-if="!tableData.length"><td colspan="8" class="empty-row">没有查询到盘点记录</td></tr>
+          </tbody>
+        </table>
+
+        <el-pagination
+          class="history-pager"
+          :current-page.sync="query.page"
+          :page-size.sync="query.limit"
+          :total="total"
+          layout="total, prev, pager, next"
+          @current-change="loadPage"
+        />
+
+        <section v-if="historyDetail" class="history-detail">
+          <div class="section-heading compact-heading">
+            <div>
+              <h3>盘点记录详情</h3>
+              <p class="text-muted">{{ historyDetail.checkNo }} · {{ statusText(historyDetail.status) }}</p>
+            </div>
+            <el-button type="text" icon="el-icon-close" @click="historyDetail = null">关闭</el-button>
+          </div>
+          <div class="history-summary">
+            <span>仓库：{{ warehouseText(historyDetail.warehouseId) }}</span>
+            <span>品类：{{ historyDetail.categoryName || categoryText(historyDetail.categoryId) }}</span>
+            <span>盘点人：{{ historyDetail.checkPeople || '-' }}</span>
+            <span>盘点日期：{{ historyDetail.checkDate || '-' }}</span>
+            <span>正常：{{ historyDetail.normalCount || 0 }}</span>
+            <span>异常：{{ historyDetail.abnormalCount || 0 }}</span>
+            <span>差异：{{ historyDetail.totalDiff || 0 }}</span>
+            <span>差异金额：¥{{ Number(historyDetail.diffAmount || 0).toFixed(2) }}</span>
+          </div>
+          <div class="history-audit-info">
+            <span>审核人：{{ historyDetail.auditUser || '-' }}</span>
+            <span>审核意见：{{ historyDetail.auditComment || '-' }}</span>
+            <span>归档时间：{{ fmtTime(historyDetail.archiveTime) || '-' }}</span>
+          </div>
+          <table class="data-table history-detail-table">
+            <thead><tr><th>库位 / SKU</th><th>商品</th><th>账面</th><th>实盘</th><th>差异</th><th>状态</th><th>反馈说明</th></tr></thead>
+            <tbody>
+              <tr v-for="item in (historyDetail.details || [])" :key="item.id">
+                <td>{{ item.locationCode || '-' }} / {{ item.sku || '-' }}</td>
+                <td>{{ item.goodsName || '-' }} {{ item.specName || '' }}</td>
+                <td>{{ item.bookStock == null ? '—' : item.bookStock }}</td>
+                <td>{{ item.actualStock == null ? '—' : item.actualStock }}</td>
+                <td :class="diffClass(item)">{{ item.diffNum == null ? diffLabel(item) : item.diffNum }}</td>
+                <td>{{ goodsStatusText(item.goodsStatus) }}</td>
+                <td>{{ item.feedbackRemark || '-' }}</td>
+              </tr>
+              <tr v-if="!(historyDetail.details || []).length"><td colspan="7" class="empty-row">暂无盘点明细</td></tr>
+            </tbody>
+          </table>
+        </section>
+      </section>
     </main>
 
     <admin-picker-dialog ref="adminPicker" title="选择盘点人" />
@@ -277,9 +391,15 @@ export default {
       ST,
       activeStep: 'create',
       // 打印和提交都是盘点页上的动作，不单列步骤；审核归档走审批中心
-      stepOrder: ['create', 'check'],
-      stepLabels: { create: '建单与范围', check: '盘点与提交' },
+      stepOrder: ['create', 'check', 'history'],
+      stepLabels: { create: '建单与范围', check: '盘点与提交', history: '历史记录' },
       saving: false,
+      loading: false,
+      total: 0,
+      tableData: [],
+      dateRange: [],
+      query: { page: 1, limit: 20, checkNo: '', warehouseId: null, categoryId: null, status: null, startDate: '', endDate: '' },
+      historyDetail: null,
       categoryList: [],
       shelfList: [],
       lockedShelfIdList: [],
@@ -350,6 +470,7 @@ export default {
   },
   created() {
     this.loadCategories();
+    this.loadPage();
   },
   methods: {
     emptyForm() {
@@ -371,6 +492,10 @@ export default {
       const hit = this.statusOptions.find((x) => x.value === s);
       return hit ? hit.label : '-';
     },
+    goodsStatusText(s) {
+      const hit = this.goodsStatusOptions.find((x) => x.value === s);
+      return hit ? hit.label : (s || '-');
+    },
     statusBadgeClass(s) {
       return ({ [ST.ARCHIVED]: 'badge-success', [ST.CANCELED]: 'badge-danger', [ST.REJECTED]: 'badge-danger', [ST.AUDITING]: 'badge-warning' })[s] || '';
     },
@@ -390,7 +515,13 @@ export default {
       return diff < 0 ? 'diff-negative' : diff > 0 ? 'diff-positive' : '';
     },
 
-    showStep(step) { this.activeStep = step; },
+    showStep(step) {
+      this.activeStep = step;
+      if (step === 'history') {
+        this.historyDetail = null;
+        this.loadPage();
+      }
+    },
     onNewCheck() {
       this.form = this.emptyForm();
       this.details = [];
@@ -398,6 +529,7 @@ export default {
       this.shelfList = [];
       this.blindPrint = false;
       this.feedbackError = '';
+      this.historyDetail = null;
       if (this.$refs.formRef) this.$refs.formRef.clearValidate();
       this.showStep('create');
       this.$message.success('已创建新的盘点单草稿');
@@ -578,7 +710,59 @@ export default {
         this.$message.success(`当前状态：${this.statusText(this.form.status)}`);
       } finally { this.saving = false; }
     },
-    gotoApproval() {
+    async loadPage() {
+      this.loading = true;
+      try {
+        this.query.startDate = (this.dateRange && this.dateRange[0]) || '';
+        this.query.endDate = (this.dateRange && this.dateRange[1]) || '';
+        const res = await stockCheckApi.page(this.query);
+        this.tableData = (res && res.list) || [];
+        this.total = (res && res.total) || 0;
+      } catch (e) {
+        this.tableData = [];
+        this.total = 0;
+        this.$message.error((e && (e.message || e.msg)) || '盘点记录加载失败');
+      } finally { this.loading = false; }
+    },
+    onSearch() { this.query.page = 1; this.loadPage(); },
+    onReset() {
+      this.dateRange = [];
+      this.query = { page: 1, limit: 20, checkNo: '', warehouseId: null, categoryId: null, status: null, startDate: '', endDate: '' };
+      this.loadPage();
+    },
+    canCancelHistory(row) {
+      return [ST.DRAFT, ST.WAIT_FB, ST.FEEDBACK, ST.AUDITING, ST.REJECTED].includes(row.status);
+    },
+    async openHistory(row, print) {
+      try {
+        const res = await stockCheckApi.detail(row.id);
+        this.historyDetail = { ...(res || {}), details: ((res && res.details) || []).map((item) => ({ ...item })) };
+        if (print) this.printHistory(this.historyDetail);
+      } catch (e) {
+        this.$message.error((e && (e.message || e.msg)) || '盘点记录详情加载失败');
+      }
+    },
+    printHistory(check) {
+      const esc = (value) => String(value == null ? '' : value).replace(/[&<>\"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;' }[ch]));
+      const rows = (check.details || []).map((item, index) => `<tr><td>${index + 1}</td><td>${esc(item.locationCode || '-')}</td><td>${esc(item.sku || '-')}</td><td>${esc(item.goodsName || '-')}</td><td>${esc(item.bookStock == null ? '-' : item.bookStock)}</td><td>${esc(item.actualStock == null ? '-' : item.actualStock)}</td><td>${esc(item.diffNum == null ? this.diffLabel(item) : item.diffNum)}</td><td>${esc(this.goodsStatusText(item.goodsStatus))}</td><td>${esc(item.feedbackRemark || '-')}</td></tr>`).join('');
+      const win = window.open('', '_blank');
+      if (!win) return this.$message.warning('打印窗口被浏览器拦截，请允许弹出窗口');
+      win.document.write(`<html><head><title>${esc(check.checkNo || '盘点记录')}</title><style>body{font-family:Microsoft YaHei,sans-serif;font-size:12px;padding:16px}h2{text-align:center}p{text-align:center;color:#666}table{width:100%;border-collapse:collapse}th,td{border:1px solid #333;padding:6px;text-align:center}</style></head><body><h2>库存盘点记录</h2><p>盘点单号：${esc(check.checkNo || '-')}　仓库：${esc(this.warehouseText(check.warehouseId))}　状态：${esc(this.statusText(check.status))}</p><table><thead><tr><th>序号</th><th>库位</th><th>SKU</th><th>商品</th><th>账面</th><th>实盘</th><th>差异</th><th>状态</th><th>说明</th></tr></thead><tbody>${rows}</tbody></table></body></html>`);
+      win.document.close();
+      win.focus();
+      setTimeout(() => { win.print(); win.close(); }, 300);
+    },
+    async cancelHistory(row) {
+      try {
+        await this.$confirm(`作废盘点单「${row.checkNo}」?`, '提示', { type: 'warning' });
+        await stockCheckApi.cancel(row.id);
+        this.historyDetail = null;
+        this.$message.success('已作废');
+        this.loadPage();
+      } catch (e) {
+        if (e !== 'cancel' && e !== 'close') this.$message.error((e && (e.message || e.msg)) || '盘点单作废失败');
+      }
+    },    gotoApproval() {
       this.$router.push(`/approvalCenter/detail/${this.form.approvalInstanceId}`);
     },
   },
@@ -603,7 +787,7 @@ export default {
 .header-actions { display: flex; gap: 8px; }
 
 .workflow {
-  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px;
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px;
   margin-top: 12px; padding: 8px; background: #f4f6f8; border: 1px solid #ebeef5; border-radius: 8px;
 }
 .workflow-step {
@@ -693,8 +877,26 @@ main { padding-top: 14px; }
 .signatures { display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px; margin-top: 38px; text-align: center; color: #909399; }
 .signatures span { padding-top: 8px; border-top: 1px solid #303133; }
 
+.history-filters { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)) auto; align-items: end; gap: 10px; margin-bottom: 16px; }
+.history-filters label { display: block; }
+.history-filters label span { display: block; margin-bottom: 4px; }
+.filter-wide { grid-column: span 2; }
+.history-table th:nth-child(1) { width: 15%; }
+.history-table th:nth-child(2) { width: 19%; }
+.history-table th:nth-child(8) { width: 18%; }
+.row-actions >>> .el-button--text { padding: 0 4px; }
+.history-pager { margin-top: 16px; text-align: right; }
+.history-detail { margin-top: 20px; padding: 16px; background: #fafbfc; border: 1px solid #ebeef5; border-radius: 6px; }
+.compact-heading { margin-bottom: 12px; }
+.history-summary, .history-audit-info { display: flex; flex-wrap: wrap; gap: 8px 24px; padding: 10px 12px; margin-bottom: 10px; background: #fff; border: 1px solid #ebeef5; border-radius: 6px; color: #606266; font-size: 13px; }
+.history-audit-info { color: #909399; }
+.history-detail-table th:nth-child(1) { width: 16%; }
+.history-detail-table th:nth-child(2) { width: 20%; }
+.history-detail-table th:nth-child(7) { width: 20%; }
 @media (max-width: 1100px) {
   .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .form-grid { grid-template-columns: 1fr; }
+  .history-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .filter-wide { grid-column: span 2; }
 }
 </style>

@@ -13,6 +13,15 @@
         <template slot-scope="{row}">{{ warehouseText(row.warehouseId) }}</template>
       </el-table-column>
       <el-table-column prop="reason" label="报损原因" min-width="160" show-overflow-tooltip />
+      <!-- 审批通过只代表批准了，货还在货架上；扣没扣账要看这一列 -->
+      <el-table-column label="取货状态" width="110">
+        <template slot-scope="{row}">
+          <el-tag v-if="row.approvalStatus === 2" :type="pickStatusType(row.pickStatus)" size="mini">
+            {{ pickStatusText(row.pickStatus) }}
+          </el-tag>
+          <span v-else>-</span>
+        </template>
+      </el-table-column>
     </template>
     <template #form-fields="{ form, warehouseList }">
       <el-form-item label="仓库" prop="warehouseId">
@@ -44,6 +53,18 @@ export default {
         reason: [{ required: true, message: '请输入报损原因', trigger: 'blur' }],
       },
     };
+  },
+  methods: {
+    /**
+     * 取货状态。审批通过后货并没有立刻消失——要等拣货员去货位把实物取出来确认，
+     * 那一刻才扣库存，所以列表上必须能一眼看出这批货到底取没取。
+     */
+    pickStatusText(s) {
+      return ({ 0: '待生成', 1: '待取货', 2: '已取货', 3: '缺货终止' })[s == null ? 0 : s] || '-';
+    },
+    pickStatusType(s) {
+      return ({ 0: 'info', 1: 'warning', 2: 'success', 3: 'danger' })[s == null ? 0 : s] || 'info';
+    },
   },
 };
 </script>

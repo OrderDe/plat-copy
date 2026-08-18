@@ -59,6 +59,14 @@
           <el-tag size="mini">{{ bizMap[row.bizType] || row.bizType }}</el-tag>
         </template>
       </el-table-column>
+      <!-- 货位/批次是快照：库位改名、批次清理后，历史流水仍显示当时的编码。
+           没有货位的（通用池调整、预占标记）显示 - -->
+      <el-table-column label="货位" min-width="140" show-overflow-tooltip>
+        <template slot-scope="{row}">{{ row.locationCode || (row.locationId ? `库位#${row.locationId}` : '-') }}</template>
+      </el-table-column>
+      <el-table-column label="批次" min-width="130" show-overflow-tooltip>
+        <template slot-scope="{row}">{{ row.batchNo || '-' }}</template>
+      </el-table-column>
       <el-table-column prop="bizCode" label="关联单号" min-width="180" show-overflow-tooltip />
       <el-table-column label="变动" width="90">
         <template slot-scope="{row}">

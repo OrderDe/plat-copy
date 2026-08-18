@@ -7,9 +7,10 @@
         <p>运单查询、全程轨迹、实时位置、预计送达和异常处理统一入口</p>
       </div>
       <div class="hero-context">
-        <el-select v-model="merchantId" v-if="isPlatform" clearable filterable size="small" placeholder="全部商户" @change="onMerchantChange">
+        <el-select v-model="merchantId" v-if="isPlatform && canSelectMerchant" clearable filterable size="small" placeholder="全部商户" @change="onMerchantChange">
           <el-option v-for="item in merchantList" :key="item.id" :label="merchantLabel(item)" :value="item.id" />
         </el-select>
+        <span v-else-if="isPlatform" class="merchant-name">平台账号无商户切换权限</span>
         <span v-else class="merchant-name">店铺：{{ currentMerchantName }}</span>
         <el-tag type="success" size="small"><i class="el-icon-success" /> 接口已接入</el-tag>
       </div>
@@ -101,7 +102,7 @@
 
         <section v-show="activePage === 'receiver'"><el-row :gutter="12"><el-col :span="15"><el-card shadow="never"><div class="card-title">收件人信息校验 <span>校验手机号后四位与运单地址</span></div><el-form :model="receiverForm" label-width="105px" size="small" class="form-panel"><el-form-item label="京东运单号"><el-input v-model.trim="receiverForm.waybillCode" placeholder="请输入运单号" /></el-form-item><el-form-item label="手机号后四位"><el-input v-model.trim="receiverForm.mobileLast4" maxlength="4" placeholder="例如 6688" /></el-form-item><el-form-item label="收件详细地址"><el-input v-model.trim="receiverForm.fullAddress" type="textarea" :rows="3" placeholder="请输入与订单一致的完整地址" /></el-form-item><el-form-item><el-button type="primary" :loading="loading.receiver" @click="verifyReceiver">立即校验</el-button></el-form-item></el-form><el-alert v-if="receiverResult !== null" :title="receiverResult ? '校验通过' : '校验未通过，请核对收件信息'" :type="receiverResult ? 'success' : 'warning'" :closable="false" show-icon /></el-card></el-col><el-col :span="9"><el-card shadow="never"><div class="card-title">附近网点查询</div><el-form :model="siteForm" label-width="65px" size="small"><el-form-item label="省份"><el-input v-model.trim="siteForm.province" /></el-form-item><el-form-item label="城市"><el-input v-model.trim="siteForm.city" /></el-form-item><el-form-item label="区县"><el-input v-model.trim="siteForm.county" /></el-form-item><el-form-item label="地址"><el-input v-model.trim="siteForm.address" /></el-form-item><el-form-item><el-button type="primary" :loading="loading.sites" @click="querySites">查询网点</el-button></el-form-item></el-form><el-table v-if="siteRows.length" :data="siteRows" border size="mini"><el-table-column prop="siteName" label="网点" min-width="130" /><el-table-column prop="distance" label="距离(km)" width="85" /></el-table></el-card></el-col></el-row></section>
 
-        <section v-show="activePage === 'freight'"><el-row :gutter="12"><el-col :span="15"><el-card shadow="never"><div class="card-title">运费查询 <span>下单前预估，结果以京东实际结算为准</span></div><el-form :model="freightForm" label-width="90px" size="small" class="form-panel"><el-form-item label="目的省份"><el-input v-model.trim="freightForm.receiveProvince" /></el-form-item><el-form-item label="目的城市"><el-input v-model.trim="freightForm.receiveCity" /></el-form-item><el-form-item label="目的区县"><el-input v-model.trim="freightForm.receiveCounty" /></el-form-item><el-form-item label="重量(kg)"><el-input-number v-model="freightForm.weight" :min="0.01" :precision="2" controls-position="right" /></el-form-item><el-form-item label="产品编码"><el-input v-model.trim="freightForm.productCode" placeholder="可选，默认京东标准快递" /></el-form-item><el-form-item v-if="isPlatform" label="计费商户"><el-select v-model="freightForm.merId" clearable filterable placeholder="全部商户"><el-option v-for="item in merchantList" :key="item.id" :label="merchantLabel(item)" :value="item.id" /></el-select></el-form-item><el-form-item><el-button type="primary" :loading="loading.freight" @click="queryFreight">试算运费</el-button></el-form-item></el-form></el-card></el-col><el-col :span="9"><el-card shadow="never"><div class="card-title">费用明细</div><div v-if="freightResult" class="fee-result"><div class="fee-total">¥{{ freightTotal }}</div><div class="info-row"><b>预估费用</b><span>¥{{ money(freightResult.totalFreightPre) }}</span></div><div class="info-row"><b>标准费用</b><span>¥{{ money(freightResult.totalFreightStandard) }}</span></div><div v-if="freightResult.commonFeeInfoResponse" class="info-row"><b>计费重量</b><span>{{ freightResult.commonFeeInfoResponse.calWeight || '-' }} kg</span></div></div><el-empty v-else description="填写目的地后试算" /></el-card></el-col></el-row></section>
+        <section v-show="activePage === 'freight'"><el-row :gutter="12"><el-col :span="15"><el-card shadow="never"><div class="card-title">运费查询 <span>下单前预估，结果以京东实际结算为准</span></div><el-form :model="freightForm" label-width="90px" size="small" class="form-panel"><el-form-item label="目的省份"><el-input v-model.trim="freightForm.receiveProvince" /></el-form-item><el-form-item label="目的城市"><el-input v-model.trim="freightForm.receiveCity" /></el-form-item><el-form-item label="目的区县"><el-input v-model.trim="freightForm.receiveCounty" /></el-form-item><el-form-item label="重量(kg)"><el-input-number v-model="freightForm.weight" :min="0.01" :precision="2" controls-position="right" /></el-form-item><el-form-item label="产品编码"><el-input v-model.trim="freightForm.productCode" placeholder="可选，默认京东标准快递" /></el-form-item><el-form-item v-if="isPlatform && canSelectMerchant" label="计费商户"><el-select v-model="freightForm.merId" clearable filterable placeholder="全部商户"><el-option v-for="item in merchantList" :key="item.id" :label="merchantLabel(item)" :value="item.id" /></el-select></el-form-item><el-form-item><el-button type="primary" :loading="loading.freight" @click="queryFreight">试算运费</el-button></el-form-item></el-form></el-card></el-col><el-col :span="9"><el-card shadow="never"><div class="card-title">费用明细</div><div v-if="freightResult" class="fee-result"><div class="fee-total">¥{{ freightTotal }}</div><div class="info-row"><b>预估费用</b><span>¥{{ money(freightResult.totalFreightPre) }}</span></div><div class="info-row"><b>标准费用</b><span>¥{{ money(freightResult.totalFreightStandard) }}</span></div><div v-if="freightResult.commonFeeInfoResponse" class="info-row"><b>计费重量</b><span>{{ freightResult.commonFeeInfoResponse.calWeight || '-' }} kg</span></div></div><el-empty v-else description="填写目的地后试算" /></el-card></el-col></el-row></section>
 
         <section v-show="activePage === 'push'"><el-card shadow="never"><div class="card-title">物流轨迹推送配置 <span>以下地址由本系统接收京东物流回调</span></div><el-alert title="回调地址需要在京东物流开放平台配置；本页不展示虚假的启停开关。" type="info" :closable="false" show-icon class="push-tip" /><el-table :data="callbackRows" border stripe size="small"><el-table-column prop="label" label="推送类型" min-width="150" /><el-table-column prop="url" label="回调地址" min-width="380" show-overflow-tooltip /><el-table-column prop="endpoint" label="后端接口" min-width="170" /><el-table-column label="状态" width="120"><template><el-tag type="success" size="mini">接收端已实现</el-tag></template></el-table-column><el-table-column label="操作" width="90"><template slot-scope="{ row }"><el-button type="text" @click="copyCallback(row.url)">复制</el-button></template></el-table-column></el-table></el-card><el-card shadow="never" class="push-doc"><div class="card-title">失败处理建议</div><p>京东物流回调由后端记录到应用日志；如需重试或告警，请在网关/日志平台配置监控。业务订单与运单映射完成后，可继续扩展自动确认收货等动作。</p></el-card></section>
 
@@ -116,6 +117,7 @@
 
 <script>
 import Cookies from 'js-cookie';
+import SettingMer from '@/utils/settingMer';
 import { merchantListApi } from '@/api/merchant';
 import { jdlLogisticsApi } from '@/api/jdlLogistics';
 
@@ -180,8 +182,12 @@ export default {
     pinStyle() { return this.latestPoint ? { left: `${25 + ((Math.abs(Number(this.latestPoint.lng)) * 17) % 50)}%`, top: `${25 + ((Math.abs(Number(this.latestPoint.lat)) * 13) % 45)}%` } : {}; },
     currentMerchantLabel() { return this.merchantId ? this.merchantLabel(this.merchantList.find((item) => item.id === this.merchantId) || {}) : '全部商户'; },
     freightTotal() { return this.freightResult ? this.money(this.freightResult.totalFreightPre) : '0.00'; },
+    canSelectMerchant() {
+      const permissions = (this.$store && this.$store.getters && this.$store.getters.permissions) || [];
+      return permissions.includes('*:*:*') || permissions.includes('platform:merchant:page:list');
+    },
     callbackRows() {
-      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      const origin = String(SettingMer.httpUrl || '').replace(/\/$/, '');
       return [
         { label: '轨迹节点推送', endpoint: 'POST /api/webhook/jdl/trace', url: `${origin}/api/webhook/jdl/trace` },
         { label: '拦截状态推送', endpoint: 'POST /api/webhook/jdl/intercept', url: `${origin}/api/webhook/jdl/intercept` },
@@ -196,7 +202,13 @@ export default {
   methods: {
     selectPage(page) { this.activePage = page; },
     merchantLabel(item) { return item.name || item.merName || item.merchantName || item.account || `商户 ${item.id || ''}`; },
-    async loadMerchants() { try { const res = await merchantListApi({ page: 1, limit: 999 }); this.merchantList = (res && (res.list || res.records)) || []; } catch (e) { this.merchantList = []; } },
+    async loadMerchants() {
+      if (!this.canSelectMerchant) return;
+      try {
+        const res = await merchantListApi({ page: 1, limit: 999 });
+        this.merchantList = (res && (res.list || res.records)) || [];
+      } catch (e) { this.merchantList = []; }
+    },
     onMerchantChange() { this.freightForm.merId = this.merchantId; this.history = []; this.exceptionRows = []; },
     formatDateTime(value) {
       if (value === null || value === undefined || value === '') return '-';

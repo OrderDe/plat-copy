@@ -24,6 +24,45 @@
       </div>
     </el-alert>
 
+    <!-- 报损/领用取货：审批通过后货还在货架上，得有人去取出来。
+         这类任务没有波次（不发给客户，不用组波），但拣货员的活儿都在这一页，
+         所以并进来单列一块，而不是另开一个菜单 -->
+    <div v-if="damagePicks.length" class="damage-pick-block">
+      <div class="damage-pick-head">
+        <span class="damage-pick-title">报损 / 领用取货任务</span>
+        <el-badge :value="damagePicks.length" class="tab-badge" />
+        <span class="damage-pick-tip">审批已通过、货已预占，需从货位取出实物后确认；确认即扣减库存，不再走复核。</span>
+        <el-button size="mini" icon="el-icon-refresh" @click="loadDamagePicks">刷新</el-button>
+      </div>
+      <el-table :data="damagePicks" border stripe size="mini">
+        <el-table-column label="类型" width="80">
+          <template slot-scope="{row}">
+            <el-tag :type="row.bizType === 2 ? 'primary' : 'danger'" size="mini">
+              {{ row.bizType === 2 ? '领用' : '报损' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="code" label="拣货单号" min-width="160" show-overflow-tooltip />
+        <el-table-column prop="sourceDocCode" label="来源单号" min-width="160" show-overflow-tooltip />
+        <el-table-column label="仓库" min-width="120">
+          <template slot-scope="{row}">{{ warehouseText(row.warehouseId) }}</template>
+        </el-table-column>
+        <el-table-column label="状态" width="90">
+          <template slot-scope="{row}">
+            <el-tag :type="pickStatusType(row.status)" size="mini">{{ pickStatusMap[row.status] }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="pickerName" label="拣货员" width="100">
+          <template slot-scope="{row}">{{ row.pickerName || '-' }}</template>
+        </el-table-column>
+        <el-table-column label="操作" width="120" fixed="right">
+          <template slot-scope="{row}">
+            <el-button type="text" @click="openPick(row)">{{ row.status < 2 ? '取货确认' : '明细' }}</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </div>
+
     <div ref="waveLayout" class="wave-layout" :class="{ 'is-resizing': resizing }">
       <!-- 左：波次列表 -->
       <div class="wave-master" :style="{ flexBasis: `${masterWidth}px` }">
@@ -425,6 +464,8 @@ export default {
       // 右侧从表：选中波次 + 其拣货单 / 合并拣货视图
       currentWave: {}, activeTab: 'pick',
       pickLoading: false, pickOrders: [],
+      // 报损拣货任务：没有波次，独立于左侧波次列表加载
+      damagePicks: [],
       batchLoading: false, batchRows: [],
       currentPick: {},
       assignVisible: false, assignForm: { pickerId: null, pickerName: '' },
@@ -449,7 +490,7 @@ export default {
   computed: {
     batchTotal() { return this.batchRows.reduce((s, r) => s + (r.totalPlan || 0), 0); },
   },
-  created() { this.loadWarehouses(); this.loadPage(); },
+  created() { this.loadWarehouses(); this.loadPage(); this.loadDamagePicks(); },
   mounted() {
     try {
       const saved = Number(window.localStorage.getItem(WAVE_MASTER_STORAGE_KEY));
@@ -654,6 +695,20 @@ export default {
       this.assignVisible = false;
       this.loadPickOrders();
     },
+    /** 报损/领用取货任务：只列未完成的，拣完的进历史不占版面 */
+    async loadDamagePicks() {
+      try {
+        // 后端 bizType 1=报损 2=领用，这里两类一起取，用类型标签区分
+        const [damage, receive] = await Promise.all([
+          pickApi.page({ page: 1, limit: 200, bizType: 1 }),
+          pickApi.page({ page: 1, limit: 200, bizType: 2 }),
+        ]);
+        const merged = [...((damage && damage.list) || []), ...((receive && receive.list) || [])];
+        this.damagePicks = merged.filter((p) => p.status < 2).sort((a, b) => b.id - a.id);
+      } catch (e) {
+        this.damagePicks = [];
+      }
+    },
     async openPick(row) {
       this.pickDetail = await pickApi.detail(row.id) || {};
       if (!this.pickDetail.items) this.pickDetail.items = [];
@@ -722,9 +777,10 @@ export default {
         pickerId: u.id,
         pickerName: u.realName || u.account || this.$store.getters.name,
       });
-      this.$message.success('拣货完成');
+      this.$message.success(this.pickDetail.bizType ? '取货完成，库存已扣减' : '拣货完成');
       this.pickVisible = false;
       this.loadPickOrders();
+      this.loadDamagePicks();
       if (this.activeTab === 'batch') this.loadBatchRows();
     },
     /**
@@ -742,9 +798,12 @@ export default {
         operatorId: u.id,
         operatorName: u.realName || u.account || this.$store.getters.name,
       });
-      this.$message.success('已按缺货终止，本单作废；出库单可补货后重新组波');
+      this.$message.success(this.pickDetail.bizType
+        ? '已按缺货终止，预占已释放；来源单据需人工跟进'
+        : '已按缺货终止，本单作废；出库单可补货后重新组波');
       this.pickVisible = false;
       this.loadPickOrders();
+      this.loadDamagePicks();
       if (this.activeTab === 'batch') this.loadBatchRows();
     },
     async onPrint(row) {
@@ -775,6 +834,16 @@ export default {
 .wave-intro-link { cursor: pointer; text-decoration: underline; }
 .wave-intro-note { color: #86909c; }
 
+.damage-pick-block {
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border: 1px solid #f0d9b5;
+  border-radius: 8px;
+  background: #fffaf3;
+}
+.damage-pick-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+.damage-pick-title { font-weight: 600; color: #7a5b1f; }
+.damage-pick-tip { flex: 1; font-size: 12px; color: #a17c3a; }
 .wave-layout { display: flex; align-items: flex-start; gap: 0; }
 /* 左侧只是选单，右侧才是作业区；左侧宽度由拖拽分隔条控制 */
 .wave-master { flex: 0 0 400px; min-width: 0; padding: 12px; border: 1px solid #ebeef5; border-radius: 6px; background: #fff; }

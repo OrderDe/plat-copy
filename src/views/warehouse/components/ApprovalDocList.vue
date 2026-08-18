@@ -112,7 +112,7 @@
           </el-table-column>
           <el-table-column :label="qtyLabel" width="130">
             <template slot-scope="{row}">
-              <el-input-number v-model="row[qtyField]" :min="0" size="mini" controls-position="right" />
+              <el-input-number v-model="row[qtyField]" :min="1" size="mini" controls-position="right" />
             </template>
           </el-table-column>
           <el-table-column v-if="dialogMode === 'add'" label="操作" width="60">
@@ -198,6 +198,8 @@ export default {
     },
     addItem() {
       const base = this.emptyItem();
+      // 新行的数量直接给 1：输入框 min 是 1，初值却是 0，不去动它就是一行非法数据
+      if (!(Number(base[this.qtyField]) > 0)) base[this.qtyField] = 1;
       // attrValueId/sku 必须预先声明：Vue 2 里给未声明的属性赋值不会触发视图更新
       this.form.items.push({ merId: null, attrValueId: null, sku: '', barCode: '', _options: [], _loading: false, ...base });
     },
@@ -206,6 +208,11 @@ export default {
       await this.$refs.formRef.validate();
       if (!this.form.items.length) return this.$message.warning('请至少添加一行明细');
       if (this.form.items.find((i) => !i.productId)) return this.$message.warning('请为每行选择商品');
+      // 用「不是正整数就拦」而不是「<=0 才拦」：el-input-number 的输入框被清空时
+      // v-model 拿到的是 undefined，Number(undefined) 是 NaN，任何比较都为 false，
+      // 数量为空的明细就这么一路存进了库，单据上显示成 0。
+      const invalidQty = this.form.items.findIndex((i) => !(Number(i[this.qtyField]) > 0));
+      if (invalidQty >= 0) return this.$message.warning('第 ' + (invalidQty + 1) + ' 行' + this.qtyLabel + '必须大于0');
       // 仓储按 SKU 记账，缺 attrValueId 会作用到「未指定规格」的兜底行上
       const noSku = this.form.items.findIndex((i) => !i.attrValueId);
       if (noSku >= 0) return this.$message.warning(`第 ${noSku + 1} 行未选择规格，请重新选择商品并指定规格`);

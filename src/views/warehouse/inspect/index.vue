@@ -133,15 +133,18 @@
           </el-col>
           <el-col :span="8">
             <el-form-item label="不合格区货架">
+              <!-- 只列不合格区货架：判了不合格的货放进别的区，尤其是可售区，
+                   会被同步成商城可售库存直接卖出去 -->
               <el-select v-model="form.ngShelfId" filterable clearable style="width:100%" placeholder="不合格品统一入这个货架(可空)" @change="onNgShelfChange">
-                <el-option v-for="s in shelfCache" :key="s.id" :label="`${s.code} (${typeMap[s.type]||''})`" :value="s.id" />
+                <el-option v-for="s in ngShelfOptions" :key="s.id" :label="`${s.code} (${typeMap[s.type]||''})`" :value="s.id" />
               </el-select>
+              <div v-if="!ngShelfOptions.length && form.warehouseId" class="sku-missing">该仓没有不合格区货架，请先到货架管理配置</div>
             </el-form-item>
           </el-col>
           <el-col :span="8">
             <el-form-item label="不合格区库位">
               <el-select v-model="form.ngLocationId" filterable clearable :disabled="!form.ngShelfId" style="width:100%" placeholder="不填则取该货架首个可用库位">
-                <el-option v-for="l in (locationCache[form.ngShelfId]||[])" :key="l.id" :label="ngLocationLabel(l)" :value="l.id" />
+                <el-option v-for="l in ngLocations(form.ngShelfId)" :key="l.id" :label="ngLocationLabel(l)" :value="l.id" />
               </el-select>
             </el-form-item>
           </el-col>
@@ -188,19 +191,20 @@
               <template slot-scope="{row}">
                 <!-- 送检数量 = 入库单的实入库数量，不由质检员改 -->
                 <span v-if="fromInbound">{{ row.qtyReceived }}</span>
-                <el-input-number v-else v-model="row.qtyReceived" :min="0" size="mini" controls-position="right" />
+                <el-input-number v-else v-model="row.qtyReceived" :min="0" size="mini" controls-position="right" @change="syncQty(row, 'received')" />
               </template>
             </el-table-column>
-            <!-- 合格 + 不合格 不能超过送检数：多填多少就凭空多出多少库存，
-                 max 按「送检 - 另一栏」动态算，两栏加起来自然封顶 -->
+            <!-- 合格 + 不合格 必须正好等于送检数：送检的每一件都要有结论，
+                 多填是凭空多出库存，少填则剩下的货一直卡在待检区。
+                 改一栏自动把另一栏补成差额，两栏永远配平 -->
             <el-table-column label="合格" width="100">
               <template slot-scope="{row}">
-                <el-input-number v-model="row.qtyPass" :min="0" :max="maxQty(row, 'pass')" size="mini" controls-position="right" />
+                <el-input-number v-model="row.qtyPass" :min="0" :max="Number(row.qtyReceived || 0)" size="mini" controls-position="right" @change="syncQty(row, 'pass')" />
               </template>
             </el-table-column>
             <el-table-column label="不合格" width="100">
               <template slot-scope="{row}">
-                <el-input-number v-model="row.qtyFail" :min="0" :max="maxQty(row, 'fail')" size="mini" controls-position="right" />
+                <el-input-number v-model="row.qtyFail" :min="0" :max="Number(row.qtyReceived || 0)" size="mini" controls-position="right" @change="syncQty(row, 'fail')" />
               </template>
             </el-table-column>
             <el-table-column label="处置" width="140">
@@ -214,8 +218,9 @@
             </el-table-column>
             <el-table-column label="合格品存放-货架" width="140">
               <template slot-scope="{row}">
+                <!-- 退货区/不合格区货架不能放合格品：那两个区是「这批货有问题」的意思 -->
                 <el-select v-model="row.passShelfId" size="mini" filterable clearable @change="onShelfChange(row)" style="width:100%">
-                  <el-option v-for="s in shelfCache" :key="s.id" :label="s.code" :value="s.id" />
+                  <el-option v-for="s in passShelfOptions" :key="s.id" :label="s.code" :value="s.id" />
                 </el-select>
               </template>
             </el-table-column>
@@ -256,6 +261,12 @@ import AdminPickerDialog from '../components/AdminPickerDialog.vue';
 import ProductPickerDialog from '../components/ProductPickerDialog.vue';
 import { locationLabel, locationDisabled } from '@/views/warehouse/components/locationCapacity';
 
+/** 货架类型：3退货区 4不合格区（见 wms_shelf.type） */
+const SHELF_TYPE_RETURN = 3;
+const SHELF_TYPE_NG = 4;
+/** 库位用途：2隔离/不合格区（见 wms_location.usage_type） */
+const USAGE_NG = 2;
+
 export default {
   name: 'WarehouseInspect',
   components: { AdminPickerDialog, ProductPickerDialog },
@@ -267,7 +278,7 @@ export default {
       query: { page: 1, limit: 20, code: '', warehouseId: null, inboundId: null, status: null, result: null },
       dialogVisible: false, dialogMode: 'add',
       form: this.emptyForm(),
-      typeMap: { 0: '普通', 1: '托盘', 2: '零散', 3: '退货', 4: '不合格', 5: '冷藏', 6: '冷冻' },
+      typeMap: { 0: '普通', 1: '托盘', 2: '零散', 3: '退货', 4: '不合格', 5: '冷藏', 6: '冷冻', 7: '待检' },
       rules: {
         warehouseId: [{ required: true, message: '请选择仓库', trigger: 'change' }],
         inspectorName: [{ required: true, message: '请选择质检员', trigger: 'change' }],
@@ -282,6 +293,18 @@ export default {
       if (this.dialogMode === 'add') return '新建质检单';
       return (this.dialogMode === 'edit' ? '编辑质检单 ' : '质检单详情') + (this.form.code || '');
     },
+    /** 不合格品只能进不合格区货架 */
+    ngShelfOptions() {
+      return this.shelfCache.filter((s) => s.type === SHELF_TYPE_NG);
+    },
+    /**
+     * 合格品可选的货架：排除退货区和不合格区。
+     * 那两个区的含义就是「这批货有问题」，把检合格的货放进去，要么永远不可售，
+     * 要么和真正的问题货混在一起，下一次谁也分不清哪批是好的。
+     */
+    passShelfOptions() {
+      return this.shelfCache.filter((s) => s.type !== SHELF_TYPE_RETURN && s.type !== SHELF_TYPE_NG);
+    },
   },
   created() {
     if (this.$route.query.inboundId) this.query.inboundId = Number(this.$route.query.inboundId);
@@ -292,11 +315,28 @@ export default {
   methods: {
     locationLabel,
     locationDisabled,
-    /** 合格/不合格各自的上限：送检数减掉另一栏已填的数 */
-    maxQty(row, which) {
+    /**
+     * 合格 / 不合格配平：改动一栏，另一栏自动补成「送检 - 本栏」。
+     *
+     * 送检的每一件都必须有结论，两栏之和只能等于送检数。以前只用 max 限制上限，
+     * 质检员把合格从 10 改成 9 时不合格仍是 0，单据看着填完了、实际少判了一件，
+     * 提交时才被后端打回。改哪栏就以哪栏为准，另一栏跟着走。
+     */
+    syncQty(row, which) {
       const received = Number(row.qtyReceived || 0);
-      const other = which === 'pass' ? Number(row.qtyFail || 0) : Number(row.qtyPass || 0);
-      return Math.max(0, received - other);
+      if (which === 'received') {
+        // 送检数变了以合格为准收敛，合格超出新送检数时先压回上限
+        row.qtyPass = Math.min(Number(row.qtyPass || 0), received);
+        row.qtyFail = received - Number(row.qtyPass || 0);
+        return;
+      }
+      if (which === 'pass') {
+        row.qtyPass = Math.min(Math.max(Number(row.qtyPass || 0), 0), received);
+        row.qtyFail = received - Number(row.qtyPass);
+      } else {
+        row.qtyFail = Math.min(Math.max(Number(row.qtyFail || 0), 0), received);
+        row.qtyPass = received - Number(row.qtyFail);
+      }
     },
     emptyForm() { return { warehouseId: null, inboundId: null, inboundCode: '', inspectorId: null, inspectorName: '', inspectorPhone: '', ngShelfId: null, ngLocationId: null, remark: '', items: [] }; },
     /** 有不合格数即判为「存在不合格」，草稿还没填结果时不下结论 */
@@ -461,6 +501,10 @@ export default {
     sellableLocations(shelfId) {
       return (this.locationCache[shelfId] || []).filter((l) => !l.usageType);
     },
+    /** 不合格品只能进隔离/不合格区库位(usageType=2) */
+    ngLocations(shelfId) {
+      return (this.locationCache[shelfId] || []).filter((l) => l.usageType === USAGE_NG);
+    },
     merchantText(merId) {
       const m = this.merchantList.find(x => x.id === merId);
       return m ? m.name : (merId || '-');
@@ -553,14 +597,14 @@ export default {
       if (noSku >= 0) return this.$message.warning(`第 ${noSku + 1} 行未选择规格`);
       // 数量先于库位校验：数量填错是更基础的错，先让人把数改对再去挑库位
       // input-number 的 max 只挡加减按钮和失焦校正，手输仍可能越界，保存前再算一遍
-      const overQty = this.form.items.findIndex(
-        (item) => Number(item.qtyPass || 0) + Number(item.qtyFail || 0) > Number(item.qtyReceived || 0),
+      const badQty = this.form.items.findIndex(
+        (item) => Number(item.qtyPass || 0) + Number(item.qtyFail || 0) !== Number(item.qtyReceived || 0),
       );
-      if (overQty >= 0) {
-        const it = this.form.items[overQty];
+      if (badQty >= 0) {
+        const it = this.form.items[badQty];
         return this.$message.warning(
-          `第 ${overQty + 1} 行合格 ${Number(it.qtyPass || 0)} + 不合格 ${Number(it.qtyFail || 0)}`
-          + ` 超过送检数 ${Number(it.qtyReceived || 0)}`,
+          `第 ${badQty + 1} 行合格 ${Number(it.qtyPass || 0)} + 不合格 ${Number(it.qtyFail || 0)}`
+          + ` 与送检数 ${Number(it.qtyReceived || 0)} 不一致，送检的每一件都要有结论`,
         );
       }
       // 入库的货停在待检区，合格品必须指定一个可售区库位才会真正变成可售库存

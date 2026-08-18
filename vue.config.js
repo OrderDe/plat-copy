@@ -13,7 +13,9 @@ const name = '淘街'; // page title
 // For example, Mac: sudo npm run
 // You can change the port by the following method:
 // port = 9527 npm run dev OR npm run dev --port = 9527
-const port = process.env.port || process.env.npm_config_port || 9527; // dev port
+// PORT 是启动方分配端口的通用约定；9527 被别的进程占着时靠它换一个端口起来。
+// 前端直连 .env 里的后端地址，没有回调/CORS 绑定在某个固定端口上，换端口是安全的。
+const port = process.env.PORT || process.env.port || process.env.npm_config_port || 9527; // dev port
 
 // All configuration item explanations can be find in https://cli.vuejs.org/config/
 module.exports = {
