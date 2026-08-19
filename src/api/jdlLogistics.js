@@ -1,6 +1,6 @@
 import request from '@/utils/request';
 
-const base = '/api/admin/logistics/jdl';
+const base = '/admin/logistics/jdl';
 
 export const jdlLogisticsApi = {
   waybillInfo: (waybillCode) => request({ url: `${base}/waybill/info`, method: 'get', params: { waybillCode } }),

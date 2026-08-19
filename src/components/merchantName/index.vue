@@ -32,7 +32,8 @@ export default {
       default: false,
     },
     merIdChecked: {
-      type: [Number, String, Boolean],
+      // el-select 开启 multiple 时 v-model 必须是数组；单选场景仍兼容原有标量。
+      type: [Number, String, Boolean, Array],
       default: null,
     },
   },

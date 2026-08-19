@@ -681,7 +681,8 @@ export default {
       if (!warehouseId) { this.shelfCache = []; return; }
       try {
         const res = await shelfApi.page({ page: 1, limit: 999, warehouseId, status: 1 });
-        this.shelfCache = (res && res.list) || [];
+        // 接口参数 status=1 是服务端过滤，前端再兜底一次，避免旧服务或缓存把停用货架带进下拉。
+        this.shelfCache = ((res && res.list) || []).filter((s) => Number(s.status) === 1);
       } catch (e) { this.shelfCache = []; }
     },
     async onShelfChange(row) {

@@ -18,6 +18,7 @@ import financeRouter from './modules/finance';
 import operationRouter from './modules/operation';
 import merchant from './modules/merchant';
 import pagediy from '@/router/modules/pagediy';
+import qdiy from '@/router/modules/qdiy';
 import areaRouter from './modules/area';
 import definitionRouter from './modules/definition';
 import flowableRouter from './modules/flowable';
@@ -75,6 +76,8 @@ export const constantRoutes = [
   merchant,
   // 页面diy
   pagediy,
+  // 商城装修（qdiy，与 pagediy 并存）
+  qdiy,
   // 圈层管理
   areaRouter,
   definitionRouter,

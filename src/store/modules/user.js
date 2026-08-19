@@ -237,7 +237,17 @@ const actions = {
           // commit('SET_AVATAR', avatar)
           commit('SET_AVATAR', '');
           commit('SET_INTRODUCTION', '');
-          commit('SET_PERMISSIONS', data.permissionsList); //权限标识
+          // qdiy 的菜单是前端注入的，后端 eb_system_menu 里没有对应记录，
+          // permissionsList 自然不含 platform:qdiy:*，页面上的按钮会被 v-hasPermi 全部摘掉
+          // （表现为「新建页面」「新增海报」「保存」按钮凭空消失）。这里补齐权限标识。
+          const qdiyPerms = [];
+          ['page', 'nav', 'setting', 'poster', 'material', 'market', 'mytemplate'].forEach((mod) => {
+            ['list', 'info', 'save', 'update', 'delete', 'copy', 'sethome', 'setshownav', 'setdefault', 'move', 'receive', 'use'].forEach((act) => {
+              qdiyPerms.push(`platform:qdiy:${mod}:${act}`);
+            });
+          });
+          const permissionsList = Array.isArray(data.permissionsList) ? data.permissionsList.concat(qdiyPerms) : qdiyPerms;
+          commit('SET_PERMISSIONS', permissionsList); //权限标识
           commit('SET_USER_INFO', data); // 存储完整的用户信息
           resolve(data);
         })
@@ -478,6 +488,26 @@ const actions = {
       };
       if (Array.isArray(accessRoutes) && !accessRoutes.find(r => r && r.path === '/recommend')) {
         accessRoutes.push(recommendMenu);
+      }
+
+      // ===== 手动注入 "商城装修" (qdiy) 菜单 =====
+      // 同推荐管理：eb_system_menu 里没有 qdiy 记录，只加 router/modules/qdiy.js
+      // 的话页面能直接访问但侧边栏不显示。与旧的 pagediy「装修」并存。
+      const qdiyMenu = {
+        id: 9400, pid: 0, title: '七件事装修', icon: 'clipboard',
+        perms: '', path: '/qdiy', menuType: 'M', sort: 995,
+        children: [
+          { id: 9401, pid: 9400, title: '页面装修', icon: '', perms: '', path: '/qdiy/page',       menuType: 'C', sort: 1, children: [] },
+          { id: 9402, pid: 9400, title: '底部导航', icon: '', perms: '', path: '/qdiy/bottomnav',  menuType: 'C', sort: 2, children: [] },
+          { id: 9403, pid: 9400, title: '全局配置', icon: '', perms: '', path: '/qdiy/setting',    menuType: 'C', sort: 3, children: [] },
+          { id: 9404, pid: 9400, title: '海报列表', icon: '', perms: '', path: '/qdiy/poster',     menuType: 'C', sort: 4, children: [] },
+          { id: 9405, pid: 9400, title: '素材管理', icon: '', perms: '', path: '/qdiy/material',   menuType: 'C', sort: 5, children: [] },
+          { id: 9406, pid: 9400, title: '我的模板', icon: '', perms: '', path: '/qdiy/mytemplate', menuType: 'C', sort: 6, children: [] },
+          { id: 9407, pid: 9400, title: '模板市场', icon: '', perms: '', path: '/qdiy/market',     menuType: 'C', sort: 7, children: [] },
+        ],
+      };
+      if (Array.isArray(accessRoutes) && !accessRoutes.find(r => r && r.path === '/qdiy')) {
+        accessRoutes.push(qdiyMenu);
       }
 
       // ===== 手动注入 "发货记录" 到订单菜单下 =====

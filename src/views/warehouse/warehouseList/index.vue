@@ -34,6 +34,8 @@
       <el-table-column prop="id" label="ID" width="80" />
       <el-table-column prop="code" label="仓库编码" width="140" />
       <el-table-column prop="name" label="仓库名称" min-width="150" />
+      <el-table-column prop="building" label="栋" width="80" show-overflow-tooltip />
+      <el-table-column prop="floor" label="层" width="80" show-overflow-tooltip />
       <el-table-column label="类型" width="90">
         <template slot-scope="{row}">
           <el-tag size="mini">{{ typeText(row.type) }}</el-tag>
@@ -43,7 +45,7 @@
       <el-table-column prop="contactPhone" label="电话" width="130" />
       <el-table-column label="地址" min-width="200" show-overflow-tooltip>
         <template slot-scope="{row}">
-          {{ [row.province, row.city, row.region, row.detailAddress, row.building, row.floor].filter(Boolean).join('') }}
+          {{ [row.province, row.city, row.region, row.detailAddress].filter(Boolean).join('') }}
         </template>
       </el-table-column>
       <el-table-column label="状态" width="80">

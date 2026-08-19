@@ -47,7 +47,7 @@
         <template slot-scope="{row}">{{ typeText(row.type) }}</template>
       </el-table-column>
       <el-table-column label="关联单号" width="180" show-overflow-tooltip>
-        <template slot-scope="{row}">{{ row.relatedCode || '-' }}</template>
+        <template slot-scope="{row}">{{ relatedCodesText(row) }}</template>
       </el-table-column>
       <el-table-column prop="customerCode" label="客户" width="120" show-overflow-tooltip />
       <el-table-column label="物流状态" width="150">
@@ -119,11 +119,14 @@
             </el-form-item>
           </el-col>
           <el-col v-if="hasSourceDoc" :span="24">
-            <el-form-item :label="'关联' + sourceDocName" prop="sourceDocId" required>
+            <el-form-item :label="'关联' + sourceDocName" prop="sourceDocIdList" required>
+              <!-- 多选 = 合单出库：几张源单一起拣货，明细各自记住来源，出库凭证仍分得清 -->
               <el-select
-                v-model="form.sourceDocId"
+                v-model="form.sourceDocIdList"
+                multiple
+                collapse-tags
                 filterable
-                :placeholder="`只能选择审批通过且尚未出库的${sourceDocName}`"
+                :placeholder="`可多选，只能选择审批通过且尚未出库的${sourceDocName}`"
                 style="width:100%"
                 :loading="sourceLoading"
                 :disabled="dialogMode === 'view'"
@@ -141,21 +144,25 @@
               </div>
               <div v-else-if="dialogMode === 'add'" class="hint-text">
                 明细按{{ sourceDocName }}批准的内容自动带出，不可修改；库存已由{{ sourceDocName }}扣减，本单只作出库凭证，不需要组波拣货。
+                可多选同一仓库的多张{{ sourceDocName }}合并为一张出库单。
               </div>
             </el-form-item>
           </el-col>
           <el-col v-if="isSale" :span="24">
-            <el-form-item label="关联订单号" prop="relatedCode" required>
-              <!-- 订单量大，不适合一次性拉全量，走远程搜索：输入订单号或收货人再查 -->
+            <el-form-item label="关联订单号" prop="relatedCodeList" required>
+              <!-- 订单量大，不适合一次性拉全量，走远程搜索：输入订单号或收货人再查。
+                   多选 = 合单出库：几个订单一起拣货，发货时按订单各自回写 -->
               <el-select
-                v-model="form.relatedCode"
+                v-model="form.relatedCodeList"
+                multiple
+                collapse-tags
                 filterable
                 remote
                 clearable
                 allow-create
                 default-first-option
                 reserve-keyword
-                placeholder="输入订单号搜索并选择，默认只列待发货订单"
+                placeholder="可多选，输入订单号搜索并选择，默认只列待发货订单"
                 style="width:100%"
                 :loading="orderLoading || orderItemsLoading"
                 :remote-method="searchOrders"
@@ -176,6 +183,7 @@
               <div v-if="dialogMode === 'add'" class="hint-text">
                 只列可出库的订单：待发货/部分发货、无进行中退款、且含纳入仓储管理的商品。
                 找不到时可直接输入订单号回车。选定后自动带出该订单的商品明细，无需手工添加。
+                可多选多个订单合并为一张出库单：一起拣货，发货时按订单分别回写。
               </div>
             </el-form-item>
           </el-col>
@@ -219,7 +227,7 @@
         <el-button v-if="dialogMode === 'add' && !itemsLocked" size="mini" icon="el-icon-plus" @click="addItem">添加行</el-button>
         <span v-else-if="hasSourceDoc && dialogMode === 'add'" class="hint-text">明细来自关联的{{ sourceDocName }}，如需调整请修改源单并重新审批。</span>
         <span v-else-if="itemsLocked && dialogMode === 'add'" class="hint-text">
-          明细已按订单 {{ form.relatedCode }} 自动带出（已扣除退款和已发货数量），如需调整请先清空关联订单号。
+          明细已按订单 {{ (form.relatedCodeList || []).join('、') }} 自动带出（已扣除退款和已发货数量），如需调整请先清空关联订单号。
         </span>
         <div class="dialog-table-scroller">
           <el-table :data="form.items" border size="mini" max-height="360">
@@ -237,6 +245,10 @@
                   <el-button v-if="!itemsLocked" slot="append" size="mini" icon="el-icon-search" @click="pickProductWithBatch(row)" />
                 </el-input>
               </template>
+            </el-table-column>
+            <!-- 合单时每行属于哪张源单必须看得见：拣货、发货回写和事后对账都按它区分 -->
+            <el-table-column v-if="multiSource" label="来源单号" width="180">
+              <template slot-scope="{row}">{{ row.sourceCode || '-' }}</template>
             </el-table-column>
             <el-table-column label="规格" min-width="150">
               <template slot-scope="{row}">
@@ -344,8 +356,8 @@ export default {
         warehouseId: [{ required: true, message: '请选择仓库', trigger: 'change' }],
         type: [{ required: true, message: '请选择类型', trigger: 'change' }],
         applyUserId: [{ required: true, message: '请选择申请人', trigger: 'change' }],
-        sourceDocId: [{ required: true, message: '请关联一张审批通过的源单', trigger: 'change' }],
-        relatedCode: [{ required: true, message: '销售出库必须填写关联订单号', trigger: 'blur' }],
+        sourceDocIdList: [{ required: true, type: 'array', min: 1, message: '请关联至少一张审批通过的源单', trigger: 'change' }],
+        relatedCodeList: [{ required: true, type: 'array', min: 1, message: '销售出库必须选择关联订单号', trigger: 'change' }],
       },
     };
   },
@@ -356,18 +368,27 @@ export default {
     isSale() { return this.form.type === TYPE_SALE; },
     /** 明细来自源单或订单，一律只读 */
     itemsLocked() { return this.hasSourceDoc || this.itemsAutoFilled; },
+    /** 合单（关联了多张源单/多个订单）时明细要标出各自来源 */
+    multiSource() {
+      const codes = this.form.sources
+        ? this.form.sources.length
+        : ((this.form.relatedCodeList || []).length || (this.form.sourceDocIdList || []).length);
+      return codes > 1;
+    },
   },
   created() {
     this.loadTypeOptions();
     this.loadPage();
   },
   methods: {
-    emptyForm() { return { warehouseId: null, type: 0, sourceDocId: null, relatedCode: '', applyUserId: null, applyUserName: '', applyUserPhone: '', customerCode: '', expressCompany: '', priority: 0, remark: '', items: [] }; },
+    emptyForm() { return { warehouseId: null, type: 0, sourceDocId: null, sourceDocIdList: [], relatedCode: '', relatedCodeList: [], sources: null, applyUserId: null, applyUserName: '', applyUserPhone: '', customerCode: '', expressCompany: '', priority: 0, remark: '', items: [] }; },
 
     /** 切类型：换了类型原来的关联和带出明细都不再适用，一律清空重来 */
     onTypeChange() {
       this.form.sourceDocId = null;
+      this.form.sourceDocIdList = [];
       this.form.relatedCode = '';
+      this.form.relatedCodeList = [];
       this.form.items = [];
       this.sourceOptions = [];
       this.itemsAutoFilled = false;
@@ -404,15 +425,47 @@ export default {
      * 出库数取「实付数 - 已退款数 - 已发货数」：整单退掉或已发过的部分不该再出一次。
      * 算下来没有可出的行时不静默留空，明确提示，否则操作员会以为系统没查出来。
      */
-    async onOrderChange(orderNo) {
-      this.$refs.formRef && this.$refs.formRef.validateField('relatedCode');
+    async onOrderChange(orderNos) {
+      this.$refs.formRef && this.$refs.formRef.validateField('relatedCodeList');
+      const list = orderNos || [];
       // 清空订单号 = 回到手工录入模式
-      if (!orderNo) {
+      if (!list.length) {
         this.itemsAutoFilled = false;
+        this.form.relatedCode = '';
         this.form.items = [];
         return;
       }
+      this.form.relatedCode = list[0];
       this.orderItemsLoading = true;
+      try {
+        // 合单：逐个订单拉明细再合并，每行打上来源订单号——
+        // 后端按这个字段决定发货时回写哪个订单，缺了会被拒
+        const items = [];
+        const failed = [];
+        for (const orderNo of list) {
+          // eslint-disable-next-line no-await-in-loop
+          const lines = await this.loadOrderItems(orderNo);
+          if (lines === null) failed.push(orderNo);
+          else items.push(...lines);
+        }
+        if (failed.length) {
+          this.$message.warning(`订单 ${failed.join('、')} 的商品明细未能读取，请核对后重试`);
+        }
+        if (!items.length) {
+          this.itemsAutoFilled = false;
+          this.form.items = [];
+          this.$message.warning('所选订单没有可出库的商品（可能已全部发货或已退款），请核对订单');
+          return;
+        }
+        this.batchOptions = {};
+        this.form.items = items;
+        this.itemsAutoFilled = true;
+        // 订单可能跨商户，仓库仍由操作员选：一张订单的货未必都在同一个仓
+        this.$message.success(`已按 ${list.length} 个订单带出 ${items.length} 条明细`);
+      } finally { this.orderItemsLoading = false; }
+    },
+    /** 取一个订单的可出库明细；读取失败返回 null，由调用方提示，不静默当成空单 */
+    async loadOrderItems(orderNo) {
       try {
         const res = await orderDetailApi({ orderNo });
         const data = (res && (res.data !== undefined ? res.data : res)) || {};
@@ -422,6 +475,7 @@ export default {
           const num = (d.payNum || 0) - (d.refundNum || 0) - (d.deliveryNum || 0);
           if (num <= 0) return;
           items.push({
+            sourceCode: orderNo,
             productId: d.productId,
             attrValueId: d.attrValueId,
             sku: d.sku,
@@ -434,22 +488,10 @@ export default {
             actualOutboundNum: num,
           });
         });
-        if (!items.length) {
-          this.itemsAutoFilled = false;
-          this.form.items = [];
-          this.$message.warning('该订单没有可出库的商品（可能已全部发货或已退款），请核对订单');
-          return;
-        }
-        this.batchOptions = {};
-        this.form.items = items;
-        this.itemsAutoFilled = true;
-        // 订单可能跨商户，仓库仍由操作员选：一张订单的货未必都在同一个仓
-        this.$message.success(`已按订单带出 ${items.length} 条明细`);
+        return items;
       } catch (e) {
-        // 查不到明细不该挡住建单，退回手工录入
-        this.itemsAutoFilled = false;
-        this.$message.warning('未能读取该订单的商品明细，请手工添加出库明细');
-      } finally { this.orderItemsLoading = false; }
+        return null;
+      }
     },
     async loadSourceOptions() {
       this.sourceLoading = true;
@@ -461,14 +503,39 @@ export default {
       } finally { this.sourceLoading = false; }
     },
     /** 选定源单：仓库锁成源单的仓库，明细按批准内容带出（后端也会以源单为准重算一遍） */
-    onSourceChange(sourceDocId) {
-      const hit = this.sourceOptions.find((o) => o.id === sourceDocId);
-      if (!hit) return;
-      this.form.warehouseId = hit.warehouseId;
-      this.form.relatedCode = hit.code;
+    onSourceChange(sourceDocIds) {
+      const ids = sourceDocIds || [];
+      if (!ids.length) {
+        this.form.sourceDocId = null;
+        this.form.relatedCode = '';
+        this.form.items = [];
+        this.itemsAutoFilled = false;
+        return;
+      }
+      const hits = ids.map((id) => this.sourceOptions.find((o) => o.id === id)).filter(Boolean);
+      if (!hits.length) return;
+      // 一张出库单只出一个仓的货，跨仓的源单合不到一起——后端也会拒，这里先拦下来免得白填一遍
+      const crossWarehouse = hits.find((h) => h.warehouseId !== hits[0].warehouseId);
+      if (crossWarehouse) {
+        this.$message.warning(`${this.sourceDocName} ${crossWarehouse.code} 不在同一个仓库，不能合并到一张出库单`);
+        this.form.sourceDocIdList = ids.filter((id) => id !== crossWarehouse.id);
+        return;
+      }
+      this.form.warehouseId = hits[0].warehouseId;
+      this.form.sourceDocId = hits[0].id;
+      this.form.relatedCode = hits[0].code;
       this.batchOptions = {};
-      this.form.items = (hit.items || []).map((it) => ({ ...it, batchId: null }));
+      // 明细带上来源，合单后每行看得出是哪张源单批准的
+      this.form.items = hits.reduce((all, h) => all.concat(
+        (h.items || []).map((it) => ({ ...it, batchId: null, sourceCode: h.code, sourceDocId: h.id })),
+      ), []);
       this.itemsAutoFilled = true;
+    },
+    /** 列表上的关联单号：合单时子表里有多条，单头只记主单号 */
+    relatedCodesText(row) {
+      const codes = (row.sources || []).map((s) => s.sourceCode).filter(Boolean);
+      if (codes.length > 1) return `${codes[0]} 等 ${codes.length} 单`;
+      return codes[0] || row.relatedCode || '-';
     },
     typeText(t) {
       // 类型名来自字典；停用后的历史单据也能显示原名称，字典没这条时退回显示原始值
@@ -598,15 +665,32 @@ export default {
       this.form = res || this.emptyForm();
       if (!this.form.items) this.form.items = [];
       this.itemsAutoFilled = false;
-      // 详情里下拉只用来显示单号，历史单关联的源单已被占用不在候选里，这里补一条
-      if (this.form.sourceDocId) {
-        this.sourceOptions = [{
-          id: this.form.sourceDocId,
-          code: this.form.relatedCode || ('源单#' + this.form.sourceDocId),
-          warehouseId: this.form.warehouseId,
-          summary: '',
-          items: this.form.items || [],
-        }];
+      // 详情把子表还原成多选控件要的两个列表；老单据没有子表记录，退回单头
+      const sources = this.form.sources || [];
+      this.form.relatedCodeList = sources.length
+        ? sources.map((x) => x.sourceCode).filter(Boolean)
+        : (this.form.relatedCode ? [this.form.relatedCode] : []);
+      this.form.sourceDocIdList = sources.length
+        ? sources.map((x) => x.sourceDocId).filter((x) => x != null)
+        : (this.form.sourceDocId ? [this.form.sourceDocId] : []);
+      // 详情里下拉只用来显示单号，历史单关联的源单已被占用不在候选里，这里补齐
+      if (this.form.sourceDocIdList.length) {
+        this.sourceOptions = this.form.sourceDocIdList.map((docId) => {
+          const hit = sources.find((x) => x.sourceDocId === docId);
+          return {
+            id: docId,
+            code: (hit && hit.sourceCode) || this.form.relatedCode || ('源单#' + docId),
+            warehouseId: this.form.warehouseId,
+            summary: '',
+            items: [],
+          };
+        });
+      }
+      // 订单号是远程搜索的，详情下不会再搜一次，补进候选才显示得出来
+      if (this.form.relatedCodeList.length && !this.form.sourceDocIdList.length) {
+        this.orderOptions = this.form.relatedCodeList.map((orderNo) => ({
+          orderNo, realName: '', payPrice: '', statusText: '',
+        }));
       }
       this.dialogMode = 'view';
       this.dialogVisible = true;
@@ -633,7 +717,13 @@ export default {
       }
       this.saving = true;
       try {
-        const payload = { ...this.form, items: this.stripItemMeta(this.form.items) };
+        const payload = {
+          ...this.form,
+          // 单头留主单号(第一个)，全部关联单走列表，后端落到 wms_outbound_source
+          relatedCode: (this.form.relatedCodeList || [])[0] || this.form.relatedCode,
+          sourceDocId: (this.form.sourceDocIdList || [])[0] || this.form.sourceDocId,
+          items: this.stripItemMeta(this.form.items),
+        };
         await outboundApi.add(payload);
         this.$message.success('保存成功');
         this.dialogVisible = false;

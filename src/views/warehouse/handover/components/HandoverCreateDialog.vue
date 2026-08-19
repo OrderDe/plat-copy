@@ -39,8 +39,8 @@
       </el-row>
       <el-row :gutter="12">
         <el-col :span="8">
-          <el-form-item label="快递员姓名" prop="courierName">
-            <el-input v-model="form.courierName" placeholder="必填，追责时靠它" />
+          <el-form-item label="快递员姓名">
+            <el-input v-model="form.courierName" placeholder="选填" />
           </el-form-item>
         </el-col>
         <el-col :span="8">
@@ -142,7 +142,6 @@ export default {
       },
       rules: {
         warehouseId: [{ required: true, message: '请选择仓库', trigger: 'change' }],
-        courierName: [{ required: true, message: '请填写快递员姓名', trigger: 'blur' }],
       },
     };
   },

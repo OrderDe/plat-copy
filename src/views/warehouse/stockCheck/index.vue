@@ -16,7 +16,7 @@
     </header>
 
     <!-- 流程导航：两步 -->
-    <nav class="workflow">
+    <nav v-if="checkDialogVisible" class="workflow">
       <button
         v-for="(key, index) in stepOrder"
         :key="key"
@@ -30,6 +30,15 @@
     </nav>
 
     <main>
+      <el-dialog
+        :title="activeStep === 'create' ? '建单与盘点范围' : '盘点与提交'"
+        :visible.sync="checkDialogVisible"
+        width="94%"
+        top="3vh"
+        append-to-body
+        :close-on-click-modal="false"
+        @closed="onCheckDialogClosed"
+      >
       <!-- 1. 建单与范围 -->
       <section v-show="activeStep === 'create'" class="screen">
         <div class="section-heading">
@@ -48,8 +57,17 @@
             <el-form-item label="盘点日期">
               <el-date-picker v-model="form.checkDate" type="date" value-format="yyyy-MM-dd" style="width:100%" />
             </el-form-item>
-            <el-form-item label="目标仓库" prop="warehouseId">
-              <el-select v-model="form.warehouseId" filterable placeholder="请选择仓库" style="width:100%" @change="onWarehouseChange">
+            <!-- 一张单可同时盘多个仓，明细按仓库分组，审核归档时各回各仓 -->
+            <el-form-item label="目标仓库（可多选）" prop="warehouseIdList">
+              <el-select
+                v-model="form.warehouseIdList"
+                multiple
+                collapse-tags
+                filterable
+                placeholder="请选择仓库，可多选"
+                style="width:100%"
+                @change="onWarehouseChange"
+              >
                 <el-option v-for="w in warehouseList" :key="w.id" :label="`${w.code} / ${w.name}`" :value="w.id" />
               </el-select>
             </el-form-item>
@@ -77,8 +95,8 @@
                 collapse-tags
                 filterable
                 clearable
-                :disabled="!form.warehouseId || !scopeEditable"
-                :placeholder="form.warehouseId ? '不选 = 整仓盘点' : '请先选择仓库'"
+                :disabled="!selectedWarehouseIds.length || !scopeEditable"
+                :placeholder="selectedWarehouseIds.length ? '不选 = 所选仓库整仓盘点' : '请先选择仓库'"
                 style="width:100%"
               >
                 <el-option v-for="s in shelfList" :key="s.id" :label="shelfLabel(s)" :value="s.id" />
@@ -149,7 +167,7 @@
 
         <div class="doc-band">
           <span>{{ form.checkNo || '未保存' }}</span>
-          <span>{{ warehouseText(form.warehouseId) }} · {{ categoryText(form.categoryId) }}</span>
+          <span>{{ warehousesText(form) }} · {{ categoryText(form.categoryId) }}</span>
           <span>盘点人：{{ form.checkPeople || '-' }}</span>
           <span>盘点日期：{{ form.checkDate || '-' }}</span>
         </div>
@@ -167,7 +185,11 @@
           </thead>
           <tbody>
             <tr v-for="d in details" :key="d.id">
-              <td>{{ d.locationCode || '-' }} / {{ d.sku || '-' }}</td>
+              <td>
+                <!-- 多仓盘点时同一个库位编码可能在几个仓里都有，不标仓库分不清这行盘的是哪一仓 -->
+                <div v-if="multiWarehouse" class="text-small text-muted">{{ warehouseText(d.warehouseId) }}</div>
+                {{ d.locationCode || '-' }} / {{ d.sku || '-' }}
+              </td>
               <td>{{ d.goodsName }} {{ d.specName }}</td>
               <td>{{ d.bookStock == null ? '—' : d.bookStock }}</td>
               <td>
@@ -214,9 +236,6 @@
         <div class="action-bar split-actions">
           <el-button size="small" icon="el-icon-arrow-left" @click="showStep('create')">返回范围</el-button>
           <div v-if="!submitted" class="button-group">
-            <el-button size="small" icon="el-icon-document-checked" :loading="saving" :disabled="!feedbackEditable" @click="onSaveFeedback()">
-              保存反馈
-            </el-button>
             <el-button type="primary" size="small" icon="el-icon-s-promotion" :loading="saving" :disabled="!canSubmitAudit" @click="onSubmit">
               保存并提交审批
             </el-button>
@@ -228,7 +247,7 @@
           <div class="sheet-title">货品盘点表</div>
           <div class="sheet-meta">
             <span>盘点单号：<b>{{ form.checkNo || '-' }}</b></span>
-            <span>仓库：<b>{{ warehouseText(form.warehouseId) }}</b></span>
+            <span>仓库：<b>{{ warehousesText(form) }}</b></span>
             <span>品类：<b>{{ categoryText(form.categoryId) }}</b></span>
             <span>盘点人：<b>{{ form.checkPeople || '-' }}</b></span>
             <span>日期：<b>{{ form.checkDate || '-' }}</b></span>
@@ -243,7 +262,7 @@
             <tbody>
               <tr v-for="(d, i) in details" :key="d.id">
                 <td>{{ i + 1 }}</td>
-                <td>{{ d.locationCode || '-' }}</td>
+                <td>{{ multiWarehouse ? warehouseText(d.warehouseId) + ' · ' : '' }}{{ d.locationCode || '-' }}</td>
                 <td>{{ d.sku || '-' }}</td>
                 <td>{{ d.goodsName || '-' }}</td>
                 <td>{{ d.specName || '-' }}</td>
@@ -256,16 +275,13 @@
           <div class="signatures"><span>盘点人签字</span><span>复核人签字</span><span>领导签字</span></div>
         </article>
       </section>
+      </el-dialog>
       <!-- 3. 历史记录：保留盘点单列表和归档详情，方便追溯历史盘点结果 -->
       <section v-show="activeStep === 'history'" class="screen">
         <div class="section-heading">
           <div>
             <h2>盘点历史记录</h2>
             <p class="text-muted">查询盘点单，查看盘点范围、明细、反馈、审批意见和库存调整结果。</p>
-          </div>
-          <div class="button-group">
-            <el-button size="small" @click="onReset">重置</el-button>
-            <el-button type="primary" size="small" icon="el-icon-refresh" :loading="loading" @click="loadPage">刷新</el-button>
           </div>
         </div>
 
@@ -304,7 +320,7 @@
           <tbody>
             <tr v-for="row in tableData" :key="row.id">
               <td>{{ row.checkNo }}</td>
-              <td>{{ warehouseText(row.warehouseId) }} · {{ row.categoryName || '全部品类' }}</td>
+              <td>{{ warehousesText(row) }} · {{ row.categoryName || '全部品类' }}</td>
               <td>{{ row.checkPeople || '-' }}</td>
               <td>{{ row.checkDate || '-' }}</td>
               <td>{{ row.totalDiff || 0 }}</td>
@@ -329,16 +345,20 @@
           @current-change="loadPage"
         />
 
-        <section v-if="historyDetail" class="history-detail">
-          <div class="section-heading compact-heading">
-            <div>
-              <h3>盘点记录详情</h3>
-              <p class="text-muted">{{ historyDetail.checkNo }} · {{ statusText(historyDetail.status) }}</p>
-            </div>
-            <el-button type="text" icon="el-icon-close" @click="historyDetail = null">关闭</el-button>
-          </div>
+        <el-dialog
+          title="盘点记录详情"
+          :visible.sync="historyDialogVisible"
+          width="90%"
+          top="5vh"
+          append-to-body
+          :close-on-click-modal="false"
+          @closed="historyDetail = null"
+        >
+          <div v-if="historyDetail" class="history-detail history-dialog-body">
           <div class="history-summary">
-            <span>仓库：{{ warehouseText(historyDetail.warehouseId) }}</span>
+            <span>盘点单号：{{ historyDetail.checkNo || '-' }}</span>
+            <span>状态：{{ statusText(historyDetail.status) }}</span>
+            <span>仓库：{{ warehousesText(historyDetail) }}</span>
             <span>品类：{{ historyDetail.categoryName || categoryText(historyDetail.categoryId) }}</span>
             <span>盘点人：{{ historyDetail.checkPeople || '-' }}</span>
             <span>盘点日期：{{ historyDetail.checkDate || '-' }}</span>
@@ -356,7 +376,10 @@
             <thead><tr><th>库位 / SKU</th><th>商品</th><th>账面</th><th>实盘</th><th>差异</th><th>状态</th><th>反馈说明</th></tr></thead>
             <tbody>
               <tr v-for="item in (historyDetail.details || [])" :key="item.id">
-                <td>{{ item.locationCode || '-' }} / {{ item.sku || '-' }}</td>
+                <td>
+                  <div v-if="warehouseIdsOf(historyDetail).length > 1" class="text-small text-muted">{{ warehouseText(item.warehouseId) }}</div>
+                  {{ item.locationCode || '-' }} / {{ item.sku || '-' }}
+                </td>
                 <td>{{ item.goodsName || '-' }} {{ item.specName || '' }}</td>
                 <td>{{ item.bookStock == null ? '—' : item.bookStock }}</td>
                 <td>{{ item.actualStock == null ? '—' : item.actualStock }}</td>
@@ -367,7 +390,11 @@
               <tr v-if="!(historyDetail.details || []).length"><td colspan="7" class="empty-row">暂无盘点明细</td></tr>
             </tbody>
           </table>
-        </section>
+          </div>
+          <span slot="footer">
+            <el-button size="small" @click="historyDialogVisible = false">关闭</el-button>
+          </span>
+        </el-dialog>
       </section>
     </main>
 
@@ -389,7 +416,7 @@ export default {
   data() {
     return {
       ST,
-      activeStep: 'create',
+      activeStep: 'history',
       // 打印和提交都是盘点页上的动作，不单列步骤；审核归档走审批中心
       stepOrder: ['create', 'check', 'history'],
       stepLabels: { create: '建单与范围', check: '盘点与提交', history: '历史记录' },
@@ -400,6 +427,8 @@ export default {
       dateRange: [],
       query: { page: 1, limit: 20, checkNo: '', warehouseId: null, categoryId: null, status: null, startDate: '', endDate: '' },
       historyDetail: null,
+      historyDialogVisible: false,
+      checkDialogVisible: false,
       categoryList: [],
       shelfList: [],
       lockedShelfIdList: [],
@@ -423,7 +452,7 @@ export default {
         { value: 'OTHER', label: '其他' },
       ],
       rules: {
-        warehouseId: [{ required: true, message: '请选择仓库', trigger: 'change' }],
+        warehouseIdList: [{ required: true, type: 'array', min: 1, message: '请选择仓库', trigger: 'change' }],
         checkUserId: [{ required: true, message: '请选择盘点人，审批流按用户派单', trigger: 'change' }],
       },
     };
@@ -446,10 +475,16 @@ export default {
     submitted() {
       return [ST.AUDITING, ST.ARCHIVED].includes(this.form.status);
     },
+    selectedWarehouseIds() {
+      return this.form.warehouseIdList || [];
+    },
+    multiWarehouse() {
+      return this.warehouseIdsOf(this.form).length > 1;
+    },
     scopeText() {
       if (!this.details.length) return '保存并生成明细后显示应盘 SKU 与库位数量';
       const locations = new Set(this.details.map((d) => d.locationId).filter((x) => x != null));
-      return `${this.warehouseText(this.form.warehouseId)} · ${this.categoryText(this.form.categoryId)} · ${this.details.length} 个 SKU · ${locations.size} 个库位`;
+      return `${this.warehousesText(this.form)} · ${this.categoryText(this.form.categoryId)} · ${this.details.length} 个 SKU · ${locations.size} 个库位`;
     },
     summary() {
       const result = { normal: 0, damaged: 0, missing: 0, abnormal: 0, totalDiff: 0, amount: 0, locations: 0 };
@@ -475,7 +510,7 @@ export default {
   methods: {
     emptyForm() {
       return {
-        id: null, checkNo: '', warehouseId: null, categoryId: null, categoryName: '',
+        id: null, checkNo: '', warehouseId: null, warehouseIds: '', warehouseIdList: [], categoryId: null, categoryName: '',
         checkDate: this.today(), checkUserId: null, checkPeople: '', checkMode: 0,
         lockedShelfIds: '', remark: '', status: ST.DRAFT,
         submitTime: null, auditTime: null, archiveTime: null, auditUser: '', auditComment: '',
@@ -504,7 +539,25 @@ export default {
       const hit = this.categoryList.find((c) => c.id === id);
       return hit ? hit.name.trim() : String(id);
     },
-    shelfLabel(shelf) { return shelf.name ? `${shelf.code} / ${shelf.name}` : shelf.code; },
+    /** 单据上的仓库ID：多仓存 warehouseIds 逗号串，老单据只有 warehouseId */
+    warehouseIdsOf(row) {
+      if (!row) return [];
+      if (row.warehouseIdList && row.warehouseIdList.length) return row.warehouseIdList;
+      if (row.warehouseIds) return String(row.warehouseIds).split(',').filter((x) => x !== '').map(Number);
+      return row.warehouseId != null ? [row.warehouseId] : [];
+    },
+    /** 多仓时列出全部仓库名，超过 3 个折成「等 N 个仓库」，免得把整行撑破 */
+    warehousesText(row) {
+      const ids = this.warehouseIdsOf(row);
+      if (!ids.length) return '-';
+      if (ids.length <= 3) return ids.map((id) => this.warehouseText(id)).join('、');
+      return `${ids.slice(0, 3).map((id) => this.warehouseText(id)).join('、')} 等 ${ids.length} 个仓库`;
+    },
+    shelfLabel(shelf) {
+      const name = shelf.name ? `${shelf.code} / ${shelf.name}` : shelf.code;
+      // 多仓时不带仓库名的话，两个仓里同名货架根本分不出是哪一个
+      return this.selectedWarehouseIds.length > 1 ? `${this.warehouseText(shelf.warehouseId)} · ${name}` : name;
+    },
     diffOf(row) { return (row.actualStock || 0) - (row.bookStock || 0); },
     diffLabel(row) {
       const diff = this.diffOf(row);
@@ -518,8 +571,11 @@ export default {
     showStep(step) {
       this.activeStep = step;
       if (step === 'history') {
+        this.checkDialogVisible = false;
         this.historyDetail = null;
         this.loadPage();
+      } else {
+        this.checkDialogVisible = true;
       }
     },
     onNewCheck() {
@@ -530,9 +586,13 @@ export default {
       this.blindPrint = false;
       this.feedbackError = '';
       this.historyDetail = null;
+      this.checkDialogVisible = true;
       if (this.$refs.formRef) this.$refs.formRef.clearValidate();
       this.showStep('create');
-      this.$message.success('已创建新的盘点单草稿');
+    },
+    onCheckDialogClosed() {
+      this.activeStep = 'history';
+      this.loadPage();
     },
 
     async loadCategories() {
@@ -551,17 +611,25 @@ export default {
       });
       return out;
     },
-    async loadShelfOptions(warehouseId) {
+    /** 多仓时逐仓拉货架再合并；货架接口只支持单仓过滤 */
+    async loadShelfOptions(warehouseIds) {
       this.shelfList = [];
-      if (!warehouseId) return;
+      const ids = (warehouseIds || []).filter((x) => x != null);
+      if (!ids.length) return;
       try {
-        const res = await shelfApi.page({ page: 1, limit: 999, warehouseId, status: 1 });
-        this.shelfList = (res && res.list) || [];
+        const pages = await Promise.all(
+          ids.map((warehouseId) => shelfApi.page({ page: 1, limit: 999, warehouseId, status: 1 })),
+        );
+        this.shelfList = pages.reduce((all, res) => all.concat((res && res.list) || []), []);
       } catch (e) { this.shelfList = []; }
     },
-    onWarehouseChange(warehouseId) {
-      this.lockedShelfIdList = [];
-      this.loadShelfOptions(warehouseId);
+    async onWarehouseChange(warehouseIds) {
+      // 主仓保持为第一个选中的仓，后端和只认单仓的老逻辑靠它兜底
+      this.form.warehouseId = (warehouseIds && warehouseIds[0]) || null;
+      await this.loadShelfOptions(warehouseIds);
+      // 取消勾选某个仓后，它下面已选的货架要一并清掉，否则会带着不在范围内的货架去生成明细
+      const valid = new Set(this.shelfList.map((s) => s.id));
+      this.lockedShelfIdList = this.lockedShelfIdList.filter((id) => valid.has(id));
     },
 
     async pickCheckUser() {
@@ -587,7 +655,8 @@ export default {
         }
         const count = await stockCheckApi.generate({
           checkId: this.form.id,
-          warehouseId: this.form.warehouseId,
+          warehouseIdList: this.selectedWarehouseIds,
+          warehouseId: this.selectedWarehouseIds[0] || null,
           categoryId: this.form.categoryId,
           shelfIdList: this.lockedShelfIdList,
         });
@@ -599,6 +668,8 @@ export default {
     async refreshDetail() {
       const res = await stockCheckApi.detail(this.form.id);
       this.form = { ...this.form, ...(res || {}) };
+      // 后端只有 warehouseIds 串时（老单据）也要还原成多选用的数组
+      this.form.warehouseIdList = this.warehouseIdsOf(this.form);
       this.details = ((res && res.details) || []).map((d) => ({ ...d, goodsStatus: d.goodsStatus || 'NORMAL' }));
     },
 
@@ -738,16 +809,18 @@ export default {
         const res = await stockCheckApi.detail(row.id);
         this.historyDetail = { ...(res || {}), details: ((res && res.details) || []).map((item) => ({ ...item })) };
         if (print) this.printHistory(this.historyDetail);
+        else this.historyDialogVisible = true;
       } catch (e) {
         this.$message.error((e && (e.message || e.msg)) || '盘点记录详情加载失败');
       }
     },
     printHistory(check) {
       const esc = (value) => String(value == null ? '' : value).replace(/[&<>\"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;' }[ch]));
-      const rows = (check.details || []).map((item, index) => `<tr><td>${index + 1}</td><td>${esc(item.locationCode || '-')}</td><td>${esc(item.sku || '-')}</td><td>${esc(item.goodsName || '-')}</td><td>${esc(item.bookStock == null ? '-' : item.bookStock)}</td><td>${esc(item.actualStock == null ? '-' : item.actualStock)}</td><td>${esc(item.diffNum == null ? this.diffLabel(item) : item.diffNum)}</td><td>${esc(this.goodsStatusText(item.goodsStatus))}</td><td>${esc(item.feedbackRemark || '-')}</td></tr>`).join('');
+      const multiWh = this.warehouseIdsOf(check).length > 1;
+      const rows = (check.details || []).map((item, index) => `<tr><td>${index + 1}</td><td>${esc(multiWh ? `${this.warehouseText(item.warehouseId)} · ${item.locationCode || '-'}` : (item.locationCode || '-'))}</td><td>${esc(item.sku || '-')}</td><td>${esc(item.goodsName || '-')}</td><td>${esc(item.bookStock == null ? '-' : item.bookStock)}</td><td>${esc(item.actualStock == null ? '-' : item.actualStock)}</td><td>${esc(item.diffNum == null ? this.diffLabel(item) : item.diffNum)}</td><td>${esc(this.goodsStatusText(item.goodsStatus))}</td><td>${esc(item.feedbackRemark || '-')}</td></tr>`).join('');
       const win = window.open('', '_blank');
       if (!win) return this.$message.warning('打印窗口被浏览器拦截，请允许弹出窗口');
-      win.document.write(`<html><head><title>${esc(check.checkNo || '盘点记录')}</title><style>body{font-family:Microsoft YaHei,sans-serif;font-size:12px;padding:16px}h2{text-align:center}p{text-align:center;color:#666}table{width:100%;border-collapse:collapse}th,td{border:1px solid #333;padding:6px;text-align:center}</style></head><body><h2>库存盘点记录</h2><p>盘点单号：${esc(check.checkNo || '-')}　仓库：${esc(this.warehouseText(check.warehouseId))}　状态：${esc(this.statusText(check.status))}</p><table><thead><tr><th>序号</th><th>库位</th><th>SKU</th><th>商品</th><th>账面</th><th>实盘</th><th>差异</th><th>状态</th><th>说明</th></tr></thead><tbody>${rows}</tbody></table></body></html>`);
+      win.document.write(`<html><head><title>${esc(check.checkNo || '盘点记录')}</title><style>body{font-family:Microsoft YaHei,sans-serif;font-size:12px;padding:16px}h2{text-align:center}p{text-align:center;color:#666}table{width:100%;border-collapse:collapse}th,td{border:1px solid #333;padding:6px;text-align:center}</style></head><body><h2>库存盘点记录</h2><p>盘点单号：${esc(check.checkNo || '-')}　仓库：${esc(this.warehousesText(check))}　状态：${esc(this.statusText(check.status))}</p><table><thead><tr><th>序号</th><th>库位</th><th>SKU</th><th>商品</th><th>账面</th><th>实盘</th><th>差异</th><th>状态</th><th>说明</th></tr></thead><tbody>${rows}</tbody></table></body></html>`);
       win.document.close();
       win.focus();
       setTimeout(() => { win.print(); win.close(); }, 300);
@@ -756,6 +829,7 @@ export default {
       try {
         await this.$confirm(`作废盘点单「${row.checkNo}」?`, '提示', { type: 'warning' });
         await stockCheckApi.cancel(row.id);
+        this.historyDialogVisible = false;
         this.historyDetail = null;
         this.$message.success('已作废');
         this.loadPage();
@@ -887,6 +961,7 @@ main { padding-top: 14px; }
 .row-actions >>> .el-button--text { padding: 0 4px; }
 .history-pager { margin-top: 16px; text-align: right; }
 .history-detail { margin-top: 20px; padding: 16px; background: #fafbfc; border: 1px solid #ebeef5; border-radius: 6px; }
+.history-dialog-body { max-height: 68vh; margin-top: 0; overflow-y: auto; }
 .compact-heading { margin-bottom: 12px; }
 .history-summary, .history-audit-info { display: flex; flex-wrap: wrap; gap: 8px 24px; padding: 10px 12px; margin-bottom: 10px; background: #fff; border: 1px solid #ebeef5; border-radius: 6px; color: #606266; font-size: 13px; }
 .history-audit-info { color: #909399; }

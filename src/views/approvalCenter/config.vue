@@ -204,9 +204,6 @@
           clearable
           size="small"
           style="flex:1;" />
-        <el-select v-model="endpointModuleFilter" size="small" clearable placeholder="模块" style="width: 140px;">
-          <el-option v-for="g in endpointGroups" :key="g.module" :label="g.module" :value="g.module" />
-        </el-select>
         <el-button class="approval-toolbar-btn" size="small" type="primary" plain icon="el-icon-refresh" @click="loadEndpoints">刷新</el-button>
       </div>
       <div style="font-size: 12px; color: #909399; margin-bottom: 6px;">
@@ -224,21 +221,7 @@
         title="没搜到？试试更短的关键词，比如只搜「盘点」「调拨」「报损」；也可能这个业务已内建审批，不需要在这里挂接口。"
       />
       <el-table :data="flatFilteredEndpoints" size="mini" height="420" highlight-current-row @row-click="pickEndpoint">
-        <el-table-column label="模块" prop="module" width="90">
-          <template slot-scope="{ row }"><el-tag size="mini" type="info">{{ row.module }}</el-tag></template>
-        </el-table-column>
-        <el-table-column label="Controller#方法" width="280">
-          <template slot-scope="{ row }">
-            <b>{{ row.controller }}</b><span style="color:#909399;">#{{ row.method }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="描述" prop="description" width="180" show-overflow-tooltip />
-        <el-table-column label="URL" show-overflow-tooltip>
-          <template slot-scope="{ row }">
-            <el-tag size="mini" :type="httpTagType(row.httpMethod)" style="margin-right:4px;">{{ row.httpMethod }}</el-tag>
-            <span style="font-size:12px;">{{ row.path }}</span>
-          </template>
-        </el-table-column>
+        <el-table-column label="描述" prop="description" show-overflow-tooltip />
       </el-table>
       <div slot="footer" class="approval-dialog-actions">
         <el-button @click="endpointDialogVisible = false">取消</el-button>
@@ -274,22 +257,13 @@
             </el-option>
           </el-select>
         </el-form-item>
-        <el-form-item label="启用">
-          <el-switch v-model="form.enabled" />
-          <span class="tip" style="margin-left: 8px;">开启后业务侧才会走审批</span>
-        </el-form-item>
-
-        <el-divider content-position="left" style="margin: 20px 0 12px; font-size: 12px; color: #909399;">
+        <el-divider v-if="form.implemented" content-position="left" style="margin: 20px 0 12px; font-size: 12px; color: #909399;">
           开发接入信息
         </el-divider>
 
-        <el-form-item label="已接入">
-          <el-switch v-model="form.implemented" />
-          <span class="tip" style="margin-left: 8px;">开发同学添加代码 hook 后勾选</span>
-        </el-form-item>
         <el-form-item v-if="form.implemented" label="接入位置">
           <div style="display: flex; gap: 8px;">
-            <el-input v-model="form.hookLocation" placeholder="点击右边按钮选择,或直接输入" style="flex:1;" />
+            <el-input v-model="form.hookLocation" placeholder="选择后仅保存中文描述" style="flex:1;" />
             <el-button class="approval-toolbar-btn" type="primary" plain icon="el-icon-search" @click="openEndpointPicker">选择</el-button>
           </div>
           <div class="tip">给其他开发/管理员看的说明,方便定位代码</div>
@@ -494,7 +468,7 @@ export default {
         return this.openFlowAdd();
       }
       try {
-        await updateScene(row);
+        await updateScene({ ...row, hookLocation: this.toHookDescription(row.hookLocation) });
         this.$message.success('已更新');
       } catch (e) {
         this.$message.error('保存失败: ' + (e.message || e));
@@ -507,7 +481,7 @@ export default {
     },
     openSceneEdit(row) {
       this.editMode = 'edit';
-      this.form = { ...row };
+      this.form = { ...row, hookLocation: this.toHookDescription(row.hookLocation) };
       this.sceneDialogVisible = true;
     },
     genSceneCode(group) {
@@ -531,6 +505,7 @@ export default {
         }
       }
       try {
+        this.form.hookLocation = this.toHookDescription(this.form.hookLocation);
         await updateScene(this.form);
         this.sceneDialogVisible = false;
         const isAdd = this.editMode === 'add';
@@ -589,8 +564,21 @@ export default {
       if (!this.endpointGroups.length) this.loadEndpoints();
     },
     pickEndpoint(row) {
-      this.form.hookLocation = row.value;
+      const description = (row.description || '').trim();
+      if (!description) {
+        this.$message.warning('该接口没有中文描述，请选择其他接口');
+        return;
+      }
+      this.form.hookLocation = description;
       this.endpointDialogVisible = false;
+    },
+    /** 旧数据可能保存了“模块 > Controller#方法 (中文描述)”，编辑时只保留中文描述。 */
+    toHookDescription(value) {
+      const text = (value || '').trim();
+      if (!text.includes(' > ') || !text.includes('#')) return text;
+      const descriptionStart = text.indexOf(' (');
+      if (descriptionStart < 0 || !text.endsWith(')')) return '';
+      return text.slice(descriptionStart + 2, -1).trim();
     },
     httpTagType(m) {
       return ({ GET: 'success', POST: 'primary', PUT: 'warning', DELETE: 'danger' })[m] || 'info';

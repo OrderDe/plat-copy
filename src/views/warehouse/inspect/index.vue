@@ -295,7 +295,7 @@ export default {
     },
     /** 不合格品只能进不合格区货架 */
     ngShelfOptions() {
-      return this.shelfCache.filter((s) => s.type === SHELF_TYPE_NG);
+      return this.shelfCache.filter((s) => Number(s.status) === 1 && s.type === SHELF_TYPE_NG);
     },
     /**
      * 合格品可选的货架：排除退货区和不合格区。
@@ -303,7 +303,8 @@ export default {
      * 要么和真正的问题货混在一起，下一次谁也分不清哪批是好的。
      */
     passShelfOptions() {
-      return this.shelfCache.filter((s) => s.type !== SHELF_TYPE_RETURN && s.type !== SHELF_TYPE_NG);
+      return this.shelfCache.filter((s) => Number(s.status) === 1
+        && s.type !== SHELF_TYPE_RETURN && s.type !== SHELF_TYPE_NG);
     },
   },
   created() {
@@ -386,7 +387,11 @@ export default {
     resetForm() { this.$refs.formRef && this.$refs.formRef.resetFields(); },
     async onWarehouseChange() {
       if (!this.form.warehouseId) { this.shelfCache = []; this.locationCache = {}; return; }
-      try { const r = await shelfApi.page({ page: 1, limit: 999, warehouseId: this.form.warehouseId, status: 1 }); this.shelfCache = (r && r.list) || []; } catch (e) {}
+      try {
+        const r = await shelfApi.page({ page: 1, limit: 999, warehouseId: this.form.warehouseId, status: 1 });
+        // 服务端已传 status=1，前端再过滤一次，兼容旧服务版本或缓存返回的停用货架。
+        this.shelfCache = ((r && r.list) || []).filter((s) => Number(s.status) === 1);
+      } catch (e) {}
       this.locationCache = {};
     },
     /**
