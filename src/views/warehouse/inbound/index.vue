@@ -403,15 +403,15 @@ export default {
      */
     returnTypeValue() {
       const hit = this.typeOptions.find((t) => (t.itemName || '').includes('退货'));
-      return hit ? hit.itemValue : RETURN_TYPE_FALLBACK;
+      return hit ? Number(hit.itemValue) : RETURN_TYPE_FALLBACK;
     },
-    isReturnType() { return this.form.type === this.returnTypeValue; },
+    isReturnType() { return Number(this.form.type) === Number(this.returnTypeValue); },
     /** 调拨入库类型，同样按字典名称取，不写死 1 */
     transferTypeValue() {
       const hit = this.typeOptions.find((t) => (t.itemName || '').includes('调拨'));
-      return hit ? hit.itemValue : TRANSFER_TYPE_FALLBACK;
+      return hit ? Number(hit.itemValue) : TRANSFER_TYPE_FALLBACK;
     },
-    isTransferType() { return this.form.type === this.transferTypeValue; },
+    isTransferType() { return Number(this.form.type) === Number(this.transferTypeValue); },
     /**
      * 本单的货该落在哪个区。
      *
@@ -422,7 +422,7 @@ export default {
      */
     zoneRule() {
       if (this.isReturnType) return { shelfType: SHELF_TYPE_RETURN, usage: null, name: '退货区' };
-      if (this.form.type === this.transferTypeValue) return null;
+      if (this.isTransferType) return null;
       const t = this.typeText(this.form.type) || '';
       // 平台入库 / 采购入库：待检区货架 + 待检区库位
       if (t.includes('平台') || t.includes('采购')) {
@@ -741,7 +741,7 @@ export default {
     },
     typeText(t) {
       // 类型名来自字典；停用后的历史单据也能显示原名称，字典没这条时退回显示原始值
-      const hit = this.typeOptions.find((x) => x.itemValue === t);
+      const hit = this.typeOptions.find((x) => Number(x.itemValue) === Number(t));
       if (hit) return hit.itemName;
       return t === null || t === undefined ? '-' : String(t);
     },
@@ -749,9 +749,11 @@ export default {
       try {
         const res = await dictApi.items('inbound_type');
         const data = res && (res.data !== undefined ? res.data : res);
-        this.typeOptions = Array.isArray(data) ? data : [];
+        this.typeOptions = Array.isArray(data)
+          ? data.map((item) => ({ ...item, itemValue: Number(item.itemValue) }))
+          : [];
         // 新建单据默认选第一个可用类型，避免字典改动后默认值落到停用项上
-        if (this.typeOptions.length && !this.typeOptions.find((x) => x.itemValue === this.form.type)) {
+        if (this.typeOptions.length && !this.typeOptions.find((x) => Number(x.itemValue) === Number(this.form.type))) {
           this.form.type = this.typeOptions[0].itemValue;
         }
       } catch (e) {
