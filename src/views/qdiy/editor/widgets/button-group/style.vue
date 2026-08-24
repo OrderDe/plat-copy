@@ -1,5 +1,14 @@
 <template>
   <div>
+    <diy-style-contain title="标题">
+      <!--
+        留空则前端不显示标题。加这个入口是因为：早期 createItem 会把组件库的显示名
+        （「按钮组」）写进 data.title，前端照着渲染出来，运营却没有任何地方能改或清掉。
+        新建的组件已经不带这个默认值了，老数据在这里清空即可。
+      -->
+      <el-input v-model="title" placeholder="留空则不显示标题" maxlength="20" show-word-limit @input="onTitleInput" />
+    </diy-style-contain>
+
     <diy-style-contain title="设置">
       <div class="icon-set-items">
         <div class="icon-set-list-name">秒杀</div>
@@ -141,6 +150,7 @@ export default {
     return {
       shapeList: ['square', 'round', 'circle'],
       is_seckill: false,
+      title: '',
       buttonPattern: [
         { label: '固定显示', value: 'fixed' },
         { label: '单行滑动', value: 'scroll' },
@@ -171,6 +181,7 @@ export default {
       basicMixins.methods.init.call(this);
       if (!this.result.data) this.$set(this.result, 'data', {});
       const data = this.result.data;
+      this.title = data.title || '';
 
       const pick = (key, local) => {
         if (data[key]) {
@@ -241,6 +252,9 @@ export default {
     radioChange(e, name) {
       this.$set(this.buttonData, name, e);
       this.updataInfos();
+    },
+    onTitleInput(val) {
+      this.updataData(val, 'title');
     },
     seckillChange(e) {
       this.$set(this.result.data, 'is_seckill', e);

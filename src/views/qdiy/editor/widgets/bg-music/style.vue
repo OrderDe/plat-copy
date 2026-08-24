@@ -9,6 +9,17 @@
       </el-radio-group>
     </diy-style-contain>
 
+    <diy-style-contain title="播放设置">
+      <el-radio-group v-model="autoplay" @change="autoplayChange">
+        <el-radio :label="false">点击播放</el-radio>
+        <el-radio :label="true">自动播放</el-radio>
+      </el-radio-group>
+      <div class="bm-tip">
+        浏览器与微信都禁止未经交互的音频自动播放，选「自动播放」时会在用户第一次
+        点屏幕后开始播；iOS 上表现更严格，可能仍需点一下音乐按钮。
+      </div>
+    </diy-style-contain>
+
     <diy-style-contain title="数据设置">
       <div class="bg-music-row">
         <div class="leabl">上传方式</div>
@@ -83,6 +94,7 @@ export default {
   data() {
     return {
       uploadType: 1,
+      autoplay: false,
       voicesUrl: '',
       showIcon: false,
       pickerVisible: false,
@@ -95,6 +107,7 @@ export default {
       if (!this.result.data) this.$set(this.result, 'data', {});
       const data = this.result.data;
       this.uploadType = data.uploadType || this.uploadType;
+      this.autoplay = !!data.autoplay;
       this.voicesUrl = data.voicesUrl || '';
       // PHP 侧 bg-music 默认在右上角
       this.initFloatPosition(2);
@@ -115,6 +128,9 @@ export default {
       this.voicesUrl = url && url.trim();
       this.updataData(this.voicesUrl, 'voicesUrl');
     },
+    autoplayChange(val) {
+      this.updataData(val, 'autoplay');
+    },
     tabsChange() {
       this.updataData(this.uploadType, 'uploadType');
     },
@@ -127,6 +143,12 @@ export default {
 </script>
 
 <style scoped lang="scss">
+.bm-tip {
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 18px;
+  color: #999;
+}
 .bg-music-row {
   display: flex;
   padding-bottom: 15px;

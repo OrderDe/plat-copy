@@ -1,7 +1,11 @@
 <template>
   <div>
     <diy-style-contain title="公告图标">
-      <el-radio-group v-model="iconSel.selected" @change="updateInfos">
+      <!--
+        原来这里只 @change="updateInfos"，而 data.img / data.imgType 只在上传图片时才写，
+        于是「自定义 → 系统图标」切回去时 imgType 仍是 2，前端继续显示那张自定义图。
+      -->
+      <el-radio-group v-model="iconSel.selected" @change="onIconTypeChange">
         <el-radio :label="1">系统图标</el-radio>
         <el-radio :label="2">自定义</el-radio>
       </el-radio-group>
@@ -41,11 +45,13 @@
       <div v-show="dataShow.selected == 2" class="img-data-show">
         <div class="img-data-model">
           <div class="img-data-text">公告内容</div>
+          <!-- 一行一条，多行时前端会做垂直轮播 -->
           <el-input
             v-model="dataShow.diy.text"
             type="textarea"
-            placeholder="请输入内容"
-            maxlength="100"
+            :rows="4"
+            placeholder="一行一条公告，多条时前端自动轮播"
+            maxlength="300"
             show-word-limit
             @input="updateInfos"
           />
@@ -154,6 +160,14 @@ export default {
         this.$set(cs, 'fontWeight', this.fontWeight);
       }
       this.$emit('update', this.result);
+    },
+    /** 切换图标来源时同步写回，前端只认 data.imgType / data.img */
+    onIconTypeChange(val) {
+      this.$set(this.result.data, 'imgType', val);
+      const img = this.iconSel.diy && this.iconSel.diy.img && this.iconSel.diy.img[0];
+      // 切回系统图标时把自定义图清掉，否则前端还会拿它当图标用
+      this.$set(this.result.data, 'img', Number(val) === 2 && img ? img.imgUrl : '');
+      this.updateInfos();
     },
     addIconImg(arr) {
       if (!arr || !arr[0]) return;

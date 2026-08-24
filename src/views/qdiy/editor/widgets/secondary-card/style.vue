@@ -49,6 +49,16 @@
           <div class="row-label">虚拟销量</div>
           <el-input v-model="cardInfo.virtual_sales" :maxlength="9" size="small" placeholder="1000" @input="cardInfoChange" />
         </div>
+        <!-- 前端读 card.background_color / card.font_color，之前面板里没有入口，只能用默认配色 -->
+        <div class="row">
+          <div class="row-label">卡片背景</div>
+          <el-color-picker v-model="cardInfo.background_color" size="small" @change="cardInfoChange" />
+          <span class="row-tip">配了入口海报时以海报为准</span>
+        </div>
+        <div class="row">
+          <div class="row-label">文字颜色</div>
+          <el-color-picker v-model="cardInfo.font_color" size="small" @change="cardInfoChange" />
+        </div>
         <div class="row">
           <div class="row-label">入口海报</div>
           <div>
@@ -119,6 +129,8 @@ export default {
         original_price: '108',
         price: '68',
         background: null,
+        background_color: '#FFD9C2',
+        font_color: '#333333',
       },
       pickCardList: [],
     };
@@ -173,6 +185,11 @@ export default {
     flex-shrink: 0;
     text-align: center;
     color: #999;
+  }
+  .row-tip {
+    margin-left: 8px;
+    font-size: 12px;
+    color: #c0c4cc;
   }
 }
 .card-pick,

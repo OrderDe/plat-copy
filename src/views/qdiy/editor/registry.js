@@ -75,9 +75,16 @@ export function createItem(component, site) {
   return {
     identify: component.code,
     site,
-    data: {
-      title: component.title,
-    },
+    /*
+     * data 里不放 title。
+     *
+     * 这里原来写的是 title: component.title —— 那是「组件库里的显示名」（按钮组、公告…），
+     * 不是业务标题。而 App 端好几个组件（图标组、播报…）会把 data.title 当成要渲染的
+     * 分组标题显示出来，于是页面上白白多出「按钮组」三个字，运营在面板里还找不到地方关掉。
+     * 需要默认标题的组件（如常用图标组的「其他功能」）由各自的 style.vue 在 init 里给，
+     * 那才是能被运营改、也能被清空的地方。
+     */
+    data: {},
     computedStyle: {
       marginTop: 0,
       marginBottom: 0,

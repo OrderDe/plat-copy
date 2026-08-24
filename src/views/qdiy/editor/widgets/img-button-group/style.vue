@@ -1,5 +1,10 @@
 <template>
   <div>
+    <diy-style-contain title="标题">
+      <!-- 留空则前端不显示标题；老数据里可能残留 createItem 写进去的组件名，在这里清空 -->
+      <el-input v-model="title" placeholder="留空则不显示标题" maxlength="20" show-word-limit @input="onTitleInput" />
+    </diy-style-contain>
+
     <diy-style-contain title="按钮样式">
       <el-radio-group v-model="buttonData.style" @change="radioChange($event, 'style')">
         <el-radio :label="1">{{ buttonData.type == 1 ? '图片' : '图标' }}+文字</el-radio>
@@ -164,6 +169,7 @@ export default {
         patternItem: null,
       },
       defaultImg: '',
+      title: '',
       iconList: [emptyIcon(), emptyIcon(), emptyIcon()],
       iconFontInfos: [
         { name: '大文字大小', value: 14, minValue: 12, maxValue: 20, unit: 'px' },
@@ -182,6 +188,7 @@ export default {
       basicMixins.methods.init.call(this);
       if (!this.result.data) this.$set(this.result, 'data', {});
       const d = this.result.data;
+      this.title = d.title || '';
 
       // 已有数据优先，否则把默认值回写进 result
       const pick = (key, field) => {
@@ -241,6 +248,9 @@ export default {
     toggleShape(it) {
       this.buttonData.shape = it;
       this.updataInfos();
+    },
+    onTitleInput(val) {
+      this.updataData(val, 'title');
     },
     setChange(arr) {
       this.iconList = arr;

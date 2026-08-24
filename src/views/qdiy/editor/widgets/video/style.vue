@@ -1,10 +1,22 @@
 <template>
   <div>
     <diy-style-contain title="视频类型">
-      <el-radio-group v-model="videoRadio">
+      <!-- 这里原来没有 @change 也没有任何写回，选完刷新就丢，App 端拿不到 videoRadio -->
+      <el-radio-group v-model="videoRadio" @change="onTypeChange">
         <el-radio :label="1">手动上传</el-radio>
         <el-radio :label="2">视频链接</el-radio>
       </el-radio-group>
+    </diy-style-contain>
+
+    <diy-style-contain title="播放方式">
+      <el-radio-group v-model="playMode" @change="updataData($event, 'playMode')">
+        <el-radio label="cover">点击封面播放</el-radio>
+        <el-radio label="auto">自动播放</el-radio>
+      </el-radio-group>
+      <div class="video-tip">
+        iOS 系统禁止带声音的视频自动播放，选「自动播放」时 iOS 上仍会先显示封面、点击后播放。
+        自动播放在其它端会以静音开始，观众点开声音后才有声。
+      </div>
     </diy-style-contain>
 
     <diy-style-contain title="比例">
@@ -79,6 +91,8 @@ export default {
   data() {
     return {
       videoRadio: 1,
+      // cover = 点击封面播放（默认）/ auto = 自动播放
+      playMode: 'cover',
       // 1 = 16:9，2 = 4:3，3 = 1:1
       proportion: 1,
       imageUrl: [],
@@ -97,6 +111,9 @@ export default {
       basicMixins.methods.init.call(this);
       if (!this.result.data) this.$set(this.result, 'data', {});
       this.proportion = this.result.computedStyle.proportion || 1;
+      // 这两项原来没回读，编辑已保存的组件时面板会显示成默认值，与实际配置不符
+      this.videoRadio = Number(this.result.data.videoRadio) === 2 ? 2 : 1;
+      this.playMode = this.result.data.playMode === 'auto' ? 'auto' : 'cover';
       this.imageUrl = [];
       if (this.result.data.imageUrl) {
         this.imageUrl.push({ imgUrl: this.result.data.imageUrl });
@@ -126,6 +143,13 @@ export default {
     onChange() {
       this.updataResult(this.proportion, 'proportion');
     },
+    /*
+     * 切换视频类型要写回，否则 App 端读不到 videoRadio，只能靠「哪个字段有值」猜。
+     * 类型变了不清空已填的地址：运营常在两种方式间来回比对，清掉等于让他重填。
+     */
+    onTypeChange(val) {
+      this.updataData(val, 'videoRadio');
+    },
     delImg() {
       this.uploadVideoUrl = '';
       this.updataData('', 'uploadVideoUrl');
@@ -135,6 +159,12 @@ export default {
 </script>
 
 <style scoped lang="scss">
+.video-tip {
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 18px;
+  color: #999;
+}
 .card-upload {
   display: flex;
   align-items: center;
