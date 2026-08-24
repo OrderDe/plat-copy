@@ -1,6 +1,31 @@
 <template>
   <div>
-    <diy-style :img-style="{ width: '206px', height: '154px' }" :img-info="imgInfo" :def-index="imgIndex" @change="upImgIndex" />
+    <!--
+      原来用 diy-style 按图片选布局，但 cube1.png ~ cube10.png 这些预设示意图
+      平台端根本没有（PHP 侧资源没一起迁过来），面板上只有一排空框，
+      运营看不出每个风格长什么样。改成按预设数据把网格实际画出来，所见即所选。
+    -->
+    <diy-style-contain title="布局风格">
+      <div class="cube-preset-list">
+        <div
+          v-for="(preset, i) in imgInfo"
+          :key="i"
+          class="cube-preset"
+          :class="{ active: imgIndex === i }"
+          @click="upImgIndex(i, preset)"
+        >
+          <div class="cube-preset-grid" :style="presetGridStyle(preset)">
+            <span
+              v-for="(area, ai) in (preset.data.info || [])"
+              :key="ai"
+              class="cube-preset-cell"
+              :style="presetCellStyle(area)"
+            />
+          </div>
+          <div class="cube-preset-name">{{ preset.text }}</div>
+        </div>
+      </div>
+    </diy-style-contain>
 
     <diy-style-contain title="魔方布局">
       <diy-rubik-cube
@@ -32,6 +57,7 @@
 /** 图片魔方 —— 属性面板。迁移自 PHP common/rubik-cube/style.php */
 import basicMixins from '../../controls/basicMixins';
 import linkPickerMixins from '../../controls/linkPickerMixins';
+import { getObjValue } from '../../controls/utils';
 import { cubePresets } from './presets';
 
 export default {
@@ -60,6 +86,40 @@ export default {
       if (this.result.data.imgIndex) this.imgIndex = this.result.data.imgIndex;
       if (this.result.data.cubeListInfo) this.cubeListInfo = this.result.data.cubeListInfo;
       this.styleBoo = true;
+
+      /*
+       * 颜色项原来完全没初始化，diy-color 拿到的是 mixin 的空默认值，
+       * 面板上看不到可配的颜色；配套的 updateColor 方法也不存在（模板里绑了个
+       * 未定义的方法），就算选了色也只会报错、存不下来。
+       * showAlpha 打开是为了能配透明背景（魔方常直接压在页面底色上）。
+       */
+      this.$set(this.defaultForm, 'colorInfos', [
+        {
+          name: '组件背景',
+          color: getObjValue(this.result, ['computedStyle', 'searchBox'], 'transparent'),
+          showAlpha: true,
+        },
+      ]);
+    },
+    updateColor(infos) {
+      this.$set(this.result.computedStyle, 'searchBox', infos[0] && infos[0].color);
+      this.updateInfos();
+    },
+    /** 预设缩略图：按该预设的密度铺网格 */
+    presetGridStyle(preset) {
+      const d = (preset && preset.data && preset.data.density) || 4;
+      return {
+        gridTemplateColumns: `repeat(${d}, 1fr)`,
+        gridTemplateRows: `repeat(${d}, 1fr)`,
+      };
+    },
+    /** 预设里的每块区域按 start/end 占格，画出来就是这个风格的真实形状 */
+    presetCellStyle(area) {
+      if (!area || !area.start || !area.end) return {};
+      return {
+        gridColumn: `${area.start.x} / ${Number(area.end.x) + 1}`,
+        gridRow: `${area.start.y} / ${Number(area.end.y) + 1}`,
+      };
     },
     getCubeInfo(val) {
       this.styleBoo = false;
@@ -95,3 +155,42 @@ export default {
   },
 };
 </script>
+
+<style scoped lang="scss">
+/* 布局风格缩略图：按预设数据画出真实网格形状，不依赖图片资源 */
+.cube-preset-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.cube-preset {
+  width: calc(33.33% - 6px);
+  padding: 6px;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  cursor: pointer;
+  box-sizing: border-box;
+  &.active {
+    border-color: #409eff;
+    background: #ecf5ff;
+  }
+}
+.cube-preset-grid {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  /* 老浏览器不支持 aspect-ratio 时至少给个高度兜底 */
+  min-height: 56px;
+}
+.cube-preset-cell {
+  background: #c8d9e8;
+  border-radius: 2px;
+}
+.cube-preset-name {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #909399;
+  text-align: center;
+}
+</style>

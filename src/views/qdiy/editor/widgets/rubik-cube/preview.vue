@@ -58,7 +58,14 @@ export default {
       });
       return list;
     },
-    // 整体高度取魔方最高的一行，再减去左右边距
+    /*
+     * 整体高度取魔方最高的一行，再减去左右边距。
+     *
+     * 注意这里**不要**再按 CANVAS_SCALE 折半：style.vue 的 getMaxHeight 存进
+     * computedStyle.cubeHeight 时已经除过 2 了（存的是 375 坐标系的值），
+     * 而块的 top/left/width/height 是 750 坐标系、靠 .cube-wrap 的 scale(0.5) 缩下来。
+     * 两者最终落在同一尺度上，这里再乘一次就只剩一半高度，魔方会被下方组件压住。
+     */
     modelHeight() {
       const cubeHeight = this.computedStyle.cubeHeight;
       const spaceStyle = this.computedStyle.spaceStyle;
@@ -80,8 +87,18 @@ export default {
   position: relative;
   min-height: 6px;
 }
+/*
+ * 块的 top/left/width/height 是按 750 宽的坐标系算出来的（DiyRubikCube 的 cubeWidth
+ * / cubeHeight 默认 750），直接当 CSS px 渲染，在 375px 宽的画布里会整整溢出一倍，
+ * 块与块互相错位 —— 就是「后台设置的样式错乱、排列错乱」。
+ * 画布宽度是固定的 375px（PhoneCanvas .phone），正好是 750 的一半，
+ * 整体缩掉一半即可，比逐个换算百分比稳（高度用百分比在这里会失效）。
+ */
 .cube-wrap {
   position: relative;
+  width: 750px;
+  transform: scale(0.5);
+  transform-origin: top left;
 }
 .cube-model {
   position: absolute;

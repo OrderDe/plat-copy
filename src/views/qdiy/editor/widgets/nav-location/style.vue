@@ -12,12 +12,26 @@
 
     <!-- 定位风格 -->
     <div v-if="tabsNav == 1">
-      <diy-style
-        :img-info="imgInfo"
-        :def-index="imgIndex"
-        :img-style="{ width: '206px', height: 'auto' }"
-        @change="upImgIndex"
-      />
+      <!--
+        原来用 diy-style 按图片选风格，但 nav-location/location-style-*.png 这几张图
+        平台端根本没有（PHP 侧的资源没一起迁过来），面板上只有三个空框，
+        运营看不到任何东西，也就无从选起。这三种风格的差别本来就是「要不要定位」这类行为，
+        不是视觉差异，用名称加说明比缩略图更清楚。
+      -->
+      <diy-style-contain title="定位风格">
+        <div class="loc-style-list">
+          <div
+            v-for="(it, i) in imgInfo"
+            :key="i"
+            class="loc-style-item"
+            :class="{ active: imgIndex === i }"
+            @click="upImgIndex(i)"
+          >
+            <div class="loc-style-name">{{ it.text }}</div>
+            <div class="loc-style-desc">{{ it.desc }}</div>
+          </div>
+        </div>
+      </diy-style-contain>
       <diy-style-contain title="风格2、3 是否强制弹出定位组件">
         <el-radio-group v-model="forceType" @change="onChangeData($event, 'forceType')">
           <el-radio-button v-for="(item, index) in forceTypeList" :key="index" :label="item.value">
@@ -469,5 +483,32 @@ export default {
 }
 .not-migrated {
   padding: 12px;
+}
+/* 定位风格选择：不依赖图片资源 */
+.loc-style-list {
+  display: flex;
+  gap: 8px;
+}
+.loc-style-item {
+  flex: 1;
+  padding: 10px 6px;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: center;
+  &.active {
+    border-color: #409eff;
+    background: #ecf5ff;
+  }
+}
+.loc-style-name {
+  font-size: 13px;
+  color: #303133;
+}
+.loc-style-desc {
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 16px;
+  color: #909399;
 }
 </style>

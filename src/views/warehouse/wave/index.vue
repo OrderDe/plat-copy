@@ -812,15 +812,22 @@ export default {
         });
         const options = (list || [])
           .filter((s) => s.locationId && (s.availableNum || 0) > 0)
+          // 只能从可售区拣货：待检区、隔离区、不合格区的货还没放行，
+          // 列进候选等于让拣货员把待检品/次品拣出去发给客户
+          .filter((s) => !s.locationUsageType)
           .filter((s) => !row.batchId || String(s.batchId) === String(row.batchId))
           .map((s) => ({ locationId: s.locationId, locationCode: s.locationCode || `库位#${s.locationId}`, availableNum: s.availableNum }));
         // 货全在通用池（从没上架过）时上面一个候选都没有，拣货员依旧无处可选；
-        // 兜底列出本仓所有启用库位，让他按实物所在货位登记
+        // 兜底列出本仓可售区的启用库位，让他按实物所在货位登记
         if (!options.length) {
           const locs = await locationApi.listByWarehouse(
             this.pickDetail.warehouseId || this.currentWave.warehouseId,
           );
-          (locs || []).forEach((l) => options.push({ locationId: l.id, locationCode: l.code, availableNum: 0 }));
+          (locs || [])
+            // listByWarehouse 只滤了停用，用途不限（入库要用待检区，所以接口本身不能改），
+            // 拣货这边必须自己把非可售区挡掉
+            .filter((l) => !l.usageType)
+            .forEach((l) => options.push({ locationId: l.id, locationCode: l.code, availableNum: 0 }));
         }
         this.$set(this.locOptions, key, options);
       } catch (e) {

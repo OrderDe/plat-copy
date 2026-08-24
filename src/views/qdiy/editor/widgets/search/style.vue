@@ -2,7 +2,8 @@
   <div>
     <diy-tabs title="样式" radio-text="text" :default-item="defaultForm.tabItem" @change="colorSelect" />
 
-    <diy-color top-name="选择颜色" :color-infos="colorInfos" :str-color="defColor" @change="updateColor" />
+    <!-- def-show-alpha：不开的话取色器没有透明度通道，运营想把底部背景调成透明都做不到 -->
+    <diy-color top-name="选择颜色" :color-infos="colorInfos" :str-color="defColor" :def-show-alpha="true" @change="updateColor" />
 
     <diy-align title="文字位置" :current="defaultForm.alignCurrent" @change="updataText" />
 
@@ -37,7 +38,9 @@ export default {
   data() {
     return {
       colorInfos: ['底部背景', '组件背景', '图标颜色', '文字颜色'],
-      defColor: ['', '', '', ''],
+      // 默认值与 App 端 qdiySearch 的兜底色保持一致，否则编辑器里一片透明、
+      // App 上却是白底灰框，运营根本不知道当前实际长什么样
+      defColor: ['#FFFFFF', '#F5F5F5', '#999999', '#999999'],
       // 搜索框的左右边距是分开的，所以不用 mixin 的三项
       sizeInfos: ['上边距', '下边距', '左边距', '右边距'],
       heightInfos: [{ name: '高度', value: 30, minValue: 30, maxValue: 50, unit: 'px' }],

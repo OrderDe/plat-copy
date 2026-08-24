@@ -41,8 +41,9 @@
     />
 
     <diy-style-contain title="单行数量">
+      <!-- 原来只有「3个」一个选项，单选里只有一个值等于没得选，与按钮组保持一致给全 -->
       <el-radio-group v-model="buttonData.single_line" @change="radioChange($event, 'single_line')">
-        <el-radio :label="3">3个</el-radio>
+        <el-radio v-for="n in [3, 4, 5, 6, 7]" :key="n" :label="n">{{ n }}个</el-radio>
       </el-radio-group>
     </diy-style-contain>
 
@@ -65,25 +66,33 @@
         />
       </diy-style-contain>
 
-      <diy-style-contain v-if="buttonData.style == 1" title="图标设置">
-        <diy-size-setting
-          top-name="图片大小"
-          :contain-obj="{ showTitle: false }"
-          :size-infos="iconImgInfos"
-          :min-value="40"
-          @change="iconImgChange"
-        />
-        <p class="tips">图片大小不能超过背景的大小</p>
-        <diy-size-setting
-          top-name="文字大小"
-          :contain-obj="{ showTitle: false }"
-          :size-infos="iconFontInfos"
-          :min-value="12"
-          :max-value="20"
-          @change="iconFontChange"
-        />
-      </diy-style-contain>
     </template>
+
+    <!--
+      图片/文字尺寸原来只在「单行滑动」风格下才给配，固定风格和分页滑动都配不了 ——
+      而这两个尺寸跟排列方式没有关系，任何风格下运营都该能调。移出 scroll 分支。
+    -->
+    <diy-style-contain v-if="buttonData.style != 3" title="图标设置">
+      <diy-size-setting
+        top-name="图片大小"
+        :contain-obj="{ showTitle: false }"
+        :size-infos="iconImgInfos"
+        :min-value="40"
+        @change="iconImgChange"
+      />
+      <p v-if="buttonData.pattern === 'scroll'" class="tips">图片大小不能超过背景的大小</p>
+    </diy-style-contain>
+
+    <diy-style-contain v-if="buttonData.style != 2" title="文字设置">
+      <diy-size-setting
+        top-name="文字大小"
+        :contain-obj="{ showTitle: false }"
+        :size-infos="iconFontInfos"
+        :min-value="12"
+        :max-value="20"
+        @change="iconFontChange"
+      />
+    </diy-style-contain>
 
     <diy-style-contain v-if="buttonData.pattern === 'swiper'" title="每页行数">
       <el-radio-group v-model="buttonData.line_num" @change="radioChange($event, 'line_num')">
@@ -303,7 +312,10 @@ export default {
       this.updataInfos();
     },
     iconImgChange(val) {
-      if (val[0].value > this.heightInfos[0].value || val[1].value > this.heightInfos[0].value) {
+      // 「不能超过背景大小」只对单行滑动成立 —— 那种风格才有独立的背景宽高；
+      // 其它风格没有背景框，拿 heightInfos 去卡会把正常的尺寸误拦下来
+      if (this.buttonData.pattern === 'scroll'
+        && (val[0].value > this.heightInfos[0].value || val[1].value > this.heightInfos[0].value)) {
         this.$message({ message: '图片大小不能超过背景的大小', type: 'warning' });
         this.iconImgInfos[0].value = 40;
         this.iconImgInfos[1].value = 40;

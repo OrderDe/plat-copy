@@ -253,15 +253,25 @@ export default {
   font-size: 12px;
   transform: scale(0.7);
 }
+/*
+ * 每行 N 个就占 100/N 的宽度。col-3 原来写死 121px×52px，与 col-4/col-5 的百分比
+ * 不是一套算法，选 3 个时预览里的块和 App 上对不上；6/7 更是完全没有样式，
+ * 加了选项却不给宽度，块会挤成一行。统一成百分比。
+ */
 .col-3 {
-  width: 121px;
-  height: 52px;
+  width: 33.3333%;
 }
 .col-4 {
   width: 25%;
 }
 .col-5 {
   width: 20%;
+}
+.col-6 {
+  width: 16.6666%;
+}
+.col-7 {
+  width: 14.2857%;
 }
 .diy-button-scroll .col-4 {
   width: 22%;

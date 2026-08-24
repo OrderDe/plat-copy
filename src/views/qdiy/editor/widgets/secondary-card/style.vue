@@ -38,6 +38,18 @@
           <el-input v-model="cardInfo.title" :maxlength="15" show-word-limit size="small" placeholder="默认显示‘消费次卡’" @input="cardInfoChange" />
         </div>
         <div class="row">
+          <div class="row-label">有效期</div>
+          <!-- 前端 qdiySecondaryCard 读 validDesc，之前没有入口，卡片上永远显示兜底的「30日内有效」 -->
+          <el-input
+            v-model="cardInfo.validDesc"
+            :maxlength="15"
+            show-word-limit
+            size="small"
+            placeholder="默认显示‘30日内有效’"
+            @input="cardInfoChange"
+          />
+        </div>
+        <div class="row">
           <div class="row-label">售价</div>
           <el-input v-model="cardInfo.price" :maxlength="9" size="small" placeholder="68" @input="cardInfoChange" />
         </div>
@@ -128,6 +140,7 @@ export default {
         virtual_sales: '1000',
         original_price: '108',
         price: '68',
+        validDesc: '',
         background: null,
         background_color: '#FFD9C2',
         font_color: '#333333',

@@ -3,9 +3,14 @@
     <div v-for="(item, index) in newColorInfos" :key="index" class="color-info">
       <div class="diy-name">{{ item.name }}</div>
       <div class="sel-color">
+        <!--
+          开了透明度就必须用 rgb 格式：el-color-picker 的 hex 格式不带 alpha 通道，
+          show-alpha 和 color-format="hex" 同时用的话，拖了透明度滑块也只会得到一个
+          不透明的十六进制值 —— 表现就是「勾了透明度却选不了透明」。
+        -->
         <el-color-picker
           v-model="item.color"
-          :color-format="colorFormat"
+          :color-format="item.showAlpha ? 'rgb' : colorFormat"
           :show-alpha="item.showAlpha"
           @change="updateColor"
         />
