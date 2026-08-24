@@ -406,6 +406,10 @@ const actions = {
           {
             id: 9141, pid: 9101, title: '入库业务', icon: 'download', perms: '',
             path: '/warehouse/in', menuType: 'M', sort: 2, children: [
+              // 采购发货单排在入库管理之前：先有供应商发货，货到了才做入库。
+              // 页面、路由(/warehouse/deliver)、后端(api/warehouse/deliver)一直都在，
+              // 只是这份硬编码菜单里漏了它，功能等于没放出来。
+              { id: 9150, pid: 9141, title: '采购发货单', icon: '', perms: '', path: '/warehouse/deliver', menuType: 'C', sort: 1, children: [] },
               { id: 9103, pid: 9141, title: '入库管理',   icon: '', perms: '', path: '/warehouse/inbound', menuType: 'C', sort: 2, children: [] },
               { id: 9110, pid: 9141, title: '质检管理',   icon: '', perms: '', path: '/warehouse/inspect', menuType: 'C', sort: 3, children: [] },
             ],

@@ -306,12 +306,12 @@
             </el-table-column>
             <el-table-column label="应出库" width="110">
               <template slot-scope="{row}">
-                <el-input-number v-model="row.outboundTotalNum" :min="0" :precision="0" step-strictly :disabled="itemsLocked" size="mini" controls-position="right" />
+                <el-input-number v-model="row.outboundTotalNum" :min="0" :precision="0" step-strictly v-int-only :disabled="itemsLocked" size="mini" controls-position="right" />
               </template>
             </el-table-column>
             <el-table-column label="实出库" width="110">
               <template slot-scope="{row}">
-                <el-input-number v-model="row.actualOutboundNum" :min="0" :precision="0" step-strictly size="mini" controls-position="right" />
+                <el-input-number v-model="row.actualOutboundNum" :min="0" :precision="0" step-strictly v-int-only size="mini" controls-position="right" />
               </template>
             </el-table-column>
             <el-table-column v-if="dialogMode === 'add' && !itemsLocked" label="操作" width="80" fixed="right">

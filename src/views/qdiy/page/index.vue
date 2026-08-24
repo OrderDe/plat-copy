@@ -230,11 +230,11 @@ export default {
   methods: {
     checkPermi,
     /**
-     * 分类页、购物车是「一个类型只有一个页面」，App 端按 template 取，
+     * 分类页、购物车、商品详情都是「一个类型只有一个页面」，App 端按 template 取，
      * 没有首页的概念，设为首页只会把 App 首页顶掉，所以不给这个入口。
      */
     isFixedSlotPage(row) {
-      return ['goods_cate', 'shopping_cart'].indexOf(row.template) > -1;
+      return ['goods_cate', 'shopping_cart', 'goods_detail'].indexOf(row.template) > -1;
     },
     getQdiyEnable() {
       qdiyEnableInfoApi()

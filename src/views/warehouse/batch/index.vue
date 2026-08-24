@@ -196,7 +196,7 @@
         <el-form-item label="供应商"><el-input v-model="form.supplierName" /></el-form-item>
         <el-form-item label="供应商批次"><el-input v-model="form.supplierBatchNo" /></el-form-item>
         <el-form-item label="入库数量" prop="inboundNum">
-          <el-input-number v-model="form.inboundNum" :min="0" :precision="0" step-strictly style="width:100%" @change="onInboundNumChange" />
+          <el-input-number v-model="form.inboundNum" :min="0" :precision="0" step-strictly v-int-only style="width:100%" @change="onInboundNumChange" />
 
           <!--
             这个规格还有多少货没登记批次 = SKU 库存 − 各批次入库合计（含本批）。

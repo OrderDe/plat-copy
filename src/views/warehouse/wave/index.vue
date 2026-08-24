@@ -423,7 +423,7 @@
         <el-table-column label="应拣" width="80"><template slot-scope="{row}"><b>{{ row.planNum }}</b></template></el-table-column>
         <el-table-column label="实拣" width="140">
           <template slot-scope="{row}">
-            <el-input-number v-model="row.pickedNum" :min="0" :max="row.planNum" :precision="0" step-strictly size="mini" controls-position="right" :disabled="pickDetail.status >= 2" />
+            <el-input-number v-model="row.pickedNum" :min="0" :max="row.planNum" :precision="0" step-strictly v-int-only size="mini" controls-position="right" :disabled="pickDetail.status >= 2" />
           </template>
         </el-table-column>
         <el-table-column label="状态" width="90">
@@ -467,7 +467,7 @@
           <el-table-column label="拣货" width="90"><template slot-scope="{row}">{{ row.pickedNum }}</template></el-table-column>
           <el-table-column label="复核实测" width="140">
             <template slot-scope="{row}">
-              <el-input-number v-model="row.reviewedNum" :min="0" :precision="0" step-strictly size="mini" controls-position="right" :disabled="reviewDetail.status !== 0" />
+              <el-input-number v-model="row.reviewedNum" :min="0" :precision="0" step-strictly v-int-only size="mini" controls-position="right" :disabled="reviewDetail.status !== 0" />
             </template>
           </el-table-column>
           <el-table-column label="差异" width="80">
@@ -891,8 +891,8 @@ export default {
     reviewDiffClass(r) { const d = (r.reviewedNum || 0) - (r.pickedNum || 0); return d === 0 ? '' : (d > 0 ? 'plus' : 'minus'); },
 
     /**
-     * 打开复核弹窗。复核单与拣货单 1:1，但驳回不会作废旧单（后端 reject 只置状态 2），
-     * 所以同一张拣货单可能挂着多张复核单：取最新的那张作业，其余进历史记录。
+     * 打开复核弹窗。复核单与拣货单 1:1，驳回会把拣货单退回可编辑状态，
+     * 再次确认拣货后会新建一张复核单，旧单保留在历史记录。
      *
      * 拣完(2) 且没有在办的复核单时，这里顺带把复核单建出来——对操作员来说
      * 「生成复核单」不是一个需要单独决策的动作，点「复核」就该直接进得去。

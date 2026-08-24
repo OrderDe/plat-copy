@@ -227,12 +227,12 @@
             </el-table-column>
             <el-table-column label="应入库" width="100">
               <template slot-scope="{row}">
-                <el-input-number v-model="row.inboundTotalNum" :min="0" :precision="0" step-strictly size="mini" controls-position="right" style="width:100%" />
+                <el-input-number v-model="row.inboundTotalNum" :min="0" :precision="0" step-strictly v-int-only size="mini" controls-position="right" style="width:100%" />
               </template>
             </el-table-column>
             <el-table-column label="实入库" width="100">
               <template slot-scope="{row}">
-                <el-input-number v-model="row.actualInboundNum" :min="0" :precision="0" step-strictly size="mini" controls-position="right" style="width:100%" />
+                <el-input-number v-model="row.actualInboundNum" :min="0" :precision="0" step-strictly v-int-only size="mini" controls-position="right" style="width:100%" />
               </template>
             </el-table-column>
             <el-table-column label="货架 *" width="130">
@@ -329,7 +329,7 @@
         </el-table-column>
         <el-table-column label="数量" width="120">
           <template slot-scope="{row}">
-            <el-input-number v-model="row.num" :min="0" :precision="0" step-strictly size="mini" controls-position="right" style="width:100%" />
+            <el-input-number v-model="row.num" :min="0" :precision="0" step-strictly v-int-only size="mini" controls-position="right" style="width:100%" />
           </template>
         </el-table-column>
         <el-table-column label="操作" width="60">

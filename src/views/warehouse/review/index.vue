@@ -70,7 +70,7 @@
         <el-table-column label="拣货" width="90"><template slot-scope="{row}">{{ row.pickedNum }}</template></el-table-column>
         <el-table-column label="复核实测" width="140">
           <template slot-scope="{row}">
-            <el-input-number v-model="row.reviewedNum" :min="0" :precision="0" step-strictly size="mini" controls-position="right" :disabled="detail.status !== 0" />
+            <el-input-number v-model="row.reviewedNum" :min="0" :precision="0" step-strictly v-int-only size="mini" controls-position="right" :disabled="detail.status !== 0" />
           </template>
         </el-table-column>
         <el-table-column label="差异" width="80">
