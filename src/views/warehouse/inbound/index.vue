@@ -235,7 +235,7 @@
                 <el-input-number v-model="row.actualInboundNum" :min="0" size="mini" controls-position="right" style="width:100%" />
               </template>
             </el-table-column>
-            <el-table-column label="货架" width="130">
+            <el-table-column label="货架 *" width="130">
               <template slot-scope="{row}">
                 <el-select v-model="row.shelfId" size="mini" filterable clearable style="width:100%" @change="onShelfChange(row)" :disabled="!form.warehouseId">
                   <el-option v-for="s in shelfOptions" :key="s.id" :label="s.code" :value="s.id" />
@@ -243,7 +243,7 @@
                 <div v-if="zoneRule && !shelfOptions.length" class="cap-warn">该仓没有{{ zoneRule.name }}货架，请先到货架管理配置</div>
               </template>
             </el-table-column>
-            <el-table-column label="库位" width="150">
+            <el-table-column label="库位 *" width="150">
               <template slot-scope="{row}">
                 <el-select v-model="row.locationId" size="mini" filterable clearable style="width:100%" :disabled="!row.shelfId">
                   <el-option v-for="l in zoneLocations(row.shelfId)" :key="l.id" :label="locationOptionLabel(l, row)" :value="l.id" :disabled="locationOptionDisabled(l, row)" />
@@ -502,6 +502,8 @@ export default {
     confirmSplit() {
       const rows = this.splitRows.filter((r) => Number(r.num) > 0);
       if (!rows.length) return this.$message.warning('请至少填写一个库位和数量');
+      const noShelf = rows.findIndex((r) => !r.shelfId);
+      if (noShelf >= 0) return this.$message.warning(`第 ${noShelf + 1} 行未选择货架`);
       const noLoc = rows.findIndex((r) => !r.locationId);
       if (noLoc >= 0) return this.$message.warning(`第 ${noLoc + 1} 行未选择库位`);
       const dup = rows.map((r) => r.locationId).filter((id, i, arr) => arr.indexOf(id) !== i);
@@ -850,6 +852,10 @@ export default {
       // 店铺决定库存的商户归属，漏填会落成 mer_id=NULL 的「历史数据」，后续无法按商户对账
       const noShop = this.form.items.findIndex(i => !i.merId);
       if (noShop >= 0) return this.$message.warning(`第 ${noShop + 1} 行未选择店铺，库存将无法归属商户`);
+      const noShelf = this.form.items.findIndex(i => !i.shelfId);
+      if (noShelf >= 0) return this.$message.warning(`第 ${noShelf + 1} 行未选择货架`);
+      const noLocation = this.form.items.findIndex(i => !i.locationId);
+      if (noLocation >= 0) return this.$message.warning(`第 ${noLocation + 1} 行未选择库位`);
       // 应入库是「这批该到多少」，填 0 的行就是录错了，留着只会让人以为漏发货
       const zeroPlan = this.form.items.findIndex(i => !(Number(i.inboundTotalNum) > 0));
       if (zeroPlan >= 0) return this.$message.warning(`第 ${zeroPlan + 1} 行应入库数量必须大于 0`);
@@ -862,7 +868,11 @@ export default {
       if (over.length) return this.$message.warning(overCapacityMessage(over));
       this.saving = true;
       try {
-        const payload = { ...this.form, items: this.stripItemMeta(this.form.items) };
+        const payload = {
+          ...this.form,
+          relatedCode: (this.isReturnType || this.isTransferType) ? (this.form.relatedCode || null) : null,
+          items: this.stripItemMeta(this.form.items),
+        };
         if (this.dialogMode === 'edit') {
           await inboundApi.update(payload);
           this.$message.success('修改成功');
