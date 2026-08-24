@@ -119,10 +119,19 @@ const warehouseRouter = {
           hidden: true,
         },
         {
+          /*
+           * 复核的日常入口在「波次与拣货」的拣货单操作列（拣完即复核，同一个人同一屏完成），
+           * 所以这里 hidden，不占菜单。
+           *
+           * 但只留波次内入口的话，差异单跟进得一个波次一个波次翻 —— 跨波次的全局视图没了。
+           * 所以把这个页面保留为「下钻目标」：仓储看板的「待复核单」卡片点进来，
+           * 老链接 / 收藏也仍然可用（之前是 redirect 到 wave，等于把这个能力丢了）。
+           */
           path: '/warehouse/review',
           component: () => import('@/views/warehouse/review/index'),
           name: 'WarehouseReview',
-          meta: { title: '复核管理' },
+          meta: { title: '待复核（跨波次）' },
+          hidden: true,
         },
         {
           // 出库交接：快递员上门取件时当面确认，解决「货有没有真的被带走」

@@ -1,5 +1,24 @@
 <template>
   <div class="divBox">
+    <!--
+      平台新旧装修开关：关掉后 App 首页走老版「页面设计」的样式，
+      这里配的装修内容不会生效但也不会丢，随时可以再打开。
+      放在页面列表顶部而不是「全局配置」里，是为了和商户端位置保持一致。
+    -->
+    <el-card class="box-card mb14" shadow="never" :bordered="false">
+      <div class="qdiy-switch">
+        <span class="qdiy-switch__label">启用新版装修</span>
+        <el-switch v-model="qdiyEnable" :disabled="qdiyEnableLoading" @change="handleQdiyEnableChange" />
+        <span class="qdiy-switch__tip">
+          {{
+            qdiyEnable
+              ? 'App 首页由这里设为首页的装修页面渲染'
+              : '已关闭，App 首页使用老版「页面设计」的样式，下面配置的内容不会生效'
+          }}
+        </span>
+      </div>
+    </el-card>
+
     <el-card class="box-card" shadow="never" :bordered="false">
       <div class="container">
         <el-form :inline="true" :model="tableFrom" size="small" @submit.native.prevent>
@@ -63,13 +82,16 @@
             <el-button type="text" size="small" v-hasPermi="['platform:qdiy:page:info']" @click="handleEdit(scope.row)">
               装修
             </el-button>
+            <el-button type="text" size="small" v-hasPermi="['platform:qdiy:page:save']" @click="handleEditBase(scope.row)">
+              编辑
+            </el-button>
             <el-button type="text" size="small" v-hasPermi="['platform:qdiy:page:copy']" @click="handleCopy(scope.row)">
               复制页面
             </el-button>
             <el-button type="text" size="small" @click="handleCopyLink(scope.row)">复制链接</el-button>
             <el-button type="text" size="small" @click="handleQrcode(scope.row)">二维码</el-button>
             <el-button
-              v-if="scope.row.isHomePage !== 1 && scope.row.type !== 3"
+              v-if="scope.row.isHomePage !== 1 && scope.row.type !== 3 && !isFixedSlotPage(scope.row)"
               type="text"
               size="small"
               v-hasPermi="['platform:qdiy:page:sethome']"
@@ -78,7 +100,7 @@
               设为首页
             </el-button>
             <el-button
-              v-if="scope.row.isHomePage !== 1"
+              v-if="scope.row.isHomePage !== 1 && scope.row.type !== 3"
               type="text"
               size="small"
               v-hasPermi="['platform:qdiy:page:delete']"
@@ -104,16 +126,28 @@
       </div>
     </el-card>
 
-    <!-- 新建页面 -->
-    <el-dialog title="新建页面" :visible.sync="dialogVisible" width="500px" :close-on-click-modal="false">
+    <!-- 新建 / 编辑页面（编辑时只改基础信息，不碰装修内容） -->
+    <el-dialog
+      :title="pageForm.id ? '编辑页面' : '新建页面'"
+      :visible.sync="dialogVisible"
+      width="500px"
+      :close-on-click-modal="false"
+    >
       <el-form ref="pageForm" :model="pageForm" :rules="pageRules" label-width="90px" size="small">
         <el-form-item label="页面名称" prop="title">
           <el-input v-model="pageForm.title" placeholder="请输入页面名称" maxlength="30" show-word-limit />
         </el-form-item>
         <el-form-item label="页面类型" prop="template">
-          <el-select v-model="pageForm.template" placeholder="请选择页面类型" style="width: 100%">
+          <!-- 组件结构按页面类型定义，建完再改类型会让已有内容全部失配，所以只读 -->
+          <el-select
+            v-model="pageForm.template"
+            :disabled="!!pageForm.id"
+            placeholder="请选择页面类型"
+            style="width: 100%"
+          >
             <el-option v-for="item in templateOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
+          <div v-if="pageForm.id" class="form-tip">页面类型创建后不可修改</div>
         </el-form-item>
         <el-form-item label="底部导航">
           <el-switch v-model="pageForm.isShowBottomNav" :active-value="1" :inactive-value="0" />
@@ -139,10 +173,13 @@
 import {
   qdiyPageListApi,
   qdiyPageSaveApi,
+  qdiyPageUpdateBaseApi,
   qdiyPageDeleteApi,
   qdiyPageCopyApi,
   qdiyPageSetHomeApi,
   qdiyPageSetShowNavApi,
+  qdiyEnableInfoApi,
+  qdiyEnableSaveApi,
 } from '@/api/qdiy';
 import { checkPermi } from '@/utils/permission';
 
@@ -152,6 +189,9 @@ export default {
     return {
       listLoading: false,
       submitLoading: false,
+      // 平台新旧装修开关
+      qdiyEnable: true,
+      qdiyEnableLoading: false,
       dialogVisible: false,
       qrcodeVisible: false,
       currentUrl: '',
@@ -163,6 +203,10 @@ export default {
         { label: '用户中心', value: 'user_center' },
         { label: '自定义页面', value: 'custom_page' },
         { label: '商品模板', value: 'goods_template' },
+        // 分类页和购物车的主体是写死的功能区，装修只在主体上下各开一个区域，
+        // 用组件库里的「页面主体位置」占位组件标记主体在哪，它前后的组件分别渲染到上下
+        { label: '商品分类', value: 'goods_cate' },
+        { label: '购物车', value: 'shopping_cart' },
       ],
       pageForm: { title: '', template: 'custom_page', isShowBottomNav: 0 },
       pageRules: {
@@ -172,10 +216,47 @@ export default {
     };
   },
   mounted() {
-    if (checkPermi(['platform:qdiy:page:list'])) this.getList();
+    if (checkPermi(['platform:qdiy:page:list'])) {
+      this.getList();
+      this.getQdiyEnable();
+    }
+    // 从「我的模板 → 套用到页面」发现没有同类型页面时会带 create=xxx 跳过来，
+    // 直接把新建弹窗打开并选好类型，省得用户回来再自己找一遍
+    const create = this.$route.query.create;
+    if (create && this.templateOptions.some((e) => e.value === create)) {
+      this.handleAdd(create);
+    }
   },
   methods: {
     checkPermi,
+    /**
+     * 分类页、购物车是「一个类型只有一个页面」，App 端按 template 取，
+     * 没有首页的概念，设为首页只会把 App 首页顶掉，所以不给这个入口。
+     */
+    isFixedSlotPage(row) {
+      return ['goods_cate', 'shopping_cart'].indexOf(row.template) > -1;
+    },
+    getQdiyEnable() {
+      qdiyEnableInfoApi()
+        .then((res) => {
+          this.qdiyEnable = res === true || res === 'true';
+        })
+        .catch(() => {});
+    },
+    handleQdiyEnableChange(val) {
+      this.qdiyEnableLoading = true;
+      qdiyEnableSaveApi(val)
+        .then(() => {
+          this.$message.success(val ? '已启用新版装修' : '已关闭，App 首页恢复老版装修样式');
+        })
+        .catch(() => {
+          // 保存失败要把开关拨回去，否则界面显示的和实际生效的不一致
+          this.qdiyEnable = !val;
+        })
+        .finally(() => {
+          this.qdiyEnableLoading = false;
+        });
+    },
     getList() {
       this.listLoading = true;
       qdiyPageListApi(this.tableFrom)
@@ -204,8 +285,23 @@ export default {
       this.tableFrom.limit = limit;
       this.getList();
     },
-    handleAdd() {
-      this.pageForm = { title: '', template: 'custom_page', isShowBottomNav: 0 };
+    handleAdd(template) {
+      // 按钮上写的是 @click="handleAdd"，Vue 会把点击事件当第一个参数传进来，
+      // 直接拿来当页面类型会渲染成 [object PointerEvent]。只认字符串。
+      const preset = typeof template === 'string' ? template : '';
+      // id 为空 = 新建，弹窗按这个字段切标题与提交接口
+      this.pageForm = { id: null, title: '', template: preset || 'custom_page', isShowBottomNav: 0 };
+      this.dialogVisible = true;
+      this.$nextTick(() => this.$refs.pageForm && this.$refs.pageForm.clearValidate());
+    },
+    /** 编辑页面基础信息（名称/底部导航），不进编辑器、不动装修内容 */
+    handleEditBase(row) {
+      this.pageForm = {
+        id: row.id,
+        title: row.title,
+        template: row.template,
+        isShowBottomNav: row.isShowBottomNav ? 1 : 0,
+      };
       this.dialogVisible = true;
       this.$nextTick(() => this.$refs.pageForm && this.$refs.pageForm.clearValidate());
     },
@@ -213,6 +309,25 @@ export default {
       this.$refs.pageForm.validate((valid) => {
         if (!valid) return;
         this.submitLoading = true;
+        if (this.pageForm.id) {
+          // 走 updateBase：普通的 update 接口会连 content 一起写，
+          // 而这里手上没有装修内容，用它会把整页清空
+          qdiyPageUpdateBaseApi({
+            id: this.pageForm.id,
+            title: this.pageForm.title,
+            isShowBottomNav: this.pageForm.isShowBottomNav,
+          })
+            .then(() => {
+              this.submitLoading = false;
+              this.dialogVisible = false;
+              this.$message.success('保存成功');
+              this.getList();
+            })
+            .catch(() => {
+              this.submitLoading = false;
+            });
+          return;
+        }
         qdiyPageSaveApi(this.pageForm)
           .then((res) => {
             this.submitLoading = false;
@@ -298,6 +413,32 @@ export default {
 </script>
 
 <style scoped lang="scss">
+.mb14 {
+  margin-bottom: 14px;
+}
+.qdiy-switch {
+  display: flex;
+  align-items: center;
+
+  &__label {
+    margin-right: 12px;
+    font-size: 14px;
+    color: #303133;
+  }
+
+  &__tip {
+    margin-left: 12px;
+    font-size: 12px;
+    color: #999;
+  }
+}
+.form-tip {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #909399;
+  line-height: 1.5;
+}
+
 .demo-image__preview {
   ::v-deep .el-image {
     width: 36px;

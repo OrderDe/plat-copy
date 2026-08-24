@@ -18,6 +18,7 @@
     </template>
 
     <diy-img-setting
+      ref="imgSetting"
       :top-name="showPattern ? '添加图片' : '图片设置'"
       :suggest-size-text="suggestText"
       :open-add-img="true"
@@ -27,11 +28,14 @@
       :img-infos="imgAdArr"
       :max-img-length="999"
       @change="addIconImg"
+      @pick-link="(index, item) => openLinkPicker('imgSetting', item)"
     />
 
     <diy-color :color-infos="defaultForm.colorInfos" :def-color="defaultForm.defColor" @change="updateColor" />
     <diy-size-setting top-name="边距" :size-infos="defaultForm.sizeInfos" :max-value="50" @change="onSliderChange" />
     <diy-size-setting top-name="圆角设置" :size-infos="defaultForm.radiusInfos" :max-value="20" @change="RadiusChange" />
+
+    <link-picker-dialog ref="linkPicker" @picked="onLinkPicked" />
   </div>
 </template>
 
@@ -43,10 +47,11 @@
  * 因此这里用 showPattern 开关合并，xun-ai 直接复用（见 widgets/xun-ai/style.vue）。
  */
 import basicMixins from '../../controls/basicMixins';
+import linkPickerMixins from '../../controls/linkPickerMixins';
 
 export default {
   name: 'StarCarCareStyle',
-  mixins: [basicMixins],
+  mixins: [basicMixins, linkPickerMixins],
   props: {
     showPattern: {
       type: Boolean,

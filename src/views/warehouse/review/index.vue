@@ -1,3 +1,14 @@
+<!--
+  跨波次的全局复核视图（2026-08-22 重新启用，不进菜单）
+
+  日常复核走「波次与拣货」页的拣货单操作列：拣完的单在同一行点「复核」即可核对实测数、
+  驳回、通过（扣库存并让出库单生效）—— 那是主路径，同一个人同一屏完成，不用跳菜单。
+
+  但波次内入口有个盲区：差异单跟进只能一个波次一个波次翻。所以这个页面保留下来做
+  **跨波次的全局清单**，入口在「仓储看板 → 待复核单」卡片，路由 hidden 不占菜单。
+
+  后端 /api/warehouse/review/** 接口自始至终未做任何改动。
+-->
 <template>
   <div class="app-container">
     <el-form :inline="true" :model="query" size="small" class="filter-container">
@@ -91,7 +102,20 @@ export default {
       reviewVisible: false, detail: {},
     };
   },
-  created() { this.loadWarehouses(); this.loadPage(); },
+  created() {
+    /*
+     * 从仓储看板「待复核单」下钻过来时带 warehouseId，跟看板上选的仓库保持一致。
+     * 同时默认只看状态 0（待复核）—— 下钻的诉求就是「把待办清掉」，
+     * 全状态混在一起还得再筛一次。用户改筛选条件仍然自由。
+     */
+    const wid = Number(this.$route.query.warehouseId);
+    if (Number.isFinite(wid) && wid > 0) {
+      this.query.warehouseId = wid;
+      this.query.status = 0;
+    }
+    this.loadWarehouses();
+    this.loadPage();
+  },
   methods: {
     statusType(s) { return ({ 0: 'info', 1: 'success', 2: 'danger', 3: 'info' })[s] || ''; },
     diffClass(r) { const d = (r.reviewedNum||0)-(r.pickedNum||0); return d===0?'':(d>0?'plus':'minus'); },

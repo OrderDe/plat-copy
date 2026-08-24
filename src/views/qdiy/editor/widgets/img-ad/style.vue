@@ -17,6 +17,7 @@
     </diy-style-contain>
 
     <diy-img-setting
+      ref="imgSetting"
       suggest-size-text="建议图片宽度750，高度200-950，支持jpg、png"
       top-name="添加图片"
       :open-add-img="true"
@@ -25,11 +26,14 @@
       :img-infos="imgAdArr"
       max-img-length="999"
       @change="addIconImg"
+      @pick-link="(index, item) => openLinkPicker('imgSetting', item)"
     />
 
     <diy-color :color-infos="defaultForm.colorInfos" :def-color="defaultForm.defColor" @change="updateColor" />
     <diy-size-setting top-name="边距" :size-infos="defaultForm.sizeInfos" :max-value="50" @change="sliderChange" />
     <diy-size-setting top-name="圆角设置" :size-infos="defaultForm.radiusInfos" :max-value="20" @change="RadiusChange" />
+
+    <link-picker-dialog ref="linkPicker" @picked="onLinkPicked" />
   </div>
 </template>
 
@@ -41,10 +45,11 @@
  * 平台端没有这批资源，改成文字标签。
  */
 import basicMixins from '../../controls/basicMixins';
+import linkPickerMixins from '../../controls/linkPickerMixins';
 
 export default {
   name: 'ImgAdStyle',
-  mixins: [basicMixins],
+  mixins: [basicMixins, linkPickerMixins],
   data() {
     return {
       imgAdArr: [],

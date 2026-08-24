@@ -101,8 +101,18 @@
             <span class="attention-count">{{ attentionCount }} 项待关注</span>
           </div>
           <div class="attention-list">
-            <div v-for="item in attentionMetrics" :key="item.key" class="attention-item" :class="{ 'has-risk': item.risk }">
-              <div class="attention-name"><i :class="item.icon" :style="{ color: item.color }" />{{ item.title }}</div>
+            <!-- 带 link 的条目可下钻到对应清单页，点整行都算（不止数字） -->
+            <div
+              v-for="item in attentionMetrics"
+              :key="item.key"
+              class="attention-item"
+              :class="{ 'has-risk': item.risk, 'is-linked': !!item.link }"
+              @click="onAttentionClick(item)"
+            >
+              <div class="attention-name">
+                <i :class="item.icon" :style="{ color: item.color }" />{{ item.title }}
+                <i v-if="item.link" class="el-icon-top-right attention-link-icon" />
+              </div>
               <div class="attention-value"><b :style="{ color: item.risk ? item.color : '#303133' }">{{ item.value }}</b><span>{{ item.unit }}</span></div>
             </div>
           </div>
@@ -173,8 +183,14 @@ export default {
         { key: 'low', title: '库存预警商品', value: this.formatNumber(this.data.lowStockCount), unit: '个', icon: 'el-icon-warning-outline', color: '#ef5b62', risk: Number(this.data.lowStockCount || 0) > 0 },
         { key: 'expiring', title: '30 天内临期批次', value: this.formatNumber(this.data.expiringBatchCount), unit: '批', icon: 'el-icon-alarm-clock', color: '#e89521', risk: Number(this.data.expiringBatchCount || 0) > 0 },
         { key: 'expired', title: '已过期批次', value: this.formatNumber(this.data.expiredBatchCount), unit: '批', icon: 'el-icon-circle-close', color: '#ef5b62', risk: Number(this.data.expiredBatchCount || 0) > 0 },
-        { key: 'pick', title: '待处理拣货单', value: this.formatNumber(this.data.pendingPickCount), unit: '单', icon: 'el-icon-tickets', color: '#316cff', risk: Number(this.data.pendingPickCount || 0) > 0 },
-        { key: 'review', title: '待复核单', value: this.formatNumber(this.data.pendingReviewCount), unit: '单', icon: 'el-icon-document-checked', color: '#8b5cf6', risk: Number(this.data.pendingReviewCount || 0) > 0 },
+        /*
+         * 这两条带 link：作业类待办点了要能直接去处理，不然看到数字还得自己找菜单。
+         * 待复核走 /warehouse/review（跨波次全局清单，路由 hidden 不占菜单）——
+         * 波次页里也能复核，但那是单波次视角，差异单跟进得一个波次一个波次翻。
+         * 仓库筛选带过去，看板选了哪个仓，下钻后保持一致。
+         */
+        { key: 'pick', title: '待处理拣货单', value: this.formatNumber(this.data.pendingPickCount), unit: '单', icon: 'el-icon-tickets', color: '#316cff', risk: Number(this.data.pendingPickCount || 0) > 0, link: '/warehouse/wave' },
+        { key: 'review', title: '待复核单', value: this.formatNumber(this.data.pendingReviewCount), unit: '单', icon: 'el-icon-document-checked', color: '#8b5cf6', risk: Number(this.data.pendingReviewCount || 0) > 0, link: '/warehouse/review' },
       ];
       return metrics;
     },
@@ -187,6 +203,12 @@ export default {
     this.load();
   },
   methods: {
+    /** 待办条目下钻；没配 link 的（利用率、预警之类）点了不动 */
+    onAttentionClick(item) {
+      if (!item || !item.link) return;
+      const query = this.warehouseId ? { warehouseId: this.warehouseId } : {};
+      this.$router.push({ path: item.link, query });
+    },
     displayValue(value) {
       return value == null || value === '' ? '0' : value;
     },
@@ -336,6 +358,12 @@ export default {
 .attention-item { display: flex; justify-content: space-between; align-items: center; min-height: 44px; padding: 5px 9px; border-bottom: 1px dashed #edf0f4; }
 .attention-item:nth-last-child(-n+2) { border-bottom: 0; }
 .attention-item.has-risk { background: linear-gradient(90deg, rgba(245,108,108,.045), transparent); }
+/* 可下钻的条目：给个手型 + hover 反馈，让人知道能点 */
+.attention-item.is-linked { cursor: pointer; }
+.attention-item.is-linked:hover { background: #f3f7ff; }
+.attention-item.is-linked:hover .attention-name { color: #316cff; }
+.attention-link-icon { width: auto !important; flex: none !important; margin-left: 4px; font-size: 12px !important; color: #b6bdc9; }
+.attention-item.is-linked:hover .attention-link-icon { color: #316cff; }
 .attention-name { display: flex; align-items: center; min-width: 0; color: #697487; font-size: 11px; }
 .attention-name i { width: 18px; flex: 0 0 18px; margin-right: 4px; font-size: 14px; }
 .attention-value { margin-left: 8px; white-space: nowrap; }

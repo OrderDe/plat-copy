@@ -8,6 +8,7 @@
     </diy-style-contain>
 
     <diy-icon-set
+      ref="iconSet"
       :list="iconList"
       :type="btnType"
       :width-img="48"
@@ -15,6 +16,7 @@
       :show-close="false"
       :show-link="true"
       @change="setChange($event, 'iconList')"
+      @pick-link="(index, item) => openLinkPicker('iconSet', item)"
     />
 
     <diy-color :color-infos="colorInfos" :str-color="defColor" @change="setChange($event, 'colorInfos')" />
@@ -26,6 +28,8 @@
       :max-value="20"
       @change="conRadiusChange"
     />
+
+    <link-picker-dialog ref="linkPicker" @picked="onLinkPicked" />
   </div>
 </template>
 
@@ -36,6 +40,7 @@
  * 默认五个订单状态图标 PHP 侧指向对象存储上的固定图片，平台端换成空图（由使用方自行上传）。
  */
 import basicMixins from '../../controls/basicMixins';
+import linkPickerMixins from '../../controls/linkPickerMixins';
 import { getObjValue } from '../../controls/utils';
 
 const DEFAULT_ICONS = ['待付款', '待发货', '待收货', '待评价', '退换货'].map((title) => ({
@@ -47,7 +52,7 @@ const DEFAULT_ICONS = ['待付款', '待发货', '待收货', '待评价', '退�
 
 export default {
   name: 'OrderIconGroupStyle',
-  mixins: [basicMixins],
+  mixins: [basicMixins, linkPickerMixins],
   data() {
     return {
       btnType: 1,

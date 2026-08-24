@@ -43,6 +43,7 @@
     <div :style="{ width: cubeExhibitWidth + 'px', height: cubeExhibitHeight + 'px' }" />
 
     <DiyImgSetting
+      ref="imgSetting"
       v-show="selCubeIndex !== -1"
       :img-infos="cubeImgInfo"
       :def-img-count="1"
@@ -51,6 +52,7 @@
       :img-contain-style="{ padding: 0, 'margin-top': '20px' }"
       :show-title="false"
       @change="addCubeImg"
+      @pick-link="onPickLink"
     />
   </div>
 </template>
@@ -326,6 +328,15 @@ export default {
         this.selectedList[this.selCubeIndex].originalData = imgArr;
       }
       this.updateData();
+    },
+    onPickLink(index, item) {
+      this.$emit('pick-link', index, item);
+    },
+    setUrl(urlInfo) {
+      const control = this.$refs.imgSetting;
+      if (control && typeof control.setUrl === 'function') {
+        control.setUrl(urlInfo);
+      }
     },
     getSelectedWidth(item) {
       return (parseInt(item.end.x, 10) - parseInt(item.start.x, 10) + 1) * this.cubeCellWidth;

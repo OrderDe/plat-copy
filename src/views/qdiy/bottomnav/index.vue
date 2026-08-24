@@ -1,5 +1,23 @@
 <template>
   <div class="divBox">
+    <!--
+      自定义底部导航的总开关：关掉后 App / H5 回到原来那套底部导航，
+      下面配的导航项和配色不会生效但也不会丢。与购物车、个人中心的开关同一套机制。
+    -->
+    <el-card class="box-card mb14" shadow="never" :bordered="false">
+      <div class="qdiy-switch">
+        <span class="qdiy-switch__label">启用自定义底部导航</span>
+        <el-switch v-model="enabled" :disabled="enableLoading" @change="handleEnableChange" />
+        <span class="qdiy-switch__tip">
+          {{
+            enabled
+              ? 'App / H5 的底部导航按下面配置的图标和配色渲染'
+              : '已关闭，底部导航使用原来的样式，下面配置的内容不会生效'
+          }}
+        </span>
+      </div>
+    </el-card>
+
     <el-card class="box-card" shadow="never" :bordered="false" v-loading="listLoading">
       <div class="nav-wrap">
         <!-- 左侧：手机预览，底部标签栏跟着右侧配色实时变 -->
@@ -103,8 +121,16 @@
 
 <script>
 import uploadPictures from '@/components/base/uploadPicture';
-import { qdiyNavListApi, qdiyNavSaveApi } from '@/api/qdiy';
+import {
+  qdiyNavListApi,
+  qdiyNavSaveApi,
+  qdiyTemplateEnableInfoApi,
+  qdiyTemplateEnableSaveApi,
+} from '@/api/qdiy';
 import { checkPermi } from '@/utils/permission';
+
+// 底部导航的开关 key，和后端 qdiy_setting 里存配色的分组名保持一致
+const ENABLE_KEY = 'bottom_nav';
 
 // 与后端 QdiyNavServiceImpl 的默认配色保持一致
 const DEFAULT_COLORS = {
@@ -124,6 +150,8 @@ export default {
     return {
       listLoading: false,
       submitLoading: false,
+      enabled: true,
+      enableLoading: false,
       dialogVisible: false,
       uploadVisible: false,
       form: { ...DEFAULT_COLORS, list: [] },
@@ -145,9 +173,33 @@ export default {
     },
   },
   mounted() {
-    if (checkPermi(['platform:qdiy:nav:list'])) this.getConfig();
+    if (checkPermi(['platform:qdiy:nav:list'])) {
+      this.getConfig();
+      this.getEnabled();
+    }
   },
   methods: {
+    getEnabled() {
+      qdiyTemplateEnableInfoApi(ENABLE_KEY)
+        .then((res) => {
+          this.enabled = res === true || res === 'true';
+        })
+        .catch(() => {});
+    },
+    handleEnableChange(val) {
+      this.enableLoading = true;
+      qdiyTemplateEnableSaveApi(ENABLE_KEY, val)
+        .then(() => {
+          this.$message.success(val ? '已启用自定义底部导航' : '已关闭，底部导航恢复原样式');
+        })
+        .catch(() => {
+          // 保存失败要把开关拨回去，否则界面显示的和实际生效的不一致
+          this.enabled = !val;
+        })
+        .finally(() => {
+          this.enableLoading = false;
+        });
+    },
     getConfig() {
       this.listLoading = true;
       qdiyNavListApi()
@@ -245,6 +297,25 @@ export default {
 </script>
 
 <style scoped lang="scss">
+.mb14 {
+  margin-bottom: 14px;
+}
+.qdiy-switch {
+  display: flex;
+  align-items: center;
+
+  &__label {
+    margin-right: 12px;
+    font-size: 14px;
+    color: #303133;
+  }
+
+  &__tip {
+    margin-left: 12px;
+    font-size: 12px;
+    color: #909399;
+  }
+}
 .nav-wrap {
   display: flex;
   flex-wrap: wrap;

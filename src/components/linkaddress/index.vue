@@ -25,46 +25,83 @@
           ></el-tree>
         </div>
         <div class="right_box" v-if="currenType == 'link'">
-          <div v-if="basicsList.length">
+          <!--
+            页面清单由 scripts/gen-link-data.js 从 App 的 pages.json 生成，
+            条数从 31 涨到 100+，平铺着找太费劲，加个按名称过滤的搜索框。
+            只作用在「商城链接」这一栏，其它分类走接口分页、不受影响。
+          -->
+          <el-input
+            v-model="linkKeyword"
+            size="small"
+            clearable
+            placeholder="搜索页面名称，如：签到 / 发票 / 秒杀"
+            prefix-icon="el-icon-search"
+            class="link-search"
+          />
+          <div v-if="!filteredBasics.length && !filteredUser.length && !filteredDistribution.length" class="link-empty">
+            没有匹配「{{ linkKeyword }}」的页面
+          </div>
+          <div v-if="filteredBasics.length">
             <div class="cont">基础链接</div>
             <div class="Box">
-              <div
-                class="cont_box"
-                :class="currenId == item.id && currenUrl == item.url ? 'on' : ''"
-                v-for="(item, index) in basicsList"
+              <el-tooltip
+                v-for="(item, index) in filteredBasics"
                 :key="index"
-                @click="getUrl(item)"
+                :disabled="!item.desc"
+                :content="item.desc"
+                placement="top"
+                effect="dark"
               >
-                {{ item.name }}
-              </div>
+                <div
+                  class="cont_box"
+                  :class="currenId == item.id && currenUrl == item.url ? 'on' : ''"
+                  @click="getUrl(item)"
+                >
+                  {{ item.name }}
+                </div>
+              </el-tooltip>
             </div>
           </div>
-          <div v-if="userList.length">
+          <div v-if="filteredUser.length">
             <div class="cont">个人中心</div>
             <div class="Box">
-              <div
-                class="cont_box"
-                :class="currenId == item.id ? 'on' : ''"
-                v-for="(item, index) in userList"
+              <el-tooltip
+                v-for="(item, index) in filteredUser"
                 :key="index"
-                @click="getUrl(item)"
+                :disabled="!item.desc"
+                :content="item.desc"
+                placement="top"
+                effect="dark"
               >
-                {{ item.name }}
-              </div>
+                <div
+                  class="cont_box"
+                  :class="currenId == item.id ? 'on' : ''"
+                  @click="getUrl(item)"
+                >
+                  {{ item.name }}
+                </div>
+              </el-tooltip>
             </div>
           </div>
-          <div v-if="distributionList.length">
+          <div v-if="filteredDistribution.length">
             <div class="cont">分销</div>
             <div class="Box">
-              <div
-                class="cont_box"
-                :class="currenId == item.id ? 'on' : ''"
-                v-for="(item, index) in distributionList"
+              <el-tooltip
+                v-for="(item, index) in filteredDistribution"
                 :key="index"
-                @click="getUrl(item)"
+                :disabled="!item.desc"
+                :content="item.desc"
+                placement="top"
+                effect="dark"
               >
-                {{ item.name }}
-              </div>
+                <div
+                  class="cont_box"
+                  :class="currenId == item.id ? 'on' : ''"
+                  @click="getUrl(item)"
+                >
+                  {{ item.name }}
+                </div>
+              </el-tooltip>
             </div>
           </div>
         </div>
@@ -257,6 +294,7 @@ export default {
         children: 'children',
         label: 'title',
       },
+      linkKeyword: '',
       basicsList: [],
       userList: [],
       distributionList: [],
@@ -335,8 +373,29 @@ export default {
         return [...listData.data];
       }
     },
+    /** 「商城链接」三栏按关键字过滤，关键字为空时原样返回 */
+    filteredBasics() {
+      return this.filterByKeyword(this.basicsList);
+    },
+    filteredUser() {
+      return this.filterByKeyword(this.userList);
+    },
+    filteredDistribution() {
+      return this.filterByKeyword(this.distributionList);
+    },
   },
   methods: {
+    filterByKeyword(list) {
+      const kw = (this.linkKeyword || '').trim().toLowerCase();
+      if (!kw) return list || [];
+      // 名称和路径都参与匹配：有些页面只有英文路径没有中文标题
+      return (list || []).filter(
+        (e) =>
+          String(e.name || '').toLowerCase().indexOf(kw) > -1 ||
+          String(e.url || '').toLowerCase().indexOf(kw) > -1 ||
+          String(e.desc || '').toLowerCase().indexOf(kw) > -1,
+      );
+    },
     //关闭弹窗
     onOpen() {
       this.currenId = '';
@@ -527,6 +586,16 @@ export default {
 </script>
 
 <style scoped lang="scss">
+.link-search {
+  margin-bottom: 12px;
+}
+.link-empty {
+  padding: 40px 0;
+  text-align: center;
+  color: #909399;
+  font-size: 13px;
+}
+
 ::v-deep .el-dialog {
   width: 860px !important;
 }

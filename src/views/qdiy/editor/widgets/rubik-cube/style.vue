@@ -4,15 +4,19 @@
 
     <diy-style-contain title="魔方布局">
       <diy-rubik-cube
+        ref="rubikCube"
         :density="currentPreset.data.density"
         :style-boo="styleBoo"
         :cube-list="cubeListInfo"
         :style-arr="currentPreset.data.info"
         @change="getCubeInfo"
         @max="getMaxHeight"
+        @pick-link="(index, item) => openLinkPicker('rubikCube', item)"
       />
       <diy-color :color-infos="defaultForm.colorInfos" :show-border-top="false" @change="updateColor" />
     </diy-style-contain>
+
+    <link-picker-dialog ref="linkPicker" @picked="onLinkPicked" />
 
     <diy-size-setting
       top-name="边距"
@@ -27,11 +31,12 @@
 <script>
 /** 图片魔方 —— 属性面板。迁移自 PHP common/rubik-cube/style.php */
 import basicMixins from '../../controls/basicMixins';
+import linkPickerMixins from '../../controls/linkPickerMixins';
 import { cubePresets } from './presets';
 
 export default {
   name: 'RubikCubeStyle',
-  mixins: [basicMixins],
+  mixins: [basicMixins, linkPickerMixins],
   data() {
     return {
       cubeListInfo: [],

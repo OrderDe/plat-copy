@@ -24,9 +24,68 @@
                 <div class="tips">建议：自定义风格不要设置成白色！</div>
               </el-form-item>
 
-              <el-form-item label="按需DIY">
-                <el-switch v-model="globalForm.globalGoodsNeed" :active-value="1" :inactive-value="0" />
+              <el-form-item label="辅助色">
+                <el-color-picker v-model="globalForm.themeSecondary" color-format="hex" :predefine="predefineColors" />
+                <span class="tips inline">用于次要按钮、角标、标签底色</span>
               </el-form-item>
+
+              <el-form-item label="价格颜色">
+                <el-color-picker v-model="globalForm.themePrice" color-format="hex" :predefine="predefineColors" />
+                <span class="tips inline">商品价格单独取色，不跟主色绑死</span>
+              </el-form-item>
+
+              <el-form-item label="配色方案">
+                <div class="preset-list">
+                  <div
+                    v-for="preset in themePresets"
+                    :key="preset.name"
+                    class="preset-item"
+                    :class="{ active: preset.globalTextColor === globalForm.globalTextColor }"
+                    @click="applyPreset(preset)"
+                  >
+                    <div class="preset-colors">
+                      <span :style="{ background: preset.globalTextColor }" />
+                      <span :style="{ background: preset.themeSecondary }" />
+                      <span :style="{ background: preset.themePrice }" />
+                    </div>
+                    <div class="preset-name">{{ preset.name }}</div>
+                  </div>
+                </div>
+              </el-form-item>
+
+              <el-form-item label="按钮形状">
+                <el-radio-group v-model="globalForm.buttonShape">
+                  <el-radio label="square">直角</el-radio>
+                  <el-radio label="round">圆角</el-radio>
+                  <el-radio label="capsule">胶囊</el-radio>
+                </el-radio-group>
+              </el-form-item>
+
+              <el-form-item label="主按钮填充">
+                <el-radio-group v-model="globalForm.buttonFill">
+                  <el-radio label="solid">纯色</el-radio>
+                  <el-radio label="gradient">渐变（主色 → 辅助色）</el-radio>
+                </el-radio-group>
+              </el-form-item>
+
+              <el-form-item label="卡片圆角">
+                <el-slider v-model="globalForm.cardRadius" :min="0" :max="20" show-input style="max-width: 420px" />
+              </el-form-item>
+
+              <el-form-item label="角标风格">
+                <el-radio-group v-model="globalForm.tagStyle">
+                  <el-radio label="solid">实心</el-radio>
+                  <el-radio label="outline">描边</el-radio>
+                </el-radio-group>
+              </el-form-item>
+
+              <!--
+                「按需DIY」开关已移除（2026-08-22）。
+                globalGoodsNeed 是从 qimall setting.php 继承来的老 key，四个仓库
+                （平台端 / 商户端 / App / 后端）全文检索下来只有这里写、没有任何地方读，
+                名字也看不出语义。留着只会让人配了个不生效的开关。
+                key 本身保留在 GLOBAL_DEFAULT 里，老数据照常读写，DB 行不动。
+              -->
             </el-form>
 
             <!-- 预览区：商品详情 / SKU 弹层 / 我的订单 -->
@@ -34,15 +93,18 @@
               <div class="phone">
                 <div class="phone-bar">商品详情</div>
                 <div class="phone-body">
-                  <div class="goods-price" :style="{ color: color }">
-                    <span class="cur">&yen;2899</span>
-                    <span class="ori">&yen;3000.00</span>
+                  <div class="goods-card" :style="cardStyle">
+                    <div class="goods-price" :style="{ color: priceColor }">
+                      <span class="cur">&yen;2899</span>
+                      <span class="ori">&yen;3000.00</span>
+                      <span class="goods-tag" :style="tagPreviewStyle">限时</span>
+                    </div>
+                    <div class="goods-name">网易严选电脑工作台</div>
                   </div>
-                  <div class="goods-name">网易严选电脑工作台</div>
-                  <div class="coupon" :style="{ color: color }">领券 满10减1</div>
+                  <div class="coupon" :style="{ color: secondaryColor }">领券 满10减1</div>
                   <div class="phone-foot">
-                    <div class="btn-left" :style="{ color: color, border: '1px solid ' + color }">加入购物车</div>
-                    <div class="btn-right" :style="{ background: color }">立即购买</div>
+                    <div class="btn-left" :style="outlineButtonStyle">加入购物车</div>
+                    <div class="btn-right" :style="primaryButtonStyle">立即购买</div>
                   </div>
                 </div>
               </div>
@@ -50,12 +112,12 @@
               <div class="phone">
                 <div class="phone-bar">商品详情</div>
                 <div class="phone-body">
-                  <div class="sku-price" :style="{ color: color }">&yen;2988.00</div>
+                  <div class="sku-price" :style="{ color: priceColor }">&yen;2988.00</div>
                   <div class="sku-label">颜色</div>
-                  <div class="sku-item" :style="{ color: color, border: '1px solid ' + color }">黑色</div>
+                  <div class="sku-item" :style="outlineButtonStyle">黑色</div>
                   <div class="sku-label">数量</div>
                   <div class="sku-num">- 1 +</div>
-                  <div class="sure-btn" :style="{ background: color }">确定</div>
+                  <div class="sure-btn" :style="primaryButtonStyle">确定</div>
                 </div>
               </div>
 
@@ -126,8 +188,35 @@ import uploadPictures from '@/components/base/uploadPicture';
 import { qdiySettingInfoApi, qdiySettingSaveApi } from '@/api/qdiy';
 import { checkPermi } from '@/utils/permission';
 
-// 与 qimall setting.php 的 default_setting 保持一致
-const GLOBAL_DEFAULT = { globalTextColor: '#F54B4A', globalGoodsNeed: 0 };
+/**
+ * 全局配置默认值
+ *
+ * globalTextColor / globalGoodsNeed 是 qimall setting.php 原有的两项，key 保持不变；
+ * 其余是本轮扩充的主题项，走同一张 qdiy_setting 表（group=global），后端无需改动。
+ */
+const GLOBAL_DEFAULT = {
+  globalTextColor: '#F54B4A',
+  globalGoodsNeed: 0,
+  // 辅助色用于次要按钮、标签底色；价格色单列是因为很多商城价格和主色不同调
+  themeSecondary: '#FF8A3D',
+  themePrice: '#F54B4A',
+  // 按钮形状：square 直角 / round 圆角 / capsule 胶囊
+  buttonShape: 'capsule',
+  // 主按钮填充：solid 实心 / gradient 渐变
+  buttonFill: 'solid',
+  cardRadius: 8,
+  // 角标风格：solid 实心 / outline 描边
+  tagStyle: 'solid',
+};
+
+/** 一键套用的成套配色，省得一项项调 */
+const THEME_PRESETS = [
+  { name: '商城红', globalTextColor: '#F54B4A', themeSecondary: '#FF8A3D', themePrice: '#F54B4A' },
+  { name: '科技蓝', globalTextColor: '#4985E9', themeSecondary: '#36C6D3', themePrice: '#FF6A00' },
+  { name: '雅致紫', globalTextColor: '#AA4DF1', themeSecondary: '#F178B6', themePrice: '#F54B4A' },
+  { name: '生鲜绿', globalTextColor: '#1EB83D', themeSecondary: '#8BC34A', themePrice: '#FF5722' },
+  { name: '甜心粉', globalTextColor: '#FF508C', themeSecondary: '#FFA6C1', themePrice: '#FF2E63' },
+];
 const FLOAT_DEFAULT = { enable: '0', icon: '', url: '', position: 'right', bottom: 100 };
 
 export default {
@@ -141,6 +230,7 @@ export default {
       // qimall 的 predefineColors / themeStyleList 是同一组色值
       predefineColors: ['#F54B4A', '#4985E9', '#AA4DF1', '#1EB83D', '#FF508C'],
       themeStyleList: ['#F54B4A', '#4985E9', '#AA4DF1', '#1EB83D', '#FF508C'],
+      themePresets: THEME_PRESETS,
       globalForm: { ...GLOBAL_DEFAULT },
       floatForm: { ...FLOAT_DEFAULT },
     };
@@ -149,6 +239,37 @@ export default {
     // 预览区统一取色，避免颜色为空时预览整片变黑
     color() {
       return this.globalForm.globalTextColor || GLOBAL_DEFAULT.globalTextColor;
+    },
+    secondaryColor() {
+      return this.globalForm.themeSecondary || GLOBAL_DEFAULT.themeSecondary;
+    },
+    priceColor() {
+      return this.globalForm.themePrice || GLOBAL_DEFAULT.themePrice;
+    },
+    /** 按钮圆角：胶囊直接给个足够大的值，交给 border-radius 自己收边 */
+    buttonRadius() {
+      const map = { square: '0px', round: '6px', capsule: '999px' };
+      return map[this.globalForm.buttonShape] || map.capsule;
+    },
+    /** 主按钮背景：渐变时用主色到辅助色 */
+    primaryButtonStyle() {
+      const background =
+        this.globalForm.buttonFill === 'gradient'
+          ? `linear-gradient(90deg, ${this.color}, ${this.secondaryColor})`
+          : this.color;
+      return { background, borderRadius: this.buttonRadius };
+    },
+    outlineButtonStyle() {
+      return { color: this.color, border: `1px solid ${this.color}`, borderRadius: this.buttonRadius };
+    },
+    cardStyle() {
+      return { borderRadius: (this.globalForm.cardRadius || 0) + 'px' };
+    },
+    tagPreviewStyle() {
+      if (this.globalForm.tagStyle === 'outline') {
+        return { color: this.secondaryColor, border: `1px solid ${this.secondaryColor}`, background: 'transparent' };
+      }
+      return { color: '#fff', border: `1px solid ${this.secondaryColor}`, background: this.secondaryColor };
     },
   },
   mounted() {
@@ -159,9 +280,13 @@ export default {
       qdiySettingInfoApi({ group: this.activeGroup }).then((res) => {
         const data = res || {};
         if (this.activeGroup === 'global') {
-          if (data.globalTextColor) this.globalForm.globalTextColor = data.globalTextColor;
-          // 后端存的是字符串，开关要的是数字
-          if (data.globalGoodsNeed !== undefined) this.globalForm.globalGoodsNeed = Number(data.globalGoodsNeed);
+          // 老数据只有 globalTextColor / globalGoodsNeed，缺的主题项走默认值
+          Object.keys(GLOBAL_DEFAULT).forEach((key) => {
+            if (data[key] === undefined || data[key] === '') return;
+            // 后端统一存字符串，数字型的字段要转回来
+            this.globalForm[key] =
+              typeof GLOBAL_DEFAULT[key] === 'number' ? Number(data[key]) : data[key];
+          });
         } else {
           Object.keys(this.floatForm).forEach((key) => {
             if (data[key] === undefined) return;
@@ -175,6 +300,12 @@ export default {
     },
     changeTheme(theme) {
       this.globalForm.globalTextColor = theme;
+    },
+    /** 套用成套配色，只改三个颜色，按钮形状这些保留用户已选的 */
+    applyPreset(preset) {
+      this.globalForm.globalTextColor = preset.globalTextColor;
+      this.globalForm.themeSecondary = preset.themeSecondary;
+      this.globalForm.themePrice = preset.themePrice;
     },
     restoreDefault() {
       if (this.activeGroup === 'global') {
@@ -237,6 +368,54 @@ export default {
 
 .global-form {
   max-width: 720px;
+}
+.tips.inline {
+  display: inline-block;
+  margin-left: 12px;
+  vertical-align: middle;
+}
+.preset-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.preset-item {
+  border: 1px solid #ebeef5;
+  border-radius: 4px;
+  padding: 6px 8px;
+  cursor: pointer;
+  text-align: center;
+  &.active {
+    border-color: #409eff;
+  }
+}
+.preset-colors {
+  display: flex;
+  gap: 3px;
+  span {
+    width: 18px;
+    height: 18px;
+    border-radius: 3px;
+  }
+}
+.preset-name {
+  font-size: 12px;
+  color: #606266;
+  margin-top: 4px;
+}
+.goods-card {
+  border: 1px solid #f0f0f0;
+  padding: 8px;
+  overflow: hidden;
+}
+.goods-tag {
+  display: inline-block;
+  font-size: 11px;
+  line-height: 16px;
+  padding: 0 5px;
+  border-radius: 3px;
+  margin-left: 6px;
+  vertical-align: middle;
 }
 .theme-list {
   display: inline-flex;

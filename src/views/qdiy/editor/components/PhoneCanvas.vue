@@ -1,7 +1,9 @@
 <template>
   <div class="phone-canvas">
-    <div class="phone">
-      <div class="phone-head">{{ pageTitle }}</div>
+    <!-- ref 供父组件截图生成预览图用 -->
+    <div ref="phone" class="phone">
+      <!-- 没有顶部组件时才用页面标题兜底；有导航组件时由组件自身完整接管顶部 -->
+      <div v-if="!topList.length" class="phone-head">{{ pageTitle }}</div>
 
       <div class="phone-body">
         <!-- isTop 组件固定在顶部，不参与拖拽排序 -->

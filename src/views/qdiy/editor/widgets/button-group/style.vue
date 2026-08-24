@@ -84,6 +84,7 @@
     </diy-style-contain>
 
     <diy-icon-set
+      ref="iconSet"
       title="图标设置"
       :list="iconList"
       :type="buttonData.type"
@@ -94,6 +95,7 @@
       :show-link="true"
       :show-add-btn="true"
       @change="setChange"
+      @pick-link="(index, item) => openLinkPicker('iconSet', item)"
     />
 
     <diy-color :color-infos="colorInfos" :str-color="defColor" @change="updateColor" />
@@ -105,6 +107,8 @@
       @change="sliderChange"
     />
     <diy-size-setting top-name="圆角设置" :size-infos="defaultForm.radiusInfos" :max-value="20" @change="RadiusChange" />
+
+    <link-picker-dialog ref="linkPicker" @picked="onLinkPicked" />
   </div>
 </template>
 
@@ -116,6 +120,7 @@
  * 数据仍写入 data.defaultTabs 保持结构一致，接链接弹窗时可直接取用。
  */
 import basicMixins from '../../controls/basicMixins';
+import linkPickerMixins from '../../controls/linkPickerMixins';
 
 // PHP 侧默认 4 个按钮，默认图 resources/img/decorate/default_btn*.png 平台端无资源，img 留空
 const defaultIcon = (isFirst) => ({
@@ -131,7 +136,7 @@ const defaultIcon = (isFirst) => ({
 
 export default {
   name: 'ButtonGroupStyle',
-  mixins: [basicMixins],
+  mixins: [basicMixins, linkPickerMixins],
   data() {
     return {
       shapeList: ['square', 'round', 'circle'],

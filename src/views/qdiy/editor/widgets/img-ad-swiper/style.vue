@@ -1,6 +1,7 @@
 <template>
   <div class="img-ad-swiper-style">
     <diy-img-setting
+      ref="imgSetting"
       suggest-size-text="建议图片宽度750，高度自适应，支持jpg、png"
       top-name="添加图片"
       :open-add-img="true"
@@ -9,6 +10,7 @@
       :img-infos="imgAdArr"
       max-img-length="999"
       @change="addIconImg"
+      @pick-link="(index, item) => openLinkPicker('imgSetting', item)"
     />
 
     <diy-style-contain title="指示点样式">
@@ -20,16 +22,19 @@
     </diy-style-contain>
 
     <diy-size-setting top-name="圆角设置" :size-infos="defaultForm.radiusInfos" :max-value="20" @change="RadiusChange" />
+
+    <link-picker-dialog ref="linkPicker" @picked="onLinkPicked" />
   </div>
 </template>
 
 <script>
 /** 轮播图片 —— 属性面板。迁移自 PHP common/img-ad-swiper/style.php */
 import basicMixins from '../../controls/basicMixins';
+import linkPickerMixins from '../../controls/linkPickerMixins';
 
 export default {
   name: 'ImgAdSwiperStyle',
-  mixins: [basicMixins],
+  mixins: [basicMixins, linkPickerMixins],
   data() {
     return {
       imgAdArr: [],

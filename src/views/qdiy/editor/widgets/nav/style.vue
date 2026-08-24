@@ -292,6 +292,7 @@ export default {
         { name: '文字大小', value: getObjValue(this.result, ['computedStyle', 'searchDistance', 'fontSize'], 14), unit: 'px', disabled: false, maxValue: 20 },
         { name: '高度', value: getObjValue(this.result, ['computedStyle', 'searchDistance', 'height'], 29), unit: 'px', disabled: false, maxValue: 44 },
       ];
+      this.imageUrl = d.logoSrc ? [{ imgUrl: d.logoSrc }] : [];
     },
     // 空值不覆盖默认值
     setValue(key, value) {
@@ -354,7 +355,7 @@ export default {
     },
     addIconImg(arr, type) {
       this.imageUrl = arr;
-      this.result.data[type] = arr[0].imgUrl;
+      this.result.data[type] = arr && arr[0] ? arr[0].imgUrl : '';
       this.$emit('update', this.result);
     },
     // 以下两个回调留给未迁移的子面板，接上后直接可用

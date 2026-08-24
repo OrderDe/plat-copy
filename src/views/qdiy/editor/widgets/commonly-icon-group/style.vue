@@ -8,6 +8,7 @@
     </diy-style-contain>
 
     <diy-icon-set
+      ref="iconSet"
       :list="iconList"
       :type="btnType"
       :width-img="48"
@@ -17,6 +18,7 @@
       :show-add-btn="true"
       :max-icon-length="30"
       @change="setChange($event, 'iconList')"
+      @pick-link="(index, item) => openLinkPicker('iconSet', item)"
     />
 
     <diy-color :color-infos="colorInfos" :str-color="defColor" @change="setChange($event, 'colorInfos')" />
@@ -28,6 +30,8 @@
       :max-value="20"
       @change="conRadiusChange"
     />
+
+    <link-picker-dialog ref="linkPicker" @picked="onLinkPicked" />
   </div>
 </template>
 
@@ -38,6 +42,7 @@
  * 默认四个图标 PHP 指向 /diy/icon-set/*.png，平台端无该素材，img 留空由使用方上传。
  */
 import basicMixins from '../../controls/basicMixins';
+import linkPickerMixins from '../../controls/linkPickerMixins';
 import { getObjValue } from '../../controls/utils';
 
 const DEFAULT_ICONS = ['推广中心', '购物车', '我的收藏', '收货地址'].map((btnText) => ({
@@ -48,7 +53,7 @@ const DEFAULT_ICONS = ['推广中心', '购物车', '我的收藏', '收货地�
 
 export default {
   name: 'CommonlyIconGroupStyle',
-  mixins: [basicMixins],
+  mixins: [basicMixins, linkPickerMixins],
   data() {
     return {
       title: '其他功能',

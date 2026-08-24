@@ -22,29 +22,34 @@
 
       <el-tab-pane label="样式" name="style">
         <div class="pane-body">
-          <el-form label-width="80px" size="small">
-            <el-form-item label="背景颜色">
-              <el-color-picker v-model="item.computedStyle.bgColor" show-alpha />
-            </el-form-item>
-            <el-form-item label="上边距">
-              <el-slider v-model="marginTop" :min="0" :max="100" show-input :show-input-controls="false" />
-            </el-form-item>
-            <el-form-item label="下边距">
-              <el-slider v-model="marginBottom" :min="0" :max="100" show-input :show-input-controls="false" />
-            </el-form-item>
-            <el-form-item label="左右边距">
-              <el-slider v-model="leftRightMargin" :min="0" :max="50" show-input :show-input-controls="false" />
-            </el-form-item>
-            <el-form-item label="上内边距">
-              <el-slider v-model="paddingTop" :min="0" :max="100" show-input :show-input-controls="false" />
-            </el-form-item>
-            <el-form-item label="下内边距">
-              <el-slider v-model="paddingBottom" :min="0" :max="100" show-input :show-input-controls="false" />
-            </el-form-item>
-            <el-form-item label="圆角">
-              <el-slider v-model="borderRadius" :min="0" :max="50" show-input :show-input-controls="false" />
-            </el-form-item>
-          </el-form>
+          <div class="style-controls">
+            <div class="color-control">
+              <span class="control-label">背景颜色</span>
+              <el-color-picker v-model="item.computedStyle.bgColor" size="small" show-alpha />
+              <span class="color-value">{{ item.computedStyle.bgColor || '透明' }}</span>
+            </div>
+
+            <div v-for="control in styleControls" :key="control.key" class="number-control">
+              <span class="control-label">{{ control.label }}</span>
+              <el-slider
+                :value="styleControlValue(control.key)"
+                :min="0"
+                :max="control.max"
+                :show-tooltip="false"
+                @input="setStyleControlValue(control.key, $event)"
+              />
+              <el-input-number
+                :value="styleControlValue(control.key)"
+                class="compact-number"
+                size="mini"
+                :min="0"
+                :max="control.max"
+                :controls="false"
+                @input="setStyleControlValue(control.key, $event)"
+              />
+              <span class="control-unit">px</span>
+            </div>
+          </div>
         </div>
       </el-tab-pane>
     </el-tabs>
@@ -75,6 +80,16 @@ export default {
     };
   },
   computed: {
+    styleControls() {
+      return [
+        { key: 'marginTop', label: '上边距', max: 100 },
+        { key: 'marginBottom', label: '下边距', max: 100 },
+        { key: 'leftRightMargin', label: '左右边距', max: 50 },
+        { key: 'paddingTop', label: '上内边距', max: 100 },
+        { key: 'paddingBottom', label: '下内边距', max: 100 },
+        { key: 'borderRadius', label: '圆角', max: 50 },
+      ];
+    },
     marginTop: {
       get() {
         return this.styleNumber('marginTop');
@@ -135,6 +150,12 @@ export default {
   },
   methods: {
     styleOf,
+    styleControlValue(key) {
+      return this[key];
+    },
+    setStyleControlValue(key, value) {
+      this[key] = value;
+    },
     styleNumber(key) {
       if (!this.item || !this.item.computedStyle) return 0;
       const value = parseFloat(this.item.computedStyle[key]);
@@ -198,5 +219,55 @@ export default {
 }
 .pane-body {
   padding: 16px;
+}
+.style-controls {
+  width: 100%;
+}
+.color-control,
+.number-control {
+  min-height: 48px;
+  border-bottom: 1px solid #f0f2f5;
+  align-items: center;
+}
+.color-control {
+  display: grid;
+  grid-template-columns: 64px 32px minmax(0, 1fr);
+  column-gap: 10px;
+}
+.number-control {
+  display: grid;
+  grid-template-columns: 64px minmax(80px, 1fr) 64px 16px;
+  column-gap: 8px;
+}
+.control-label {
+  color: #606266;
+  font-size: 13px;
+  line-height: 20px;
+  text-align: right;
+  white-space: nowrap;
+}
+.color-value {
+  overflow: hidden;
+  color: #909399;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.control-unit {
+  color: #909399;
+  font-size: 12px;
+}
+.number-control ::v-deep .el-slider {
+  width: 100%;
+  min-width: 0;
+}
+.compact-number {
+  width: 64px;
+}
+.compact-number ::v-deep .el-input__inner {
+  height: 28px;
+  padding: 0 6px;
+  line-height: 28px;
+  text-align: center;
 }
 </style>

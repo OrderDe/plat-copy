@@ -88,6 +88,7 @@
     </diy-style-contain>
 
     <diy-img-icon-set
+      ref="iconSet"
       title="图标设置"
       :list="iconList"
       :type="buttonData.type"
@@ -99,6 +100,7 @@
       :show-add-btn="true"
       :img-url="defaultImg"
       @change="setChange"
+      @pick-link="(index, item) => openLinkPicker('iconSet', item)"
     />
 
     <diy-color :color-infos="colorInfos" :str-color="defColor" @change="updateColor" />
@@ -110,6 +112,8 @@
       @change="sliderChange"
     />
     <diy-size-setting top-name="圆角设置" :size-infos="defaultForm.radiusInfos" :max-value="20" @change="RadiusChange" />
+
+    <link-picker-dialog ref="linkPicker" @picked="onLinkPicked" />
   </div>
 </template>
 
@@ -121,6 +125,7 @@
  * 默认项的 img 置空，由用户在「图标设置」里自行选图。
  */
 import basicMixins from '../../controls/basicMixins';
+import linkPickerMixins from '../../controls/linkPickerMixins';
 
 const emptyIcon = (btnText = '按钮文字') => ({
   img: '',
@@ -136,7 +141,7 @@ const emptyIcon = (btnText = '按钮文字') => ({
 
 export default {
   name: 'ImgButtonGroupStyle',
-  mixins: [basicMixins],
+  mixins: [basicMixins, linkPickerMixins],
   data() {
     return {
       shapeList: ['square', 'round', 'cricle'],

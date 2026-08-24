@@ -416,7 +416,8 @@ const actions = {
             path: '/warehouse/out', menuType: 'M', sort: 3, children: [
               { id: 9104, pid: 9142, title: '出库管理', icon: '', perms: '', path: '/warehouse/outbound', menuType: 'C', sort: 1, children: [] },
               { id: 9125, pid: 9142, title: '波次与拣货', icon: '', perms: '', path: '/warehouse/wave',    menuType: 'C', sort: 2, children: [] },
-              { id: 9127, pid: 9142, title: '复核管理', icon: '', perms: '', path: '/warehouse/review',  menuType: 'C', sort: 4, children: [] },
+              // 复核管理已并入「波次与拣货」的拣货单操作列（拣完当场复核），不再单列菜单
+              // { id: 9127, pid: 9142, title: '复核管理', icon: '', perms: '', path: '/warehouse/review',  menuType: 'C', sort: 4, children: [] },
               { id: 9147, pid: 9142, title: '出库交接', icon: '', perms: '', path: '/warehouse/handover', menuType: 'C', sort: 6, children: [] },
               { id: 9148, pid: 9142, title: '交接异常', icon: '', perms: '', path: '/warehouse/handover-exception', menuType: 'C', sort: 7, children: [] },
               { id: 9149, pid: 9142, title: '仓储同步异常', icon: '', perms: '', path: '/warehouse/sync-fail', menuType: 'C', sort: 8, children: [] },
@@ -497,13 +498,22 @@ const actions = {
         id: 9400, pid: 0, title: '七件事装修', icon: 'clipboard',
         perms: '', path: '/qdiy', menuType: 'M', sort: 995,
         children: [
-          { id: 9401, pid: 9400, title: '页面装修', icon: '', perms: '', path: '/qdiy/page',       menuType: 'C', sort: 1, children: [] },
-          { id: 9402, pid: 9400, title: '底部导航', icon: '', perms: '', path: '/qdiy/bottomnav',  menuType: 'C', sort: 2, children: [] },
-          { id: 9403, pid: 9400, title: '全局配置', icon: '', perms: '', path: '/qdiy/setting',    menuType: 'C', sort: 3, children: [] },
-          { id: 9404, pid: 9400, title: '海报列表', icon: '', perms: '', path: '/qdiy/poster',     menuType: 'C', sort: 4, children: [] },
-          { id: 9405, pid: 9400, title: '素材管理', icon: '', perms: '', path: '/qdiy/material',   menuType: 'C', sort: 5, children: [] },
-          { id: 9406, pid: 9400, title: '我的模板', icon: '', perms: '', path: '/qdiy/mytemplate', menuType: 'C', sort: 6, children: [] },
-          { id: 9407, pid: 9400, title: '模板市场', icon: '', perms: '', path: '/qdiy/market',     menuType: 'C', sort: 7, children: [] },
+          // 装修入口的总览页。底部导航 / 全局配置 / 个人中心 / 商品分类 / 购物车
+          // 原本各占一个菜单，六个平级入口看不出「App 哪些地方能装修、现在生效的是哪套」，
+          // 统一收进工作台。下面被注释掉的那几条路由都还在，旧链接和收藏仍可直达。
+          { id: 9411, pid: 9400, title: '装修工作台', icon: '', perms: '', path: '/qdiy/workbench', menuType: 'C', sort: 1, children: [] },
+          { id: 9401, pid: 9400, title: '页面装修', icon: '', perms: '', path: '/qdiy/page',       menuType: 'C', sort: 2, children: [] },
+          // { id: 9402, pid: 9400, title: '底部导航', icon: '', perms: '', path: '/qdiy/bottomnav',  menuType: 'C', sort: 2, children: [] },
+          // { id: 9403, pid: 9400, title: '全局配置', icon: '', perms: '', path: '/qdiy/setting',    menuType: 'C', sort: 3, children: [] },
+          // { id: 9408, pid: 9400, title: '个人中心', icon: '', perms: '', path: '/qdiy/usercenter', menuType: 'C', sort: 4, children: [] },
+          // 商品分类、购物车：主体写死、只能在上下加装修，页面由 SQL 预置，
+          // 菜单点进去直接跳对应页面的编辑器（views/qdiy/fixedpage）
+          // { id: 9409, pid: 9400, title: '商品分类', icon: '', perms: '', path: '/qdiy/goods-cate',    menuType: 'C', sort: 5, children: [] },
+          // { id: 9410, pid: 9400, title: '购物车',   icon: '', perms: '', path: '/qdiy/shopping-cart', menuType: 'C', sort: 6, children: [] },
+          { id: 9404, pid: 9400, title: '海报列表', icon: '', perms: '', path: '/qdiy/poster',     menuType: 'C', sort: 7, children: [] },
+          { id: 9405, pid: 9400, title: '素材管理', icon: '', perms: '', path: '/qdiy/material',   menuType: 'C', sort: 8, children: [] },
+          { id: 9406, pid: 9400, title: '我的模板', icon: '', perms: '', path: '/qdiy/mytemplate', menuType: 'C', sort: 9, children: [] },
+          { id: 9407, pid: 9400, title: '模板市场', icon: '', perms: '', path: '/qdiy/market',     menuType: 'C', sort: 10, children: [] },
         ],
       };
       if (Array.isArray(accessRoutes) && !accessRoutes.find(r => r && r.path === '/qdiy')) {

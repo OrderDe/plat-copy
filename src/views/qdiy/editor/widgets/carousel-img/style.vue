@@ -48,6 +48,7 @@
     </diy-style-contain>
 
     <diy-img-setting-drag
+      ref="imgSetting"
       :suggest-size-text="suggestText"
       top-name="轮播图片"
       :open-add-img="true"
@@ -55,6 +56,7 @@
       max-img-length="8"
       :def-img-count="2"
       @change="addIconImg"
+      @pick-link="(index, item) => openLinkPicker('imgSetting', item)"
     />
 
     <diy-tabs title="组件边框设置" radio-text="text" :default-item="defaultForm.tabItem" @change="setComponentBorder" />
@@ -68,6 +70,8 @@
       @change="sliderChange"
     />
     <diy-size-setting top-name="圆角设置" :size-infos="defaultForm.radiusInfos" :max-value="20" @change="RadiusChange" />
+
+    <link-picker-dialog ref="linkPicker" @picked="onLinkPicked" />
   </div>
 </template>
 
@@ -79,10 +83,11 @@
  * 平台端没有这批资源，统一改成文字标签，选中值与原实现一致。
  */
 import basicMixins from '../../controls/basicMixins';
+import linkPickerMixins from '../../controls/linkPickerMixins';
 
 export default {
   name: 'CarouselImgStyle',
-  mixins: [basicMixins],
+  mixins: [basicMixins, linkPickerMixins],
   data() {
     return {
       buttonPattern: [

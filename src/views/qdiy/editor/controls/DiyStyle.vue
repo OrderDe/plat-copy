@@ -1,21 +1,26 @@
 <template>
   <DiyStyleContain class="diy-style" :title="topName">
     <div class="diy-style-exhibit">
-      <el-image v-if="currentImg" class="exhibit-img" :style="{ ...imgStyle }" :src="currentImg" fit="fill" />
+      <div v-if="layoutOf(currentItem)" class="exhibit-img" :style="{ ...imgStyle }">
+        <div class="layout-thumb" :style="gridStyle(currentItem)">
+          <span v-for="(cell, i) in layoutOf(currentItem).info" :key="i" :style="cellStyle(cell)" />
+          <span v-if="!layoutOf(currentItem).info.length" class="layout-free">自由布局</span>
+        </div>
+      </div>
+      <el-image v-else-if="currentImg" class="exhibit-img" :style="{ ...imgStyle }" :src="currentImg" fit="fill" />
       <div class="diy-update-style" @click="stylePop = true">修改风格</div>
     </div>
 
     <el-dialog :title="topName" :visible.sync="stylePop" width="66%" :modal-append-to-body="false" append-to-body>
       <div class="diy-style-info">
         <div v-for="(item, index) in imgInfo" :key="index" :style="{ width: 100 / count + '%' }">
-          <div class="diy-style-img" :class="{ 'diy-style-sel-img': index === selIndex }">
-            <el-image
-              :style="{ height: imgStyle.height }"
-              style="width: 100%"
-              :src="imgUrl + item.img"
-              fit="fill"
-              @click="selIndex = index"
-            />
+          <div class="diy-style-img" :class="{ 'diy-style-sel-img': index === selIndex }" @click="selIndex = index">
+            <!-- 有布局数据的（比如魔方）直接按网格画出来，不依赖示意图资源 -->
+            <div v-if="layoutOf(item)" class="layout-thumb" :style="gridStyle(item)">
+              <span v-for="(cell, i) in layoutOf(item).info" :key="i" :style="cellStyle(cell)" />
+              <span v-if="!layoutOf(item).info.length" class="layout-free">自由布局</span>
+            </div>
+            <el-image v-else :style="{ height: imgStyle.height }" style="width: 100%" :src="imgUrl + item.img" fit="fill" />
             <i v-show="index === selIndex" class="el-icon-success diy-style-icon" />
           </div>
           <div class="diy-style-text">{{ item.text }}</div>
@@ -80,15 +85,42 @@ export default {
     };
   },
   computed: {
+    currentItem() {
+      return this.imgInfo[this.selIndex] || null;
+    },
     currentImg() {
-      const item = this.imgInfo[this.selIndex];
-      return item ? this.imgUrl + item.img : '';
+      return this.currentItem ? this.imgUrl + this.currentItem.img : '';
     },
   },
   created() {
     this.selIndex = this.defIndex;
   },
   methods: {
+    /**
+     * 带网格布局数据的风格项（目前是图片魔方）直接画示意图。
+     * 原实现依赖 PHP 的 resources/img/decorate/ 示意图，平台端没有这批资源，
+     * 与其补一堆静态图，不如按数据把布局画出来，还能永远和实际布局一致。
+     */
+    layoutOf(item) {
+      const data = item && item.data;
+      return data && data.density && Array.isArray(data.info) ? data : null;
+    },
+    gridStyle(item) {
+      const layout = this.layoutOf(item);
+      if (!layout) return {};
+      const n = parseInt(layout.density, 10) || 4;
+      return {
+        gridTemplateColumns: `repeat(${n}, 1fr)`,
+        gridTemplateRows: `repeat(${n}, 1fr)`,
+      };
+    },
+    // start/end 是 1 基的网格坐标，且 end 那一格本身也占用
+    cellStyle(cell) {
+      return {
+        gridColumn: `${cell.start.x} / ${Number(cell.end.x) + 1}`,
+        gridRow: `${cell.start.y} / ${Number(cell.end.y) + 1}`,
+      };
+    },
     saveStyle() {
       this.$emit('change', this.selIndex, this.imgInfo[this.selIndex]);
       this.stylePop = false;
@@ -132,6 +164,32 @@ export default {
   position: relative;
   font-size: 0;
   cursor: pointer;
+}
+.layout-thumb {
+  display: grid;
+  gap: 3px;
+  width: 100%;
+  height: 100%;
+  min-height: 96px;
+  padding: 3px;
+  background: #fff;
+  box-sizing: border-box;
+  span {
+    background: #dcecfd;
+    border: 1px solid #a3cdf7;
+    border-radius: 2px;
+  }
+}
+.layout-free {
+  grid-column: 1 / -1;
+  grid-row: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: #909399;
+  background: #f7f8fa !important;
+  border: 1px dashed #dcdfe6 !important;
 }
 .diy-style-sel-img {
   border: 1px solid #3892f1;

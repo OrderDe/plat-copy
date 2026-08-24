@@ -10,7 +10,7 @@
         </div>
         <div class="wave-intro-flow">
           组波次 → 释放（组波时可一步到位） → 拣货（右侧面板）
-          → <span class="wave-intro-link" @click="$router.push('/warehouse/review')">复核</span>
+          → <b>复核</b>（拣完后在同一行点「复核」）
           → 出库生效（扣库存）
         </div>
         <div class="wave-intro-note">
@@ -196,13 +196,15 @@
                     <div class="cell-time cell-time--done">{{ formatDateTime(row.pickFinishTime) || '-' }}</div>
                   </template>
                 </el-table-column>
-                <el-table-column label="操作" width="205" fixed="right">
+                <el-table-column label="操作" width="240" fixed="right">
                   <template slot-scope="{row}">
                     <!-- 已拣完/已复核/已作废的单不能再拣，同一个弹窗降级为只读的明细查看 -->
                     <el-button type="text" @click="openPick(row)">{{ row.status < 2 ? '拣货' : '明细' }}</el-button>
                     <el-button type="text" @click="onPrint(row)">打印</el-button>
                     <el-button v-if="row.status===0" type="text" @click="openAssign(row)">指派</el-button>
-                    <el-button v-if="row.status===2" type="text" @click="onCreateReview(row)">生成复核单</el-button>
+                    <!-- 复核并入本行：拣完(2)可复核，已复核(3)只能回看结果 -->
+                    <el-button v-if="row.status===2" type="text" class="review-text" @click="openReview(row)">复核</el-button>
+                    <el-button v-if="row.status===3" type="text" @click="openReview(row)">复核明细</el-button>
                   </template>
                 </el-table-column>
               </el-table>
@@ -437,6 +439,66 @@
       </div>
     </el-dialog>
 
+    <!-- 复核执行：原「复核管理」菜单已并入此处，拣完的单当场复核，不用再跳菜单 -->
+    <el-dialog
+      :title="`${reviewDetail.status === 0 ? '复核' : '复核明细'} ${reviewDetail.code||''}`"
+      :visible.sync="reviewVisible"
+      width="1080px"
+      top="4vh"
+      append-to-body
+      custom-class="warehouse-wave-dialog warehouse-wave-dialog--wide"
+      :close-on-click-modal="false"
+    >
+      <div v-loading="reviewLoading">
+        <div style="margin-bottom:12px">
+          <b>拣货单：</b>{{ reviewDetail.pickOrderCode }} · <b>状态：</b>{{ reviewStatusMap[reviewDetail.status] }} · <b>复核员：</b>{{ reviewDetail.reviewerName || '-' }}
+        </div>
+        <el-alert v-if="reviewDetail.status === 0" type="success" :closable="false" style="margin-bottom:10px">
+          按实物点数填写<b>复核实测</b>，点「通过复核」即<b>扣减库存并让出库单生效</b>，该操作不可撤销。
+        </el-alert>
+        <el-alert v-else type="info" :closable="false" style="margin-bottom:10px">
+          该复核单已{{ reviewStatusMap[reviewDetail.status] }}，以下为复核结果，仅供查看。
+          <span v-if="reviewDetail.remark">驳回原因：{{ reviewDetail.remark }}</span>
+        </el-alert>
+        <el-table :data="reviewDetail.items || []" border size="small" max-height="46vh">
+          <el-table-column type="index" width="45" />
+          <el-table-column prop="goodsName" label="商品" min-width="160" show-overflow-tooltip />
+          <el-table-column prop="productId" label="商品ID" width="90" />
+          <el-table-column label="拣货" width="90"><template slot-scope="{row}">{{ row.pickedNum }}</template></el-table-column>
+          <el-table-column label="复核实测" width="140">
+            <template slot-scope="{row}">
+              <el-input-number v-model="row.reviewedNum" :min="0" size="mini" controls-position="right" :disabled="reviewDetail.status !== 0" />
+            </template>
+          </el-table-column>
+          <el-table-column label="差异" width="80">
+            <template slot-scope="{row}">
+              <span :class="reviewDiffClass(row)">{{ (row.reviewedNum||0) - (row.pickedNum||0) }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="状态" width="90"><template slot-scope="{row}">{{ ({ 0: '未检', 1: '通过', 2: '差异' })[row.status] }}</template></el-table-column>
+        </el-table>
+
+        <!-- 驳回后原单不会消失，重新复核会另起一张。旧单在这里能查到，
+             否则「这单为什么被驳回过」搬走复核菜单后就没地方看了 -->
+        <div v-if="reviewHistory.length" class="review-history">
+          <div class="review-history-title">历史复核记录（{{ reviewHistory.length }}）</div>
+          <div v-for="h in reviewHistory" :key="h.id" class="review-history-row">
+            <el-tag :type="reviewStatusType(h.status)" size="mini">{{ reviewStatusMap[h.status] }}</el-tag>
+            <span class="review-history-code">{{ h.code }}</span>
+            <span class="review-history-meta">{{ h.reviewerName || '-' }} · {{ shortTime(h.createTime) }}</span>
+            <span v-if="h.remark" class="review-history-remark">{{ h.remark }}</span>
+            <el-button type="text" size="mini" @click="loadReviewDetail(h.id)">查看</el-button>
+          </div>
+        </div>
+      </div>
+      <div slot="footer">
+        <el-button size="small" @click="reviewVisible=false">关闭</el-button>
+        <el-button v-if="reviewDetail.status===0" type="danger" plain size="small" @click="onRejectReview">驳回</el-button>
+        <el-button v-if="reviewDetail.status===0" type="primary" size="small" @click="onReviewFillAll">按拣货数填满</el-button>
+        <el-button v-if="reviewDetail.status===0" type="primary" size="small" :loading="reviewSaving" @click="onConfirmReview">通过复核 (扣库存)</el-button>
+      </div>
+    </el-dialog>
+
     <admin-picker-dialog ref="adminPicker" title="选择拣货员" />
   </div>
 </template>
@@ -470,10 +532,14 @@ export default {
       currentPick: {},
       assignVisible: false, assignForm: { pickerId: null, pickerName: '' },
       pickVisible: false, pickDetail: {},
+      // 复核（原「复核管理」菜单）：跟着拣货单走，一行一张复核单
+      reviewVisible: false, reviewLoading: false, reviewSaving: false,
+      reviewDetail: {}, reviewHistory: [],
       // 库位候选缓存 / 加载态，key 见 locKey()
       locOptions: {}, locLoading: {},
       statusMap: { 0: '草稿', 1: '已释放', 2: '已完成', 3: '已作废' },
       pickStatusMap: { 0: '待拣', 1: '拣货中', 2: '已拣完', 3: '已复核', 4: '已作废' },
+      reviewStatusMap: { 0: '待复核', 1: '已通过', 2: '差异/驳回', 3: '已作废' },
       groupByMap: { 0: '按仓', 1: '按客户', 2: '按承运商', 3: '按优先级' },
       strategyMap: { 0: 'FIFO', 1: 'FEFO', 2: '最少剩余优先' },
       // 主从面板可拖拽宽度；右侧至少保留 560px，避免作业表格和操作列被挤没
@@ -490,7 +556,14 @@ export default {
   computed: {
     batchTotal() { return this.batchRows.reduce((s, r) => s + (r.totalPlan || 0), 0); },
   },
-  created() { this.loadWarehouses(); this.loadPage(); this.loadDamagePicks(); },
+  created() {
+    // 从仓储看板「待处理拣货单」下钻过来时带 warehouseId，跟看板上选的仓库保持一致
+    const wid = Number(this.$route.query.warehouseId);
+    if (Number.isFinite(wid) && wid > 0) this.query.warehouseId = wid;
+    this.loadWarehouses();
+    this.loadPage();
+    this.loadDamagePicks();
+  },
   mounted() {
     try {
       const saved = Number(window.localStorage.getItem(WAVE_MASTER_STORAGE_KEY));
@@ -777,7 +850,10 @@ export default {
         pickerId: u.id,
         pickerName: u.realName || u.account || this.$store.getters.name,
       });
-      this.$message.success(this.pickDetail.bizType ? '取货完成，库存已扣减' : '拣货完成');
+      // 报损/领用取货到此为止；销售拣货还差复核才扣账，得把下一步指出来
+      this.$message.success(this.pickDetail.bizType
+        ? '取货完成，库存已扣减'
+        : '拣货完成，请点本行「复核」核对实物后出库生效');
       this.pickVisible = false;
       this.loadPickOrders();
       this.loadDamagePicks();
@@ -809,14 +885,136 @@ export default {
     async onPrint(row) {
       try { await doPrint('PK', row.id); } catch (e) { this.$message.error(e.message || '打印失败'); }
     },
-    async onCreateReview(row) {
+    /* ---------------- 复核（原「复核管理」菜单，已并入拣货单行） ---------------- */
+
+    reviewStatusType(s) { return ({ 0: 'info', 1: 'success', 2: 'danger', 3: 'info' })[s] || ''; },
+    reviewDiffClass(r) { const d = (r.reviewedNum || 0) - (r.pickedNum || 0); return d === 0 ? '' : (d > 0 ? 'plus' : 'minus'); },
+
+    /**
+     * 打开复核弹窗。复核单与拣货单 1:1，但驳回不会作废旧单（后端 reject 只置状态 2），
+     * 所以同一张拣货单可能挂着多张复核单：取最新的那张作业，其余进历史记录。
+     *
+     * 拣完(2) 且没有在办的复核单时，这里顺带把复核单建出来——对操作员来说
+     * 「生成复核单」不是一个需要单独决策的动作，点「复核」就该直接进得去。
+     */
+    async openReview(row) {
+      this.currentPick = row;
+      this.reviewDetail = {};
+      this.reviewHistory = [];
+      this.reviewVisible = true;
+      this.reviewLoading = true;
+      try {
+        const res = await reviewApi.page({ page: 1, limit: 50, pickOrderId: row.id });
+        const list = (res && res.list) || [];
+        let target = list[0];
+
+        if (row.status === 2 && (!target || target.status === 2 || target.status === 3)) {
+          // 没有复核单，或仅剩被驳回/作废的旧单：另起一张
+          const u = this.$store.getters.userInfo || {};
+          target = await reviewApi.createFromPick(row.id, {
+            reviewerId: u.id,
+            reviewerName: u.realName || u.account || this.$store.getters.name,
+          });
+          list.unshift(target);
+        }
+        if (!target) {
+          this.reviewVisible = false;
+          this.$message.warning('该拣货单没有复核记录');
+          return;
+        }
+        this.reviewHistory = list.filter((r) => r.id !== target.id);
+        await this.loadReviewDetail(target.id);
+      } catch (e) {
+        this.reviewVisible = false;
+        this.$message.error((e && e.message) || '打开复核失败');
+      } finally {
+        this.reviewLoading = false;
+      }
+    },
+
+    async loadReviewDetail(id) {
+      this.reviewLoading = true;
+      try {
+        this.reviewDetail = (await reviewApi.detail(id)) || {};
+        if (!this.reviewDetail.items) this.reviewDetail.items = [];
+      } finally {
+        this.reviewLoading = false;
+      }
+    },
+
+    onReviewFillAll() {
+      (this.reviewDetail.items || []).forEach((i) => { i.reviewedNum = i.pickedNum || 0; });
+    },
+
+    async onConfirmReview() {
+      const hasDiff = (this.reviewDetail.items || []).some((i) => (i.reviewedNum || 0) !== (i.pickedNum || 0));
+      if (hasDiff) {
+        await this.$confirm('存在数量差异，仍确认通过?', '提示', { type: 'warning' });
+      }
+      const map = {};
+      (this.reviewDetail.items || []).forEach((i) => { map[i.id] = i.reviewedNum == null ? 0 : i.reviewedNum; });
       const u = this.$store.getters.userInfo || {};
-      await reviewApi.createFromPick(row.id, {
-        reviewerId: u.id,
-        reviewerName: u.realName || u.account || this.$store.getters.name,
-      });
-      this.$message.success('已生成复核单，请到"复核管理"处理');
+      this.reviewSaving = true;
+      try {
+        await reviewApi.confirm(this.reviewDetail.id, map, {
+          reviewerId: u.id,
+          reviewerName: u.realName || u.account || this.$store.getters.name,
+        });
+      } finally {
+        this.reviewSaving = false;
+      }
+      const reviewId = this.reviewDetail.id;
+      this.reviewVisible = false;
       this.loadPickOrders();
+      this.loadPage();
+      this.notifyShipInfo(reviewId);
+    },
+
+    async onRejectReview() {
+      const { value } = await this.$prompt('请输入驳回原因', '驳回', { inputPattern: /.+/, inputErrorMessage: '不能为空' });
+      await reviewApi.reject(this.reviewDetail.id, value);
+      this.$message.success('已驳回，可在本行重新发起复核');
+      this.reviewVisible = false;
+      this.loadPickOrders();
+    },
+
+    /**
+     * 复核通过后把取号结果亮出来。
+     *
+     * 向承运商下单就发生在这一步，但整个过程是静默的——界面上只是出库单悄悄多了个
+     * 运单号。不给回执的话，操作员没法判断快递到底通知没通知，只能去出库单列表翻，
+     * 或者干脆以为「交接单」才是通知快递的动作。
+     *
+     * 查不到承运信息不当异常处理：非京东承运商、仓库没配发货地址、取号接口超时
+     * 都会走到这里，复核本身是成功的，退回一句普通提示即可。
+     */
+    async notifyShipInfo(reviewId) {
+      let info = null;
+      try {
+        info = await reviewApi.shipInfo(reviewId);
+      } catch (e) {
+        info = null;
+      }
+      if (!info || !info.expressNo) {
+        this.$notify({
+          title: '复核通过，出库单已生效',
+          message: '未取到运单号，可在「交接管理」新建交接单时手工补录',
+          type: 'warning',
+          duration: 8000,
+        });
+        return;
+      }
+      this.$notify({
+        title: '复核通过，已向承运商下单',
+        dangerouslyUseHTMLString: true,
+        message:
+          `出库单 <b>${info.outboundCode || '-'}</b><br/>` +
+          `承运商 <b>${info.expressCompany || '-'}</b>　运单号 <b>${info.expressNo}</b><br/>` +
+          '承运商已收到揽收通知，等待司机上门取件。<br/>' +
+          '司机取货后请到「交接管理」登记交接，订单才会转为已发货。',
+        type: 'success',
+        duration: 12000,
+      });
     },
   },
 };
@@ -883,6 +1081,17 @@ export default {
 .step { display: inline-block; width: 20px; height: 20px; line-height: 20px; text-align: center; border-radius: 50%; background: #409eff; color: #fff; font-size: 11px; }
 .loc { color: #e6a23c; }
 .plan { color: #409eff; }
+.plus { color: #67c23a; font-weight: bold; }
+.minus { color: #f56c6c; font-weight: bold; }
+
+/* 复核是拣货后的关键动作（扣库存），在一排文字按钮里需要能被一眼找到 */
+.review-text { color: #e6a23c; }
+.review-history { margin-top: 12px; padding: 10px 12px; border: 1px solid #ebeef5; border-radius: 6px; background: #fafafa; }
+.review-history-title { font-size: 12px; font-weight: 600; color: #606266; margin-bottom: 6px; }
+.review-history-row { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #606266; line-height: 24px; }
+.review-history-code { font-weight: 600; }
+.review-history-meta { color: #909399; }
+.review-history-remark { flex: 1; color: #f56c6c; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wave-dialog-summary--bottom { display: flex; justify-content: flex-end; margin: 12px 2px 0; color: #606266; font-size: 12px; }
 
 @media (max-width: 1500px) {

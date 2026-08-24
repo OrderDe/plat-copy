@@ -20,6 +20,11 @@
           <el-option v-for="t in typeOptions" :key="t.itemValue" :label="t.itemName" :value="t.itemValue" />
         </el-select>
       </el-form-item>
+      <el-form-item label="出库渠道">
+        <el-select v-model="query.channel" clearable placeholder="全部" style="width:130px">
+          <el-option v-for="c in channelOptions" :key="c.itemValue" :label="c.itemName" :value="c.itemValue" />
+        </el-select>
+      </el-form-item>
       <el-form-item label="状态">
         <el-select v-model="query.status" clearable placeholder="全部" style="width:120px">
           <el-option label="待组波" :value="0" />
@@ -45,6 +50,9 @@
       </el-table-column>
       <el-table-column label="类型" width="100">
         <template slot-scope="{row}">{{ typeText(row.type) }}</template>
+      </el-table-column>
+      <el-table-column label="出库渠道" width="100">
+        <template slot-scope="{row}">{{ channelText(row.channel) }}</template>
       </el-table-column>
       <el-table-column label="关联单号" width="180" show-overflow-tooltip>
         <template slot-scope="{row}">{{ relatedCodesText(row) }}</template>
@@ -102,7 +110,7 @@
     >
       <el-form ref="formRef" :model="form" :rules="rules" label-width="100px" size="small" :disabled="dialogMode === 'view'">
         <el-row :gutter="16">
-          <el-col :span="12">
+          <el-col :span="8">
             <el-form-item label="仓库" prop="warehouseId">
               <!-- 调拨出库的仓库由调拨单的调出仓决定，选错后端也会改回，这里直接锁定 -->
               <el-select v-model="form.warehouseId" filterable placeholder="请选择仓库" style="width:100%"
@@ -111,10 +119,18 @@
               </el-select>
             </el-form-item>
           </el-col>
-          <el-col :span="12">
+          <el-col :span="8">
             <el-form-item label="类型" prop="type">
               <el-select v-model="form.type" style="width:100%" @change="onTypeChange">
                 <el-option v-for="t in typeOptions" :key="t.itemValue" :label="t.itemName" :value="t.itemValue" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <!-- 渠道和类型是两个维度：类型说明为什么出库，渠道说明走哪条销售链路，统计口径按渠道分 -->
+            <el-form-item label="出库渠道" prop="channel">
+              <el-select v-model="form.channel" style="width:100%" placeholder="请选择出库渠道">
+                <el-option v-for="c in channelOptions" :key="c.itemValue" :label="c.itemName" :value="c.itemValue" />
               </el-select>
             </el-form-item>
           </el-col>
@@ -339,8 +355,9 @@ export default {
       loading: false, saving: false, total: 0, tableData: [],
       // 出库要从仓里取货，选品时现有库存为 0 的标红提醒
       productPickerRequireStock: true,
-      query: { page: 1, limit: 20, code: '', relatedCode: '', payPrice: '', warehouseId: null, type: null, status: null },
+      query: { page: 1, limit: 20, code: '', relatedCode: '', payPrice: '', warehouseId: null, type: null, channel: null, status: null },
       typeOptions: [], // 出库类型，来自 wms_dict(outbound_type)
+      channelOptions: [], // 出库渠道，来自 wms_dict(outbound_channel)
       sourceOptions: [], // 可关联的源单（审批通过且未被占用）
       sourceLoading: false,
       orderOptions: [], // 销售出库可关联的订单（远程搜索结果）
@@ -355,6 +372,7 @@ export default {
       rules: {
         warehouseId: [{ required: true, message: '请选择仓库', trigger: 'change' }],
         type: [{ required: true, message: '请选择类型', trigger: 'change' }],
+        channel: [{ required: true, message: '请选择出库渠道', trigger: 'change' }],
         applyUserId: [{ required: true, message: '请选择申请人', trigger: 'change' }],
         sourceDocIdList: [{ required: true, type: 'array', min: 1, message: '请关联至少一张审批通过的源单', trigger: 'change' }],
         relatedCodeList: [{ required: true, type: 'array', min: 1, message: '销售出库必须选择关联订单号', trigger: 'change' }],
@@ -378,10 +396,11 @@ export default {
   },
   created() {
     this.loadTypeOptions();
+    this.loadChannelOptions();
     this.loadPage();
   },
   methods: {
-    emptyForm() { return { warehouseId: null, type: 0, sourceDocId: null, sourceDocIdList: [], relatedCode: '', relatedCodeList: [], sources: null, applyUserId: null, applyUserName: '', applyUserPhone: '', customerCode: '', expressCompany: '', priority: 0, remark: '', items: [] }; },
+    emptyForm() { return { warehouseId: null, type: 0, channel: null, sourceDocId: null, sourceDocIdList: [], relatedCode: '', relatedCodeList: [], sources: null, applyUserId: null, applyUserName: '', applyUserPhone: '', customerCode: '', expressCompany: '', priority: 0, remark: '', items: [] }; },
 
     /** 切类型：换了类型原来的关联和带出明细都不再适用，一律清空重来 */
     onTypeChange() {
@@ -556,6 +575,21 @@ export default {
         this.typeOptions = [];
       }
     },
+    /** 渠道名同样来自字典，停用项和老单据缺渠道时不硬造名称 */
+    channelText(c) {
+      const hit = this.channelOptions.find((x) => x.itemValue === c);
+      if (hit) return hit.itemName;
+      return c === null || c === undefined ? '-' : String(c);
+    },
+    async loadChannelOptions() {
+      try {
+        const res = await dictApi.items('outbound_channel');
+        const data = res && (res.data !== undefined ? res.data : res);
+        this.channelOptions = Array.isArray(data) ? data : [];
+      } catch (e) {
+        this.channelOptions = [];
+      }
+    },
     // 批次按 仓+商户+商品+SKU 隔离，缓存键必须四项齐全，否则会串到别的商品
     /** 换仓后原批次必然不属于新仓，全部清掉并丢弃缓存 */
     onWarehouseChange() {
@@ -652,7 +686,7 @@ export default {
       } finally { this.loading = false; }
     },
     onSearch() { this.query.page = 1; this.loadPage(); },
-    onReset() { this.query = { page: 1, limit: 20, code: '', relatedCode: '', payPrice: '', warehouseId: null, type: null, status: null }; this.loadPage(); },
+    onReset() { this.query = { page: 1, limit: 20, code: '', relatedCode: '', payPrice: '', warehouseId: null, type: null, channel: null, status: null }; this.loadPage(); },
     openDialog() {
       this.form = this.emptyForm();
       this.itemsAutoFilled = false;

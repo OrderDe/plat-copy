@@ -12,10 +12,19 @@
         <el-button size="small" icon="el-icon-refresh-right" :disabled="!canRedo" @click="redo">重做</el-button>
         <el-button size="small" icon="el-icon-view" @click="previewVisible = true">预览</el-button>
         <el-button
+          size="small"
+          icon="el-icon-camera"
+          :loading="capturing"
+          v-hasPermi="savePermi"
+          @click="handleGenerateCover"
+        >
+          生成预览图
+        </el-button>
+        <el-button
           type="primary"
           size="small"
           :loading="saving"
-          v-hasPermi="['platform:qdiy:page:update']"
+          v-hasPermi="savePermi"
           @click="handleSave"
         >
           保存
@@ -25,9 +34,10 @@
 
     <!-- 三栏主体 -->
     <div class="editor-body">
-      <WidgetLibrary :groups="groups" :list="list" @add="handleAdd" />
+      <WidgetLibrary :groups="groups" :list="list" @add="handleAdd" @select-existing="handleSelect" />
 
       <PhoneCanvas
+        ref="canvas"
         :list="list"
         :component-map="componentMap"
         :active-index="activeIndex"
@@ -50,7 +60,7 @@
         以下为编辑器内的结构预览。真实 H5 / 小程序效果需 App 端渲染组件支持，该部分本轮未排期。
       </div>
       <div class="preview-phone">
-        <div class="phone-head">{{ pageInfo.title }}</div>
+        <div v-if="!hasTopComponent" class="phone-head">{{ pageInfo.title }}</div>
         <div class="phone-body">
           <div v-for="(item, index) in list" :key="index" :style="toStyle(item.computedStyle)">
             <component :is="previewOf(item.identify)" :item="item" :active-item="item" :component="componentOf(item.identify)" />
@@ -68,7 +78,15 @@ import WidgetLibrary from './components/WidgetLibrary';
 import PhoneCanvas from './components/PhoneCanvas';
 import PropertyPanel from './components/PropertyPanel';
 import { createItem, previewOf, toStyle, parsePermission } from './registry';
-import { qdiyPageInfoApi, qdiyPageUpdateApi } from '@/api/qdiy';
+import {
+  qdiyPageInfoApi,
+  qdiyPageUpdateApi,
+  qdiyComponentsListApi,
+  qdiyMarketDetailApi,
+  qdiyMarketUpdateApi,
+} from '@/api/qdiy';
+import { fileImageApi } from '@/api/systemSetting';
+import html2canvas from 'html2canvas';
 
 /** 撤销栈最大深度 */
 const MAX_HISTORY = 50;
@@ -80,6 +98,7 @@ export default {
     return {
       loading: false,
       saving: false,
+      capturing: false,
       previewVisible: false,
       pageInfo: {},
       groups: [],
@@ -96,10 +115,23 @@ export default {
         user_center: '用户中心',
         custom_page: '自定义页面',
         goods_template: '商品模板',
+        goods_cate: '商品分类',
+        shopping_cart: '购物车',
       },
     };
   },
   computed: {
+    /**
+     * 编辑器有两种数据源：页面装修（默认）和模板市场的模板。
+     * 两者的画布、组件库、属性面板完全一致，只有「读哪张表、存回哪张表」不同，
+     * 所以用 query.type 分流，不再复制一份编辑器。
+     */
+    isMarket() {
+      return this.$route.query.type === 'market';
+    },
+    savePermi() {
+      return this.isMarket ? ['platform:qdiy:market:save'] : ['platform:qdiy:page:update'];
+    },
     templateName() {
       return this.templateOptions[this.pageInfo.template] || this.pageInfo.template;
     },
@@ -124,6 +156,12 @@ export default {
     },
     canRedo() {
       return this.historyIndex < this.history.length - 1;
+    },
+    hasTopComponent() {
+      return this.list.some((item) => {
+        const component = this.componentMap[item.identify];
+        return component && Number(component.isTop) === 1;
+      });
     },
   },
   watch: {
@@ -152,12 +190,36 @@ export default {
     getInfo() {
       const id = this.$route.params.id;
       if (!id) return;
+      if (this.isMarket) return this.getMarketInfo(id);
       this.loading = true;
       qdiyPageInfoApi(id)
         .then((res) => {
           this.pageInfo = res || {};
           this.groups = res.components || [];
           this.list = this.parseContent(res.content);
+          this.resetHistory();
+          this.loading = false;
+        })
+        .catch(() => {
+          this.loading = false;
+        });
+    },
+    /**
+     * 模板详情接口只返回模板本身，不带组件注册表，
+     * 需要按模板的页面类型另取一次组件库，否则左侧组件区是空的。
+     */
+    getMarketInfo(id) {
+      this.loading = true;
+      qdiyMarketDetailApi(id)
+        .then((res) => {
+          const detail = res || {};
+          this.pageInfo = detail;
+          this.list = this.parseContent(detail.content);
+          return qdiyComponentsListApi({ template: detail.template }).then((groups) => {
+            this.groups = groups || [];
+          });
+        })
+        .then(() => {
           this.resetHistory();
           this.loading = false;
         })
@@ -280,12 +342,114 @@ export default {
     redo() {
       if (this.canRedo) this.restore(this.historyIndex + 1);
     },
+    /** ---------------- 预览图 ---------------- */
+    /**
+     * 把画布截成图片当预览图：cover 字段本身只是一个图片地址，和 content 没有联动，
+     * 靠人手动传图很容易和模板内容对不上，这里改成一键按当前内容生成。
+     */
+    handleGenerateCover() {
+      if (!this.list.length) {
+        this.$message.warning('页面还没有内容，先添加组件再生成预览图');
+        return;
+      }
+      const el = this.$refs.canvas && this.$refs.canvas.$refs.phone;
+      if (!el) return;
+      this.capturing = true;
+
+      /*
+       * 画布装在 .phone-canvas 这个 overflow-y:auto 的滚动容器里。
+       * html2canvas 按视口坐标定位被截元素，容器只要滚动过，截出来的就是从当前位置
+       * 往下的一段——顶部的公告、标题全丢，看着像「预览图没生成」，其实是截偏了。
+       * 截图前先把容器滚回顶部，并显式给出完整尺寸，截完再滚回去。
+       */
+      const scroller = el.parentElement;
+      const prevScrollTop = scroller ? scroller.scrollTop : 0;
+      if (scroller) scroller.scrollTop = 0;
+      const restoreScroll = () => {
+        if (scroller) scroller.scrollTop = prevScrollTop;
+      };
+
+      html2canvas(el, {
+        backgroundColor: '#ffffff',
+        // 素材图多是 OSS 外链，没 CORS 头就画不进来；allowTaint 会污染画布导致导不出，只能用 useCORS
+        useCORS: true,
+        imageTimeout: 8000,
+        scale: 1,
+        // 截完整的画布，而不是当前可视的那一屏
+        scrollX: 0,
+        scrollY: 0,
+        width: el.offsetWidth,
+        height: el.scrollHeight,
+        windowWidth: document.documentElement.clientWidth,
+        windowHeight: Math.max(el.scrollHeight, document.documentElement.clientHeight),
+        // 选中框、操作条、“固定顶部”角标是编辑器的辅助元素，不该出现在预览图里
+        onclone: (doc) => {
+          doc.querySelectorAll('.op-bar, .fixed-flag').forEach((e) => e.remove());
+          doc.querySelectorAll('.canvas-item').forEach((e) => {
+            e.classList.remove('active');
+            e.style.border = '1px solid transparent';
+          });
+        },
+      })
+        .then((canvas) => {
+          restoreScroll();
+          return this.canvasToFile(canvas);
+        })
+        .then((file) => {
+          const formData = new FormData();
+          formData.append('multipart', file);
+          return fileImageApi(formData, { model: 'diy', pid: 0 });
+        })
+        .then((res) => {
+          const url = res && (res.url || res.sattDir);
+          if (!url) throw new Error('上传返回地址为空');
+          this.$set(this.pageInfo, 'cover', url);
+          // 生成完直接落库，否则用户不点保存就白截一次
+          return this.saveCurrent();
+        })
+        .then(() => {
+          this.capturing = false;
+          this.resetHistory();
+          this.$message.success('预览图已生成并保存');
+        })
+        .catch((e) => {
+          restoreScroll();
+          this.capturing = false;
+          if (e) this.$message.error('预览图生成失败：' + (e.message || '请重试'));
+        });
+    },
+    canvasToFile(canvas) {
+      return new Promise((resolve, reject) => {
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) return reject(new Error('画布导出失败'));
+            resolve(new File([blob], `qdiy-cover-${Date.now()}.png`, { type: 'image/png' }));
+          },
+          'image/png',
+          0.9
+        );
+      });
+    },
     /** ---------------- 保存 / 返回 ---------------- */
-    handleSave() {
-      this.saving = true;
+    /** 保存当前内容，返回 Promise，供保存按钮和生成预览图共用 */
+    saveCurrent() {
       // site 按当前顺序重排后再提交
       const content = JSON.stringify(this.list.map((e, i) => Object.assign({}, e, { site: i })));
-      qdiyPageUpdateApi({
+      if (this.isMarket) {
+        // 模板的名称/分类在模板市场弹窗里维护，这里除内容外其余字段原样带上，避免被清空
+        return qdiyMarketUpdateApi({
+          id: this.pageInfo.id,
+          title: this.pageInfo.title,
+          template: this.pageInfo.template,
+          cateId: this.pageInfo.cateId,
+          cateName: this.pageInfo.cateName,
+          cover: this.pageInfo.cover,
+          sort: this.pageInfo.sort,
+          isOnSale: this.pageInfo.isOnSale,
+          content,
+        });
+      }
+      return qdiyPageUpdateApi({
         id: this.pageInfo.id,
         title: this.pageInfo.title,
         template: this.pageInfo.template,
@@ -293,7 +457,11 @@ export default {
         isShowBottomNav: this.pageInfo.isShowBottomNav,
         cover: this.pageInfo.cover,
         content,
-      })
+      });
+    },
+    handleSave() {
+      this.saving = true;
+      this.saveCurrent()
         .then(() => {
           this.saving = false;
           this.$message.success('保存成功');
@@ -304,13 +472,14 @@ export default {
         });
     },
     handleBack() {
+      const back = this.isMarket ? '/qdiy/market' : '/qdiy/page';
       if (this.historyIndex > 0) {
         this.$confirm('页面有未保存的改动，确定离开吗？', '提示', { type: 'warning' })
-          .then(() => this.$router.push('/qdiy/page'))
+          .then(() => this.$router.push(back))
           .catch(() => {});
         return;
       }
-      this.$router.push('/qdiy/page');
+      this.$router.push(back);
     },
   },
 };

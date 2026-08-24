@@ -24,10 +24,40 @@
 
       <div v-if="chooseGoods == 2" class="cate-box">
         <div class="row">
-          <div class="row-label">链接</div>
-          <diy-url :text="selectUrl" @add="linkVisible = true" />
+          <div class="row-label">商品分类</div>
+          <diy-url :text="selectUrl" @add="openCatePicker" />
         </div>
-        <div v-if="selectUrl" class="row-block">
+        <!--
+          没选分类时走 index/searchDynamic（和线上首页商品列表同一个接口），
+          它筛不了分类，能控制的就是关键词和排序——这两项是这种情况下唯一的抓手。
+          选了分类会改走 product/list/component，那条链不认关键词，所以这里明确提示。
+        -->
+        <div class="row row--stack">
+          <div class="row-label">关键词</div>
+          <el-input
+            v-model="cateKeywordFilter"
+            size="small"
+            clearable
+            placeholder="选填，如：牙膏 / 面粉。留空则取推荐商品"
+            @input="onKeywordChange"
+          />
+        </div>
+        <div class="row">
+          <div class="row-label">排序</div>
+          <el-select v-model="sortRule" size="small" style="flex: 1" @change="onSortChange">
+            <el-option label="推荐排序（默认）" value="" />
+            <el-option label="销量从高到低" value="sales:desc" />
+            <el-option label="价格从低到高" value="price:asc" />
+            <el-option label="价格从高到低" value="price:desc" />
+          </el-select>
+        </div>
+        <div v-if="selectUrl && cateKeywordFilter" class="cate-warn">
+          已选分类时关键词不生效：按分类取数走的是另一个接口，它只认分类不认关键词。
+          两者只能用一个。
+        </div>
+
+        <!-- 条数对三种取数方式都生效，不再挂在「已选分类」条件下 -->
+        <div class="row-block">
           <el-radio-group v-model="isShowLine" @change="changeShowLine">
             <el-radio :label="1">显示条数</el-radio>
             <el-radio :label="2">无限制</el-radio>
@@ -181,8 +211,34 @@
     <diy-size-setting top-name="边距" :size-infos="defaultForm.sizeInfos" :max-value="50" @change="sliderChange" />
     <diy-size-setting top-name="圆角设置" :size-infos="defaultForm.radiusInfos" :max-value="20" @change="RadiusChange" />
 
-    <el-dialog title="选择分类" :visible.sync="linkVisible" width="960px" append-to-body :close-on-click-modal="false">
-      <linkaddress v-if="linkVisible" @linkUrl="onCatePicked" />
+    <!--
+      选商品分类。原来这里挂的是 linkaddress（通用链接选择器），但它的「商品分类」
+      只回传 /pages/goods/goods_cate/index 这个页面路径、不带具体分类 id，
+      分类 id 无处可存，App 端也就只能按数量取前 N 条——四个选项卡拉到同一批商品。
+      换成真正的分类树，勾选后把 id 存进 commCate.cids，App 端按 cids 取数。
+    -->
+    <el-dialog title="选择商品分类" :visible.sync="linkVisible" width="520px" append-to-body :close-on-click-modal="false">
+      <div v-loading="cateLoading" class="cate-picker">
+        <el-input v-model="cateKeyword" size="small" placeholder="搜索分类名称" clearable prefix-icon="el-icon-search" />
+        <el-tree
+          ref="cateTree"
+          :data="cateTree"
+          :props="{ label: 'name', children: 'children' }"
+          :filter-node-method="filterCateNode"
+          node-key="id"
+          show-checkbox
+          check-strictly
+          class="cate-tree"
+        />
+        <div class="cate-picker-tip">
+          共 {{ cateFlat.length }} 个分类，可多选。分类多时用上方搜索框找。<br>
+          勾选父分类不会自动带上子分类的商品，子分类要单独勾。
+        </div>
+      </div>
+      <div slot="footer">
+        <el-button size="small" @click="linkVisible = false">取消</el-button>
+        <el-button type="primary" size="small" @click="onCateConfirm">确定</el-button>
+      </div>
     </el-dialog>
   </div>
 </template>
@@ -193,11 +249,11 @@
  *
  * 与 PHP 侧的差异（数据结构一致，仅交互载体不同）：
  *   com-pick-link 选商品 → diy-goods-group（内部走 @/components/goodList）
- *   com-pick-link 选分类 → diy-url + @/components/linkaddress 弹窗
+ *   com-pick-link 选分类 → diy-url + 商品分类树弹窗（原来用 linkaddress，它不回传分类 id，见下方弹窗注释）
  *   风格 / 购物车 / 角标的示意图（resources/img/decorate/commodity-group/*.png）平台端无资源，改用文字标签
  *   mall/diy/get-addons-fields 插件扩展字段未迁移（Java 侧无该接口）
  */
-import linkaddress from '@/components/linkaddress';
+import { productCategoryListApi } from '@/api/product';
 import basicMixins from '../../controls/basicMixins';
 import { deepClone, getObjValue } from '../../controls/utils';
 
@@ -220,7 +276,6 @@ const STYLE_CONTENT = {
 
 export default {
   name: 'CommodityGroupStyle',
-  components: { linkaddress },
   mixins: [basicMixins],
   props: {
     // 变体组件追加的「选择商品」方式，形如 [{ label: 3, text: '推荐策略' }]
@@ -232,6 +287,13 @@ export default {
   data() {
     return {
       linkVisible: false,
+      // 分类选择器状态：cateFlat 是接口返回的扁平表，cateTree 是组好的树
+      cateLoading: false,
+      cateKeyword: '',
+      cateKeywordFilter: '',
+      sortRule: '',
+      cateFlat: [],
+      cateTree: [],
       showLineList: [{ type: 'size', label: '显示条数', value: 10, unit: '个', maxValue: 20 }],
       selectUrl: '',
       chooseGoods: 1,
@@ -293,6 +355,11 @@ export default {
       imageUrl: [],
     };
   },
+  watch: {
+    cateKeyword(val) {
+      if (this.$refs.cateTree) this.$refs.cateTree.filter(val);
+    },
+  },
   methods: {
     init() {
       basicMixins.methods.init.call(this);
@@ -306,6 +373,10 @@ export default {
 
       const d = this.result.data;
       this.selectUrl = getObjValue(this.result, ['data', 'commCate', 'title'], '');
+      this.cateKeywordFilter = getObjValue(this.result, ['data', 'commCate', 'keyword'], '');
+      const sf = getObjValue(this.result, ['data', 'commCate', 'sortField'], '');
+      const so = getObjValue(this.result, ['data', 'commCate', 'sortOrder'], '');
+      this.sortRule = sf ? `${sf}:${so || 'desc'}` : '';
       this.showLineList = [
         {
           type: 'size',
@@ -385,10 +456,78 @@ export default {
       this.updateData(this.pickImgList, 'goods');
     },
 
-    onCatePicked(url, title) {
-      this.selectUrl = title || url;
+    /** 打开分类树，回填已选中的分类 */
+    openCatePicker() {
+      this.linkVisible = true;
+      this.cateKeyword = '';
+      const done = () => {
+        const cids = String(getObjValue(this.result, ['data', 'commCate', 'cids'], '') || '');
+        const checked = cids ? cids.split(',').filter(Boolean).map(Number) : [];
+        this.$nextTick(() => {
+          if (this.$refs.cateTree) this.$refs.cateTree.setCheckedKeys(checked);
+        });
+      };
+      if (this.cateFlat.length) return done();
+      this.cateLoading = true;
+      productCategoryListApi({ type: 1, status: -1 })
+        .then((res) => {
+          // 接口返回扁平表（id / pid / name），前端自己组树，pid=0 是一级
+          this.cateFlat = Array.isArray(res) ? res : (res && res.list) || [];
+          this.cateTree = this.buildCateTree(this.cateFlat);
+          this.cateLoading = false;
+          done();
+        })
+        .catch(() => {
+          this.cateLoading = false;
+        });
+    },
+    buildCateTree(flat) {
+      const map = {};
+      // 分类表里有已删除的记录，接口用 status=-1 全量返回，这里自己滤掉
+      const usable = (flat || []).filter((c) => c && c.id != null && !c.isDel);
+      usable.forEach((c) => {
+        // id 可能重复（历史数据），后来的不覆盖已建好的节点，否则前面挂上去的子树会丢
+        if (!map[c.id]) map[c.id] = { ...c, children: [] };
+      });
+      const roots = [];
+      usable.forEach((c) => {
+        const node = map[c.id];
+        // 自引用会让这一支永远展不开，当成根处理
+        if (c.pid && c.pid !== c.id && map[c.pid]) map[c.pid].children.push(node);
+        // 父分类被删或不存在时挂到根上，否则这一支会整个消失
+        else roots.push(node);
+      });
+      // 不裁剪空 children：el-tree 按 childNodes.length 判叶子，空数组不会画展开箭头，
+      // 而裁剪会在 id 重复导致同一节点被访问两次时报 undefined.length
+      return roots;
+    },
+    filterCateNode(value, data) {
+      if (!value) return true;
+      return String(data.name || '').indexOf(value) > -1;
+    },
+    onCateConfirm() {
+      const nodes = this.$refs.cateTree ? this.$refs.cateTree.getCheckedNodes() : [];
+      if (!nodes.length) {
+        this.$message.warning('请至少选择一个分类');
+        return;
+      }
+      const cids = nodes.map((n) => n.id).join(',');
+      const title = nodes.map((n) => n.name).join('、');
+      this.selectUrl = title;
       this.linkVisible = false;
-      this.updateData({ title: this.selectUrl, url, count: this.isShowLine == 1 ? 10 : '' }, 'commCate');
+      // url 保留空串占位：老数据里它存的是分类页路径，现在取数只认 cids，
+      // 但结构里留着，免得别处读 commCate.url 时拿到 undefined
+      this.updateData(
+        { title, cids, url: '', count: this.isShowLine == 1 ? 10 : '' },
+        'commCate',
+      );
+    },
+    onKeywordChange() {
+      this.updateData({ keyword: (this.cateKeywordFilter || '').trim() }, 'commCate');
+    },
+    onSortChange(val) {
+      const [field, order] = (val || '').split(':');
+      this.updateData({ sortField: field || '', sortOrder: order || '' }, 'commCate');
     },
     onLineChange([{ value }]) {
       this.updateData({ count: value }, 'commCate');
@@ -492,6 +631,31 @@ export default {
   padding: 10px;
   background: #f4f3f7;
   border-radius: 4px;
+}
+.row--stack {
+  align-items: flex-start;
+}
+.cate-warn {
+  margin: 6px 0 0;
+  padding: 6px 8px;
+  font-size: 12px;
+  line-height: 18px;
+  color: #e6a23c;
+  background: #fdf6ec;
+  border-radius: 4px;
+}
+.cate-picker {
+  .cate-tree {
+    margin-top: 10px;
+    max-height: 360px;
+    overflow-y: auto;
+  }
+  .cate-picker-tip {
+    margin-top: 8px;
+    font-size: 12px;
+    color: #909399;
+    line-height: 18px;
+  }
 }
 .cate-tip {
   color: #f56c6c;

@@ -256,6 +256,12 @@ export default {
       // 选链接弹窗由使用方接入
       this.$emit('pick-link', index, this.iconList[index]);
     },
+    /** 供使用方选完链接后写回，结构与 diy-icon-set 一致：{ title, open_type, params } */
+    setUrl(item, urlInfo) {
+      if (!item || !urlInfo) return;
+      this.$set(item, 'link_params', urlInfo);
+      this.changes();
+    },
     addClick() {
       if (this.iconList.length >= this.maxIconLength) return;
       this.iconList.push({

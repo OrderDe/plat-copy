@@ -23,8 +23,34 @@ export function qdiyPageUpdateApi(data) {
   return request({ url: '/admin/platform/qdiy/page/update', method: 'post', data });
 }
 
+/** 只改名称/底部导航等基础信息，不会覆盖装修内容（列表页编辑用） */
+export function qdiyPageUpdateBaseApi(data) {
+  return request({ url: '/admin/platform/qdiy/page/updateBase', method: 'post', data });
+}
+
 export function qdiyPageDeleteApi(id) {
   return request({ url: `/admin/platform/qdiy/page/delete/${id}`, method: 'get' });
+}
+
+/**
+ * 指定页面类型的装修开关（商品分类 / 购物车）。
+ * 关掉后 App 该页面回到原本写死的样式；平台总开关关掉时这里也一律为 false。
+ */
+export function qdiyTemplateEnableInfoApi(template) {
+  return request({ url: `/admin/platform/qdiy/setting/template-enable/${template}`, method: 'get' });
+}
+
+export function qdiyTemplateEnableSaveApi(template, enable) {
+  return request({
+    url: `/admin/platform/qdiy/setting/template-enable/${template}`,
+    method: 'post',
+    params: { enable },
+  });
+}
+
+/** 设为同类型下当前生效的方案（分类页、购物车可配多套，App 只用生效的那套） */
+export function qdiyPageSetActiveApi(id) {
+  return request({ url: `/admin/platform/qdiy/page/setactive/${id}`, method: 'get' });
 }
 
 export function qdiyPageCopyApi(id) {
@@ -67,6 +93,15 @@ export function qdiySettingInfoApi(params) {
 
 export function qdiySettingSaveApi(data) {
   return request({ url: '/admin/platform/qdiy/setting/save', method: 'post', data });
+}
+
+/** 平台是否启用新版装修(qdiy)，关闭后 App 首页走老版 pagediy */
+export function qdiyEnableInfoApi() {
+  return request({ url: '/admin/platform/qdiy/setting/qdiy-enable', method: 'get' });
+}
+
+export function qdiyEnableSaveApi(enable) {
+  return request({ url: '/admin/platform/qdiy/setting/qdiy-enable', method: 'post', params: { enable } });
 }
 
 /** ---------------- 海报 ---------------- */
@@ -133,6 +168,27 @@ export function qdiyMarketInfoApi(id) {
 
 export function qdiyMarketReceiveApi(id) {
   return request({ url: `/admin/platform/qdiy/market/receive/${id}`, method: 'get' });
+}
+
+/** 后台维护用的模板详情：未上架也能取到，用于编辑回填 */
+export function qdiyMarketDetailApi(id) {
+  return request({ url: `/admin/platform/qdiy/market/detail/${id}`, method: 'get' });
+}
+
+export function qdiyMarketSaveApi(data) {
+  return request({ url: '/admin/platform/qdiy/market/save', method: 'post', data });
+}
+
+export function qdiyMarketUpdateApi(data) {
+  return request({ url: '/admin/platform/qdiy/market/update', method: 'post', data });
+}
+
+export function qdiyMarketOnSaleApi(params) {
+  return request({ url: '/admin/platform/qdiy/market/onsale', method: 'get', params });
+}
+
+export function qdiyMarketDeleteApi(id) {
+  return request({ url: `/admin/platform/qdiy/market/delete/${id}`, method: 'get' });
 }
 
 export function qdiyMarketOrderListApi(params) {

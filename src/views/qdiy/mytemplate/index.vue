@@ -66,14 +66,55 @@
     </el-card>
 
     <!-- 选择要套用的页面 -->
-    <el-dialog title="套用到页面" :visible.sync="useVisible" width="460px">
-      <div class="tips mb20">仅可套用到相同页面类型的装修页面。</div>
-      <el-select v-model="targetPageId" placeholder="请选择目标页面" style="width: 100%" size="small">
+    <el-dialog title="套用到页面" :visible.sync="useVisible" width="520px">
+      <div class="tips mb20">
+        将模板「<b>{{ currentTemplate.title }}</b>」的内容套用到目标页面。
+        仅可套用到<b>相同页面类型</b>（{{ templateName(currentTemplate.template) }}）的装修页面。
+      </div>
+
+      <!-- 没有同类型页面时给出去处，否则用户只能看到一个空下拉、不知道下一步做什么 -->
+      <el-alert
+        v-if="!pageLoading && !pageList.length"
+        type="warning"
+        :closable="false"
+        show-icon
+        class="mb20"
+      >
+        <div slot="title">
+          还没有「{{ templateName(currentTemplate.template) }}」类型的装修页面，
+          <el-button type="text" @click="goCreatePage">去新建一个</el-button>
+        </div>
+      </el-alert>
+
+      <el-select
+        v-else
+        v-model="targetPageId"
+        v-loading="pageLoading"
+        placeholder="请选择目标页面"
+        style="width: 100%"
+        size="small"
+        filterable
+      >
         <el-option v-for="item in pageList" :key="item.id" :label="item.title" :value="item.id" />
       </el-select>
+
+      <!-- 套用是整页覆盖且不可撤销，必须写明白 -->
+      <el-alert v-if="targetPage" type="error" :closable="false" show-icon class="mt20">
+        <div slot="title">
+          目标页面「{{ targetPage.title }}」的现有内容将被<b>整页覆盖</b>，此操作不可撤销。
+        </div>
+      </el-alert>
+
       <span slot="footer">
         <el-button size="small" @click="useVisible = false">取 消</el-button>
-        <el-button type="primary" size="small" :loading="submitLoading" @click="handleUseSubmit">确 定</el-button>
+        <el-button
+          type="primary"
+          size="small"
+          :loading="submitLoading"
+          :disabled="!targetPageId"
+          @click="handleUseSubmit"
+          >套用并编辑</el-button
+        >
       </span>
     </el-dialog>
   </div>
@@ -91,8 +132,9 @@ export default {
       submitLoading: false,
       useVisible: false,
       targetPageId: null,
-      currentTemplate: null,
+      currentTemplate: {},
       pageList: [],
+      pageLoading: false,
       tableData: { data: [], total: 0 },
       tableFrom: { page: 1, limit: 20, title: '', template: '' },
       templateOptions: [
@@ -106,6 +148,13 @@ export default {
   },
   mounted() {
     if (checkPermi(['platform:qdiy:mytemplate:list'])) this.getList();
+  },
+  computed: {
+    /** 选中的目标页面，用于覆盖提醒里显示页面名 */
+    targetPage() {
+      if (!this.targetPageId) return null;
+      return this.pageList.find((p) => p.id === this.targetPageId) || null;
+    },
   },
   methods: {
     templateName(template) {
@@ -139,10 +188,25 @@ export default {
     handleUse(item) {
       this.currentTemplate = item;
       this.targetPageId = null;
+      this.pageList = [];
+      this.pageLoading = true;
+      this.useVisible = true;
       // 只拉取同类型的页面供选择，避免提交后被后端拒绝
-      qdiyPageListApi({ page: 1, limit: 100, template: item.template }).then((res) => {
-        this.pageList = res.list || [];
-        this.useVisible = true;
+      qdiyPageListApi({ page: 1, limit: 100, template: item.template })
+        .then((res) => {
+          this.pageList = res.list || [];
+          this.pageLoading = false;
+        })
+        .catch(() => {
+          this.pageLoading = false;
+        });
+    },
+    /** 没有同类型页面时的出口：跳到页面装修并直接弹出新建、类型预选好 */
+    goCreatePage() {
+      this.useVisible = false;
+      this.$router.push({
+        path: '/qdiy/page',
+        query: { create: this.currentTemplate.template },
       });
     },
     handleUseSubmit() {
@@ -151,11 +215,15 @@ export default {
         return;
       }
       this.submitLoading = true;
-      qdiyMyTemplateUseApi({ id: this.currentTemplate.id, pageId: this.targetPageId })
+      const pageId = this.targetPageId;
+      qdiyMyTemplateUseApi({ id: this.currentTemplate.id, pageId })
         .then(() => {
           this.submitLoading = false;
           this.useVisible = false;
-          this.$message.success('套用成功');
+          // 套用完直接进编辑器：停在模板列表看不到任何变化，
+          // 用户无从确认到底套上没有
+          this.$message.success('套用成功，正在打开页面编辑');
+          this.$router.push({ path: `/qdiy/editor/${pageId}` });
         })
         .catch(() => {
           this.submitLoading = false;
@@ -191,6 +259,10 @@ export default {
     ::v-deep .el-image {
       width: 100%;
       height: 100%;
+    }
+    /* 预览图是整页长截图，居中裁会把顶部裁掉，从顶部裁才看得出是哪个页面 */
+    ::v-deep img {
+      object-position: top center;
     }
   }
   .no-cover {

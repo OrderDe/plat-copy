@@ -21,9 +21,9 @@
             v-for="item in group.list || []"
             :key="item.code"
             class="widget-item"
-            :class="{ disabled: reachLimit(item) }"
-            :tabindex="reachLimit(item) ? -1 : 0"
-            :title="reachLimit(item) ? `${item.title}已达添加上限` : `添加${item.title}`"
+            :class="{ editing: reachLimit(item) && existingIndex(item) >= 0 }"
+            tabindex="0"
+            :title="reachLimit(item) ? `编辑${item.title}` : `添加${item.title}`"
             @click="handleAdd(item)"
             @keyup.enter="handleAdd(item)"
           >
@@ -37,8 +37,9 @@
               <i v-else class="icon-font" :class="iconClass(item.code)" />
             </div>
             <div class="name">{{ item.title }}</div>
-            <div v-if="reachLimit(item)" class="status-badge limit">已达上限</div>
+            <div v-if="reachLimit(item)" class="status-badge limit">已添加</div>
             <div v-else-if="!isRegistered(item.code)" class="status-badge todo">待完善</div>
+            <i v-if="reachLimit(item)" class="add-icon edit-icon el-icon-edit-outline" />
             <i v-else class="add-icon el-icon-plus" />
           </div>
         </div>
@@ -116,6 +117,7 @@ export default {
         'commission-info': 't-icon-zujian-jifenshangcheng',
         'follow-official': 't-icon-zujian-xiaochengxuzhibo',
         position: 't-icon-zujian-shangpinfenlei',
+        'float-window': 't-icon-zujian-tupianmofang',
       };
       if (iconMap[code]) return ['t-icon', iconMap[code]];
       if (/goods|commodity|mch/.test(code)) return ['t-icon', 't-icon-zujian-shangpinliebiao'];
@@ -139,8 +141,16 @@ export default {
       const used = this.list.filter((e) => e.identify === component.code).length;
       return used >= max;
     },
+    existingIndex(component) {
+      return this.list.findIndex((e) => e.identify === component.code);
+    },
     handleAdd(component) {
       if (this.reachLimit(component)) {
+        const index = this.existingIndex(component);
+        if (index >= 0) {
+          this.$emit('select-existing', index);
+          return;
+        }
         this.$message.warning(`「${component.title}」最多添加 ${component.count} 个`);
         return;
       }
@@ -321,19 +331,11 @@ export default {
     border-color: var(--tone-border);
     box-shadow: 0 0 0 3px var(--tone-bg);
   }
-  &.disabled {
-    cursor: not-allowed;
-    opacity: 0.58;
-    &:hover {
-      border-color: #edf0f5;
-      color: inherit;
-      box-shadow: 0 2px 8px rgba(17, 24, 39, 0.025);
-      transform: none;
-
-      .icon-shell {
-        box-shadow: none;
-        transform: none;
-      }
+  &.editing {
+    border-color: #ffd1d5;
+    .add-icon {
+      opacity: 1;
+      transform: scale(1);
     }
   }
   .icon {
@@ -373,8 +375,8 @@ export default {
     line-height: 16px;
   }
   .limit {
-    color: #f56c6c;
-    background: #fff0f0;
+    color: #409eff;
+    background: #ecf5ff;
   }
   .todo {
     color: #d99016;
@@ -394,6 +396,9 @@ export default {
     opacity: 0;
     transform: scale(0.65);
     transition: opacity 0.2s ease, transform 0.2s ease;
+  }
+  .edit-icon {
+    background: #409eff;
   }
 
 }

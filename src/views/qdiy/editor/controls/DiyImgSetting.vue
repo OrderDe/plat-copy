@@ -34,12 +34,10 @@
               :style="{ width: showHotZone ? '' : imgPopSize[0] + 'px', height: showHotZone ? '' : imgPopSize[1] + 'px' }"
               @mouseover="selImgIndex = index"
               @mouseleave="selImgIndex = -1"
-              @click="openPicker(index)"
+              @click="handleImageClick(index)"
             >
               <el-image class="diy-sty-img-u" :src="item.imgUrl" />
-              <div v-show="showHotZone || index === selImgIndex" class="diy-upd-img" :class="{ 'diy-upd-hot': showHotZone }">
-                替换
-              </div>
+              <div v-show="!showHotZone && index === selImgIndex" class="diy-upd-img">替换</div>
               <i
                 v-show="!showHotZone && index === selImgIndex"
                 class="el-icon-close diy-upd-icon"
@@ -59,6 +57,22 @@
                 >
                   {{ hot.urlName || '暂无链接' }}
                 </div>
+              </div>
+              <div v-if="showHotZone" class="hot-zone-actions">
+                <button type="button" class="hot-zone-action" title="更换图片" @mousedown.stop @click.stop="openPicker(index)">
+                  <i class="el-icon-picture-outline" />
+                  <span>替换图片</span>
+                </button>
+                <button
+                  type="button"
+                  class="hot-zone-action hot-zone-action-primary"
+                  title="编辑图片热区"
+                  @mousedown.stop
+                  @click.stop="updatedHotZone(index)"
+                >
+                  <i class="el-icon-edit-outline" />
+                  <span>编辑热区</span>
+                </button>
               </div>
             </div>
           </div>
@@ -122,14 +136,20 @@
       </div>
     </div>
 
-    <!-- 热区编辑器：见下方说明，本轮未迁移 -->
-    <el-dialog width="50%" title="热区编辑器" append-to-body :visible.sync="hotZonePop">
-      <el-alert
-        type="warning"
-        :closable="false"
-        show-icon
-        title="热区编辑器尚未迁移"
-        description="PHP 侧的 HotZone 组件（772 行）不在本轮 21 个基础控件范围内，已有热区数据仍可正常读写与预览。"
+    <el-dialog
+      width="900px"
+      title="热区编辑器"
+      append-to-body
+      :close-on-click-modal="false"
+      :visible.sync="hotZonePop"
+    >
+      <HotZoneEditor
+        v-if="hotZonePop"
+        :image="selHotZoneImg.imgUrl"
+        :value="selHotZoneImg.hotZone || []"
+        @replace-image="openHotZoneImagePicker"
+        @save="getSave"
+        @cancel="hotZonePop = false"
       />
     </el-dialog>
 
@@ -166,16 +186,17 @@
  * 依赖替换与遗留：
  *   com-attachment → @/components/base/uploadPicture
  *   com-pick-link  → 触发 pick-link 事件交给使用方，选完后调用本组件的 setUrl(urlInfo) 写回
- *   HotZone        → 未迁移，见上方弹窗说明；热区数据结构与预览保留
+ *   HotZone        → ./HotZoneEditor.vue，坐标沿用原实现的百分比结构
  */
 import uploadPictures from '@/components/base/uploadPicture';
 import DiyStyleContain from './DiyStyleContain';
 import DiyUrl from './DiyUrl';
+import HotZoneEditor from './HotZoneEditor';
 import { getOtherUrlName } from './utils';
 
 export default {
   name: 'DiyImgSetting',
-  components: { uploadPictures, DiyStyleContain, DiyUrl },
+  components: { uploadPictures, DiyStyleContain, DiyUrl, HotZoneEditor },
   props: {
     showTitle: {
       type: Boolean,
@@ -314,10 +335,19 @@ export default {
       this.pickingIndex = index;
       this.pickerVisible = true;
     },
+    handleImageClick(index) {
+      if (!this.showHotZone) this.openPicker(index);
+    },
+    openHotZoneImagePicker() {
+      this.openPicker(this.urlIndex);
+    },
     onPicked(img) {
       const url = Array.isArray(img) ? img[0] && (img[0].sattDir || img[0]) : img;
       if (url && this.pickingIndex > -1) {
         this.$set(this.newImgInfos[this.pickingIndex], 'imgUrl', url);
+        if (this.hotZonePop && this.pickingIndex === this.urlIndex) {
+          this.$set(this.selHotZoneImg, 'imgUrl', url);
+        }
         this.changImg();
       }
       this.pickerVisible = false;
@@ -331,9 +361,9 @@ export default {
       this.selHotZoneImg = JSON.parse(JSON.stringify(this.newImgInfos[index]));
       this.urlIndex = index;
     },
-    // 热区编辑器保存回调，热区编辑器迁移后接上即可
+    // 热区编辑器保存回调
     getSave(val) {
-      this.newImgInfos[this.urlIndex].hotZone = val;
+      this.$set(this.newImgInfos[this.urlIndex], 'hotZone', val);
       this.hotZonePop = false;
       this.changImg();
     },
@@ -446,6 +476,8 @@ export default {
     font-size: 12px;
     color: #fff;
     background: rgba(0, 0, 0, 0.5);
+    // 热区遮罩铺满整张图且在它之后渲染，不抬层级的话「替换」点不到，底图就换不了
+    z-index: 2;
   }
   .diy-upd-icon {
     position: absolute;
@@ -466,6 +498,7 @@ export default {
   top: 0;
   width: 100%;
   height: 100%;
+  cursor: pointer;
 }
 .img-hot-zone-model {
   position: absolute;
@@ -476,6 +509,44 @@ export default {
   border: 1px solid #2d8cf0;
   font-size: 12px;
   color: #fff;
+}
+.hot-zone-actions {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  height: 32px;
+  gap: 1px;
+  background: rgba(255, 255, 255, 0.7);
+}
+.hot-zone-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 0 8px;
+  border: 0;
+  color: #303133;
+  background: rgba(255, 255, 255, 0.94);
+  font-size: 12px;
+  line-height: 32px;
+  cursor: pointer;
+  &:hover {
+    color: #2d8cf0;
+    background: #fff;
+  }
+}
+.hot-zone-action-primary {
+  color: #fff;
+  background: #2d8cf0;
+  &:hover {
+    color: #fff;
+    background: #57a3f3;
+  }
 }
 .applet-inputs {
   flex: 1;

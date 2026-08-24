@@ -31,6 +31,7 @@
       <diy-operation-list v-model="optionSettings" @on-change="titleOnChange" />
       <div class="img-wrap">
         <diy-img-setting
+          ref="imgSetting"
           :img-infos="imgCatUrl"
           :def-img-count="1"
           :show-url="true"
@@ -39,6 +40,7 @@
           :img-contain-style="{ padding: 0 }"
           :show-title="false"
           @change="addCatImg"
+          @pick-link="(index, item) => openLinkPicker('imgSetting', item)"
         />
       </div>
     </diy-style-contain>
@@ -47,6 +49,8 @@
     <transition v-if="hasChild" name="el-fade-in-linear">
       <CatLevelPanel v-if="show && showChildPanel" :active-item="childItem" :level="3" @update="updateChild" />
     </transition>
+
+    <link-picker-dialog ref="linkPicker" @picked="onLinkPicked" />
   </div>
 </template>
 
@@ -62,9 +66,11 @@
  * 是被 micro-theme/style.php 内部引用的子面板，不是独立的画布组件。
  */
 import { deepClone } from '../../controls/utils';
+import linkPickerMixins from '../../controls/linkPickerMixins';
 
 export default {
   name: 'CatLevelPanel',
+  mixins: [linkPickerMixins],
   props: {
     // 该层级对应的数据宿主，直接挂 catList / activeIndex
     activeItem: {

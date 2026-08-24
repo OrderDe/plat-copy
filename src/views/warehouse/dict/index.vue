@@ -124,6 +124,7 @@ import { dictApi } from '@/api/warehouse';
 const DICT_TYPES = [
   { value: 'inbound_type', label: '入库类型' },
   { value: 'outbound_type', label: '出库类型' },
+  { value: 'outbound_channel', label: '出库渠道' },
 ];
 
 export default {
@@ -153,6 +154,14 @@ export default {
     emptyForm() {
       return { id: null, dictType: 'inbound_type', itemValue: 0, itemName: '', sort: 0, status: 1, remark: '' };
     },
+    /**
+     * 取错误文案。响应拦截器在业务码非 200 时是 Promise.reject() 不带参数的，
+     * 直接读 e.message 会抛 TypeError，把真正的失败原因盖掉（拦截器已经弹过一次提示了）。
+     */
+    errText(e) {
+      if (!e) return '请查看上方提示';
+      return e.message || (typeof e === 'string' ? e : JSON.stringify(e));
+    },
     dictTypeText(t) {
       const hit = DICT_TYPES.find((x) => x.value === t);
       return hit ? hit.label : t;
@@ -166,7 +175,7 @@ export default {
         this.total = data.total || 0;
       } catch (e) {
         this.tableData = [];
-        this.$message.error('加载失败: ' + (e.message || e));
+        this.$message.error('加载失败: ' + this.errText(e));
       } finally {
         this.loading = false;
       }
@@ -210,9 +219,15 @@ export default {
           await dictApi.save(this.form);
           this.dialogVisible = false;
           this.$message.success('已保存');
+          // 新增的类型和当前筛选不一致时，列表会把刚存的这条筛掉，看着像没保存成功。
+          // 直接把筛选切到刚保存的类型，让用户马上看到结果。
+          if (this.form.dictType && this.query.dictType !== this.form.dictType) {
+            this.query.dictType = this.form.dictType;
+            this.query.page = 1;
+          }
           this.loadPage();
         } catch (e) {
-          this.$message.error('保存失败: ' + (e.message || e));
+          this.$message.error('保存失败: ' + this.errText(e));
         } finally {
           this.saving = false;
         }
@@ -224,7 +239,7 @@ export default {
         this.$message.success(row.status === 1 ? '已启用' : '已停用');
       } catch (e) {
         row.status = row.status === 1 ? 0 : 1; // 失败回滚，别让界面显示成已生效
-        this.$message.error('切换失败: ' + (e.message || e));
+        this.$message.error('切换失败: ' + this.errText(e));
       }
     },
     onDelete(row) {
@@ -235,7 +250,7 @@ export default {
             this.$message.success('已删除');
             this.loadPage();
           } catch (e) {
-            this.$message.error('删除失败: ' + (e.message || e));
+            this.$message.error('删除失败: ' + this.errText(e));
           }
         })
         .catch(() => {});
