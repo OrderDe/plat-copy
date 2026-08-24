@@ -328,8 +328,8 @@ export default {
      * 要么和真正的问题货混在一起，下一次谁也分不清哪批是好的。
      */
     passShelfOptions() {
-      return this.shelfCache.filter((s) => (s.type !== SHELF_TYPE_RETURN && s.type !== SHELF_TYPE_NG
-        && this.shelfIsActive(s)) || this.isShelfSelected(s.id));
+      return this.shelfCache.filter((s) => s.type !== SHELF_TYPE_RETURN
+        && s.type !== SHELF_TYPE_NG && this.shelfIsActive(s));
     },
   },
   created() {
@@ -347,6 +347,16 @@ export default {
       if (this.form && this.form.ngShelfId != null && String(this.form.ngShelfId) === String(shelfId)) return true;
       return (this.form && this.form.items || []).some((item) => item.passShelfId != null
         && String(item.passShelfId) === String(shelfId));
+    },
+    isSellableShelf(shelfId) {
+      const shelf = this.shelfCache.find((s) => s && String(s.id) === String(shelfId));
+      return !!shelf && this.shelfIsActive(shelf)
+        && shelf.type !== SHELF_TYPE_RETURN && shelf.type !== SHELF_TYPE_NG;
+    },
+    isSellableLocation(shelfId, locationId) {
+      if (!this.isSellableShelf(shelfId) || locationId == null) return false;
+      const location = (this.locationCache[shelfId] || []).find((l) => String(l.id) === String(locationId));
+      return !!location && !location.usageType && Number(location.status) === 1;
     },
     shelfOptionLabel(shelf) {
       const code = shelf && (shelf.code || shelf.name) ? (shelf.code || shelf.name) : `货架${shelf && shelf.id != null ? shelf.id : ''}`;
@@ -555,6 +565,7 @@ export default {
 
     /** 合格品只能进可售区(usageType=0)；老数据 usageType 为空按可售区处理 */
     sellableLocations(shelfId, currentId) {
+      if (!this.isSellableShelf(shelfId)) return [];
       return (this.locationCache[shelfId] || []).filter((l) => !l.usageType
         && (Number(l.status) === 1 || (currentId != null && String(l.id) === String(currentId))));
     },
@@ -650,15 +661,22 @@ export default {
       this.$set(row, 'platformType', 0);
     },
     validateZoneSelections() {
-      const passShelf = this.form.items.find((item) => item.passShelfId != null
-        && this.shelfCache.some((s) => String(s.id) === String(item.passShelfId)
-          && this.shelfOptionDisabled(s, 'pass')));
+      const passShelf = this.form.items.find((item) => Number(item.qtyPass || 0) > 0
+        && !this.isSellableShelf(item.passShelfId));
       if (passShelf) {
-        return this.$message.warning('合格品存放货架已停用或类型不匹配，请重新选择货架');
+        return this.$message.warning('合格品有入库数量，请选择启用的普通可售货架');
+      }
+      const needNg = this.form.items.some((item) => Number(item.qtyFail || 0) > 0
+        && Number(item.disposition) === 1);
+      if (needNg && !this.form.ngShelfId) {
+        return this.$message.warning('有转入不合格区的数量，请选择不合格区货架');
+      }
+      if (needNg && !this.form.ngLocationId) {
+        return this.$message.warning('有转入不合格区的数量，请选择不合格区库位');
       }
       if (this.form.ngShelfId != null && this.shelfCache.some((s) => String(s.id) === String(this.form.ngShelfId)
         && this.shelfOptionDisabled(s, 'ng'))) {
-        return this.$message.warning('不合格区货架已停用，请重新选择货架');
+        return this.$message.warning('不合格区货架已停用或类型不匹配，请重新选择货架');
       }
       const passLocation = this.form.items.find((item) => item.passLocationId != null
         && (this.locationCache[item.passShelfId] || []).some((l) => String(l.id) === String(item.passLocationId)
@@ -666,10 +684,20 @@ export default {
       if (passLocation) {
         return this.$message.warning('合格品存放库位已停用，请重新选择库位');
       }
+      const invalidPassLocation = this.form.items.find((item) => Number(item.qtyPass || 0) > 0
+        && !this.isSellableLocation(item.passShelfId, item.passLocationId));
+      if (invalidPassLocation) {
+        return this.$message.warning('合格品存放库位必须属于可售货架且处于启用状态');
+      }
       if (this.form.ngLocationId != null
         && (this.locationCache[this.form.ngShelfId] || []).some((l) => String(l.id) === String(this.form.ngLocationId)
           && Number(l.status) !== 1)) {
         return this.$message.warning('不合格区库位已停用，请重新选择库位');
+      }
+      if (this.form.ngLocationId != null
+        && !this.ngLocations(this.form.ngShelfId, this.form.ngLocationId)
+          .some((l) => String(l.id) === String(this.form.ngLocationId))) {
+        return this.$message.warning('不合格区库位必须属于所选不合格区货架');
       }
       return true;
     },
@@ -695,7 +723,8 @@ export default {
         );
       }
       // 入库的货停在待检区，合格品必须指定一个可售区库位才会真正变成可售库存
-      const noPassLoc = this.form.items.findIndex((item) => Number(item.qtyPass || 0) > 0 && !item.passLocationId);
+      const noPassLoc = this.form.items.findIndex((item) => Number(item.qtyPass || 0) > 0
+        && (!item.passShelfId || !item.passLocationId));
       if (noPassLoc >= 0) {
         return this.$message.warning(
           `第 ${noPassLoc + 1} 行有合格数量，请在明细表最右侧的「合格品存放-货架 / 库位」里选择一个可售区库位；`
