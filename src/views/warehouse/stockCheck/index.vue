@@ -193,7 +193,7 @@
               <td>{{ d.goodsName }} {{ d.specName }}</td>
               <td>{{ d.bookStock == null ? '—' : d.bookStock }}</td>
               <td>
-                <el-input-number v-model="d.actualStock" :min="0" :disabled="!feedbackEditable" size="mini" controls-position="right" style="width:100%" @change="onActualStockChange(d)" />
+                <el-input-number v-model="d.actualStock" :min="0" :precision="0" step-strictly :disabled="!feedbackEditable" size="mini" controls-position="right" style="width:100%" @change="onActualStockChange(d)" />
               </td>
               <td :class="diffClass(d)">{{ diffLabel(d) }}</td>
               <td>

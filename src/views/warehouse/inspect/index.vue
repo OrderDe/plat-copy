@@ -203,7 +203,7 @@
               <template slot-scope="{row}">
                 <!-- 送检数量 = 入库单的实入库数量，不由质检员改 -->
                 <span v-if="fromInbound">{{ row.qtyReceived }}</span>
-                <el-input-number v-else v-model="row.qtyReceived" :min="0" size="mini" controls-position="right" @change="syncQty(row, 'received')" />
+                <el-input-number v-else v-model="row.qtyReceived" :min="0" :precision="0" step-strictly size="mini" controls-position="right" @change="syncQty(row, 'received')" />
               </template>
             </el-table-column>
             <!-- 合格 + 不合格 必须正好等于送检数：送检的每一件都要有结论，
@@ -211,12 +211,12 @@
                  改一栏自动把另一栏补成差额，两栏永远配平 -->
             <el-table-column label="合格" width="100">
               <template slot-scope="{row}">
-                <el-input-number v-model="row.qtyPass" :min="0" :max="Number(row.qtyReceived || 0)" size="mini" controls-position="right" @change="syncQty(row, 'pass')" />
+                <el-input-number v-model="row.qtyPass" :min="0" :max="Number(row.qtyReceived || 0)" :precision="0" step-strictly size="mini" controls-position="right" @change="syncQty(row, 'pass')" />
               </template>
             </el-table-column>
             <el-table-column label="不合格" width="100">
               <template slot-scope="{row}">
-                <el-input-number v-model="row.qtyFail" :min="0" :max="Number(row.qtyReceived || 0)" size="mini" controls-position="right" @change="syncQty(row, 'fail')" />
+                <el-input-number v-model="row.qtyFail" :min="0" :max="Number(row.qtyReceived || 0)" :precision="0" step-strictly size="mini" controls-position="right" @change="syncQty(row, 'fail')" />
               </template>
             </el-table-column>
             <el-table-column label="处置" width="140">

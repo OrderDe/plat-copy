@@ -112,7 +112,7 @@
           </el-table-column>
           <el-table-column :label="qtyLabel" width="130">
             <template slot-scope="{row}">
-              <el-input-number v-model="row[qtyField]" :min="1" size="mini" controls-position="right" />
+              <el-input-number v-model="row[qtyField]" :min="1" :precision="0" step-strictly size="mini" controls-position="right" />
             </template>
           </el-table-column>
           <el-table-column v-if="dialogMode === 'add'" label="操作" width="60">

@@ -423,7 +423,7 @@
         <el-table-column label="应拣" width="80"><template slot-scope="{row}"><b>{{ row.planNum }}</b></template></el-table-column>
         <el-table-column label="实拣" width="140">
           <template slot-scope="{row}">
-            <el-input-number v-model="row.pickedNum" :min="0" :max="row.planNum" size="mini" controls-position="right" :disabled="pickDetail.status >= 2" />
+            <el-input-number v-model="row.pickedNum" :min="0" :max="row.planNum" :precision="0" step-strictly size="mini" controls-position="right" :disabled="pickDetail.status >= 2" />
           </template>
         </el-table-column>
         <el-table-column label="状态" width="90">
@@ -467,7 +467,7 @@
           <el-table-column label="拣货" width="90"><template slot-scope="{row}">{{ row.pickedNum }}</template></el-table-column>
           <el-table-column label="复核实测" width="140">
             <template slot-scope="{row}">
-              <el-input-number v-model="row.reviewedNum" :min="0" size="mini" controls-position="right" :disabled="reviewDetail.status !== 0" />
+              <el-input-number v-model="row.reviewedNum" :min="0" :precision="0" step-strictly size="mini" controls-position="right" :disabled="reviewDetail.status !== 0" />
             </template>
           </el-table-column>
           <el-table-column label="差异" width="80">
