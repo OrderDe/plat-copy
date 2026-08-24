@@ -9,6 +9,8 @@ import 'swiper/dist/css/swiper.css';
 import 'vue-ydui/dist/ydui.base.css';
 import Element from 'element-ui';
 import './theme/element-variables.scss';
+// Keep Element UI icon codepoints escaped in the browser-injected CSS.
+import 'element-ui/lib/theme-chalk/icon.css';
 import '@/styles/index.scss'; // global css
 import '@/assets/fonts/font.css'; // font css
 Vue.use(Element, { size: 'small' });
