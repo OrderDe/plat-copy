@@ -466,7 +466,7 @@ export default {
     overCapacityRows() {
       return findOverCapacity(
         this.form.items,
-        (id) => Object.values(this.locationCache).flat().find((l) => l.id === id),
+        (id) => Object.values(this.locationCache).flat().find((l) => l.id != null && String(l.id) === String(id)),
         (row) => (row.actualInboundNum != null ? row.actualInboundNum : row.inboundTotalNum),
         (row) => row.locationId,
       );
@@ -538,7 +538,7 @@ export default {
     capacityHint(row) {
       if (!this.editable) return '';
       if (!row.locationId) return '';
-      const hit = this.overCapacityRows().find((o) => o.locationId === row.locationId);
+      const hit = this.overCapacityRows().find((o) => String(o.locationId) === String(row.locationId));
       return hit ? `超出容量，只剩 ${hit.remain} 件，请拆分库位` : '';
     },
     emptyForm() { return { warehouseId: null, type: 0, relatedCode: '', applyUserId: null, applyUserName: '', applyUserPhone: '', inboundUserId: null, inboundUserName: '', handlerUserName: '', remark: '', items: [] }; },
@@ -717,7 +717,7 @@ export default {
     },
     locationOptionDisabled(loc, row) {
       const currentId = row && row.locationId;
-      if (loc && loc.status !== 1 && loc.id !== currentId) return true;
+      if (loc && loc.status !== 1 && String(loc.id) !== String(currentId)) return true;
       return locationDisabled(loc, currentId, locationRemainForRow(loc, this.form.items, row));
     },
     /**
@@ -732,7 +732,7 @@ export default {
     },
     splitLocationTaken(loc, row) {
       if (!loc) return false;
-      return this.splitRows.some((r) => r !== row && r.locationId === loc.id);
+      return this.splitRows.some((r) => r !== row && String(r.locationId) === String(loc.id));
     },
     /** 被别的行占掉的库位标注出来，否则只是灰着，操作员不知道为什么选不了 */
     splitLocationLabel(loc, row) {

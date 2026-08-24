@@ -37,4 +37,14 @@ describe('warehouse location capacity', () => {
   it('keeps the current location selectable while editing', () => {
     expect(locationDisabled(location, location.id, 0)).toBe(false);
   });
+
+  it('matches location ids when the API and form use different primitive types', () => {
+    const first = { locationId: '7', actualInboundNum: 19 };
+    const second = { locationId: 7, actualInboundNum: 1 };
+    const items = [first, second];
+
+    expect(locationReservedNum(items, location.id, second)).toBe(19);
+    expect(locationRemainForRow(location, items, second)).toBe(81);
+    expect(locationDisabled(location, '7', 0)).toBe(false);
+  });
 });

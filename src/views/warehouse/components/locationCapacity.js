@@ -24,7 +24,8 @@ export function locationRemain(loc, reserved = 0) {
 /** Sum quantities assigned to a location by other rows in the same form. */
 export function locationReservedNum(items, locationId, excludeRow) {
   return (items || []).reduce((total, row) => {
-    if (row === excludeRow || row.locationId !== locationId) return total;
+    if (row === excludeRow || row.locationId == null || locationId == null
+      || String(row.locationId) !== String(locationId)) return total;
     const raw = row.actualInboundNum != null ? row.actualInboundNum : row.inboundTotalNum;
     const num = Number(raw);
     return total + (Number.isFinite(num) && num > 0 ? num : 0);
@@ -57,7 +58,7 @@ export function locationLabel(loc, remainOverride) {
  */
 export function locationDisabled(loc, currentId, remainOverride) {
   if (!loc || loc.remainNum == null) return false;
-  if (currentId != null && loc.id === currentId) return false;
+  if (currentId != null && loc.id != null && String(loc.id) === String(currentId)) return false;
   const remain = remainOverride == null ? loc.remainNum : remainOverride;
   return remain <= 0;
 }
@@ -86,10 +87,11 @@ export function findOverCapacity(items, getLocation, getNum, getLocationId) {
   (items || []).forEach((row, idx) => {
     const locId = getLocationId(row);
     if (locId == null) return;
+    const key = String(locId);
     const num = Number(getNum(row)) || 0;
     if (num <= 0) return;
-    if (!byLoc.has(locId)) byLoc.set(locId, { locationId: locId, need: 0, lines: [] });
-    const e = byLoc.get(locId);
+    if (!byLoc.has(key)) byLoc.set(key, { locationId: locId, need: 0, lines: [] });
+    const e = byLoc.get(key);
     e.need += num;
     e.lines.push(idx + 1);
   });
