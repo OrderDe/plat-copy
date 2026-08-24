@@ -102,7 +102,7 @@
         <el-row :gutter="16">
           <el-col :span="12">
             <el-form-item label="仓库" prop="warehouseId">
-              <el-select v-model="form.warehouseId" filterable style="width:100%" @change="onWarehouseChange">
+              <el-select v-model="form.warehouseId" filterable style="width:100%" @change="onWarehouseChange(true)">
                 <el-option v-for="w in warehouseList" :key="w.id" :label="`${w.code} / ${w.name}`" :value="w.id" />
               </el-select>
             </el-form-item>
@@ -152,6 +152,27 @@
             </el-table-column>
             <el-table-column label="商品ID" width="110">
               <template slot-scope="{row}"><el-input v-model="row.productId" size="mini" readonly /></template>
+            </el-table-column>
+            <el-table-column v-if="form.bizType === 2" label="指定批次 *" width="220">
+              <template slot-scope="{row}">
+                <el-select
+                  v-model="row.fromBatchId"
+                  size="mini"
+                  filterable
+                  clearable
+                  placeholder="请选择批次"
+                  style="width:100%"
+                  :disabled="!row.productId || !row.attrValueId || !form.warehouseId"
+                  @visible-change="v => v && loadBatchOptions(row)"
+                >
+                  <el-option
+                    v-for="b in (batchOptions[batchKey(row)] || [])"
+                    :key="b.id"
+                    :label="`${b.batchNo}（剩${b.remainNum || 0}${b.expiryDate ? ' / 至' + b.expiryDate : ''}）`"
+                    :value="b.id"
+                  />
+                </el-select>
+              </template>
             </el-table-column>
             <el-table-column v-if="form.bizType === 1" label="源货架" width="150">
               <template slot-scope="{row}">
@@ -210,7 +231,7 @@
 </template>
 
 <script>
-import { relocateApi, warehouseApi, shelfApi, locationApi, stockApi } from '@/api/warehouse';
+import { relocateApi, warehouseApi, shelfApi, locationApi, stockApi, batchApi } from '@/api/warehouse';
 import { merchantListApi } from '@/api/merchant';
 import AdminPickerDialog from '../components/AdminPickerDialog.vue';
 import ProductPickerDialog from '../components/ProductPickerDialog.vue';
@@ -222,7 +243,7 @@ export default {
   data() {
     return {
       loading: false, saving: false, total: 0, tableData: [],
-      warehouseList: [], merchantList: [], shelfCache: [], locationCache: {},
+      warehouseList: [], merchantList: [], shelfCache: [], locationCache: {}, batchOptions: {},
       query: { page: 1, limit: 20, code: '', warehouseId: null, bizType: null, status: null },
       dialogVisible: false, dialogMode: 'add',
       form: this.emptyForm(),
@@ -234,7 +255,7 @@ export default {
       bizDescMap: {
         0: '把收货后还没进库位的货放上货架。货已在仓，只是从「未上架」变成落在具体库位，仓库总数不变。',
         1: '把货从一个库位搬到另一个库位，仓库总数不变。需要指定源库位和目标库位。',
-        2: '把货从存储区补到拣货区，补足拣货位的量，仓库总数不变。不用填来源，系统按效期（先到期先出）自动挑。',
+        2: '把指定批次的货从存储区补到拣货区，补足拣货位的量，仓库总数不变。',
       },
       /** 三种单据都不增加库存，容易被误当成入库单用，统一在页面上点破 */
       bizCommonTip: '货是从仓库里挪的，总数不会增加；供应商送货、退货回仓请用「入库管理」新建入库单。',
@@ -286,7 +307,7 @@ export default {
       if (!this.form.items) this.form.items = [];
       this.dialogMode = mode;
       this.dialogVisible = true;
-      await this.onWarehouseChange();
+      await this.onWarehouseChange(false);
       // 明细里已选的货架要把库位选项带出来，否则编辑时库位下拉是空的
       for (const it of this.form.items) {
         await this.ensureLocations(it.fromShelfId);
@@ -294,13 +315,20 @@ export default {
       }
     },
     resetForm() { this.$refs.formRef && this.$refs.formRef.resetFields(); },
-    async onWarehouseChange() {
+    async onWarehouseChange(resetSelections = true) {
       if (!this.form.warehouseId) { this.shelfCache = []; this.locationCache = {}; return; }
       try {
         const r = await shelfApi.page({ page: 1, limit: 999, warehouseId: this.form.warehouseId, status: 1 });
         this.shelfCache = ((r && r.list) || []).filter((s) => Number(s.status) === 1);
       } catch (e) {}
       this.locationCache = {};
+      this.batchOptions = {};
+      if (resetSelections) {
+        (this.form.items || []).forEach((it) => {
+          this.$set(it, 'fromBatchId', null);
+          this.$set(it, 'toBatchId', null);
+        });
+      }
       // 换仓后可上架数量要按新仓重算
       for (const it of this.form.items) {
         await this.loadMaxNum(it);
@@ -327,6 +355,7 @@ export default {
       this.$set(row, 'barCode', '');
       this.$set(row, 'fromBatchId', null);
       this.$set(row, 'toBatchId', null);
+      this.$set(this.batchOptions, this.batchKey(row), null);
       this.$set(row, 'platformType', 0);
       this.$set(row, 'maxNum', null);
     },
@@ -384,7 +413,29 @@ export default {
       this.$set(row, 'barCode', sku ? sku.barCode : '');
       // 库存行是按商户存的，明细不带 merId 提交时定位不到源库存
       this.$set(row, 'merId', res.product.merId || null);
+      this.$set(row, 'fromBatchId', null);
+      this.$set(row, 'toBatchId', null);
+      this.$set(this.batchOptions, this.batchKey(row), null);
       await this.loadMaxNum(row);
+    },
+    batchKey(row) {
+      return [this.form.warehouseId, row.merId || '', row.productId, row.attrValueId || 0].join('_');
+    },
+    async loadBatchOptions(row) {
+      if (this.form.bizType !== 2 || !this.form.warehouseId || !row.productId || !row.attrValueId) return;
+      const key = this.batchKey(row);
+      if (this.batchOptions[key]) return;
+      try {
+        const list = await batchApi.pickable({
+          warehouseId: this.form.warehouseId,
+          merId: row.merId || undefined,
+          productId: row.productId,
+          attrValueId: row.attrValueId,
+        });
+        this.$set(this.batchOptions, key, list || []);
+      } catch (e) {
+        this.$set(this.batchOptions, key, []);
+      }
     },
     async onSaveForm() {
       await this.$refs.formRef.validate();
@@ -395,6 +446,10 @@ export default {
       // 移库按 SKU 定位源库位，缺 attrValueId 会搬错规格甚至找不到库存行
       const noSku = this.form.items.findIndex((i) => !i.attrValueId);
       if (noSku >= 0) return this.$message.warning(`第 ${noSku + 1} 行未选择规格，请重新选择商品并指定规格`);
+      if (this.form.bizType === 2) {
+        const noBatch = this.form.items.findIndex((i) => !i.fromBatchId);
+        if (noBatch >= 0) return this.$message.warning(`第 ${noBatch + 1} 行请选择指定批次`);
+      }
       // 源和目标是同一个库位等于没搬，提交后库存一进一出净变化为 0，白占一张单据
       const sameLoc = this.form.items.findIndex(
         (i) => i.fromLocationId && i.toLocationId && i.fromLocationId === i.toLocationId,
