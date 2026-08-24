@@ -12,15 +12,41 @@
  * remainNum 为 null 表示该库位没设容量上限，此时不展示余量、也不禁用。
  */
 
+/** Return the persisted free capacity minus quantities reserved by this form. */
+export function locationRemain(loc, reserved = 0) {
+  if (!loc || loc.remainNum == null) return null;
+  const remain = Number(loc.remainNum);
+  const used = Number(reserved);
+  if (!Number.isFinite(remain)) return null;
+  return remain - (Number.isFinite(used) ? used : 0);
+}
+
+/** Sum quantities assigned to a location by other rows in the same form. */
+export function locationReservedNum(items, locationId, excludeRow) {
+  return (items || []).reduce((total, row) => {
+    if (row === excludeRow || row.locationId !== locationId) return total;
+    const raw = row.actualInboundNum != null ? row.actualInboundNum : row.inboundTotalNum;
+    const num = Number(raw);
+    return total + (Number.isFinite(num) && num > 0 ? num : 0);
+  }, 0);
+}
+
+/** Return the effective free capacity for one row, excluding that row's own allocation. */
+export function locationRemainForRow(loc, items, row) {
+  if (!loc || loc.remainNum == null) return null;
+  return locationRemain(loc, locationReservedNum(items, loc.id, row));
+}
+
 /** 下拉展示文案：A-05-1-01-01（剩余 90/100） */
-export function locationLabel(loc) {
+export function locationLabel(loc, remainOverride) {
   if (!loc) return '';
   // 历史脏数据里存在编码为空的库位（编码校验补上之前存进去的），
   // 直接拼会渲染成一个只有「（已满）」的空选项，认都认不出是哪个库位
   const code = loc.code || `未命名库位#${loc.id}`;
-  if (loc.remainNum == null) return code;
-  if (loc.remainNum <= 0) return `${code}（已满）`;
-  return `${code}（剩余 ${loc.remainNum}/${loc.capacity}）`;
+  const remain = remainOverride == null ? loc.remainNum : remainOverride;
+  if (remain == null) return code;
+  if (remain <= 0) return `${code}（已满）`;
+  return `${code}（剩余 ${remain}/${loc.capacity}）`;
 }
 
 /**
@@ -29,10 +55,11 @@ export function locationLabel(loc) {
  * 例外：编辑草稿时原本就选中的那个库位不能禁用，否则 el-select 显示不出已选值，
  * 看起来像是库位被清空了。调用方把当前已选的 id 传进来即可。
  */
-export function locationDisabled(loc, currentId) {
+export function locationDisabled(loc, currentId, remainOverride) {
   if (!loc || loc.remainNum == null) return false;
   if (currentId != null && loc.id === currentId) return false;
-  return loc.remainNum <= 0;
+  const remain = remainOverride == null ? loc.remainNum : remainOverride;
+  return remain <= 0;
 }
 
 /** 某库位还能放下 num 件吗；拿不到余量信息时一律放行，交给后端兜底 */

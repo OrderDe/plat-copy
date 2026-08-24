@@ -246,7 +246,7 @@
             <el-table-column label="库位" width="150">
               <template slot-scope="{row}">
                 <el-select v-model="row.locationId" size="mini" filterable clearable style="width:100%" :disabled="!row.shelfId">
-                  <el-option v-for="l in zoneLocations(row.shelfId)" :key="l.id" :label="locationOptionLabel(l)" :value="l.id" :disabled="locationOptionDisabled(l, row.locationId)" />
+                  <el-option v-for="l in zoneLocations(row.shelfId)" :key="l.id" :label="locationOptionLabel(l, row)" :value="l.id" :disabled="locationOptionDisabled(l, row)" />
                 </el-select>
                 <div v-if="capacityHint(row)" class="cap-warn">{{ capacityHint(row) }}</div>
               </template>
@@ -357,7 +357,7 @@
 import { inboundApi, shelfApi, locationApi, inspectApi, dictApi } from '@/api/warehouse';
 import warehouseFormMixin from '@/views/warehouse/components/warehouseFormMixin';
 import { doPrint } from '@/views/warehouse/components/printUtil';
-import { locationLabel, locationDisabled, findOverCapacity, overCapacityMessage } from '@/views/warehouse/components/locationCapacity';
+import { locationLabel, locationDisabled, locationRemainForRow, findOverCapacity, overCapacityMessage } from '@/views/warehouse/components/locationCapacity';
 
 /** 字典里查不到「退货」类型时的兜底值，与后端 WmsInboundServiceImpl.TYPE_RETURN 一致 */
 const RETURN_TYPE_FALLBACK = 2;
@@ -537,7 +537,7 @@ export default {
       if (!this.editable) return '';
       if (!row.locationId) return '';
       const hit = this.overCapacityRows().find((o) => o.locationId === row.locationId);
-      return hit ? `超出容量，只剩 ${hit.remain} 件` : '';
+      return hit ? `超出容量，只剩 ${hit.remain} 件，请拆分库位` : '';
     },
     emptyForm() { return { warehouseId: null, type: 0, relatedCode: '', applyUserId: null, applyUserName: '', applyUserPhone: '', inboundUserId: null, inboundUserName: '', handlerUserName: '', remark: '', items: [] }; },
     /**
@@ -708,14 +708,15 @@ export default {
       await Promise.all(ids.map((id) => this.ensureLocations(id)));
     },
     /** 库位下拉展示：停用/锁定的标出来，免得操作员选了才被后端打回 */
-    locationOptionLabel(loc) {
-      const base = locationLabel(loc);
+    locationOptionLabel(loc, row) {
+      const base = locationLabel(loc, locationRemainForRow(loc, this.form.items, row));
       if (loc && loc.status !== 1) return `${base}（${loc.status === 2 ? '已锁定' : '已停用'}）`;
       return base;
     },
-    locationOptionDisabled(loc, currentId) {
+    locationOptionDisabled(loc, row) {
+      const currentId = row && row.locationId;
       if (loc && loc.status !== 1 && loc.id !== currentId) return true;
-      return locationDisabled(loc, currentId);
+      return locationDisabled(loc, currentId, locationRemainForRow(loc, this.form.items, row));
     },
     /**
      * 拆分弹窗里同一个库位只能出现一次。
