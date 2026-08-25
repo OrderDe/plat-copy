@@ -67,7 +67,19 @@ export default {
     init() {
       basicMixins.methods.init.call(this);
       if (!this.result.data) this.$set(this.result, 'data', {});
-      this.title = this.result.data.title || this.title;
+      /*
+       * 原来只把默认值赋给面板的局部变量，从来没写回 data.title，
+       * 于是面板上看着有「其他功能」、存进去的却是空字符串，
+       * App 端自然什么都不显示。这里补上写入。
+       *
+       * 只在 undefined（从未设置过）时写默认值；空字符串是运营主动清空的，
+       * 要尊重，否则他们永远删不掉这个标题。
+       */
+      if (this.result.data.title === undefined) {
+        this.updataData(this.title, 'title');
+      } else {
+        this.title = this.result.data.title;
+      }
 
       const conRadiusArr = [
         {
