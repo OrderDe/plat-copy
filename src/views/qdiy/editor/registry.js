@@ -113,54 +113,34 @@ export function parsePermission(permission) {
   }
 }
 
-/** 画布默认认的那批顶层样式字段，值是不带单位的数字 */
-const TOP_STYLE_KEYS = [
-  'marginTop', 'marginBottom', 'marginLeft', 'marginRight',
-  'paddingTop', 'paddingBottom', 'borderRadius',
-];
-
-/** 把 searchIpts / spaceStyle 这类「已带单位」的样式对象叠加到 box 上，跳过空值和嵌套对象 */
-function mergeStyleObj(box, obj) {
-  if (!obj || typeof obj !== 'object') return;
-  Object.keys(obj).forEach((k) => {
-    const v = obj[k];
-    if (v === '' || v === null || v === undefined || typeof v === 'object') return;
-    box[k] = v;
-  });
-}
-
 /**
  * 把 computedStyle 转成画布上可用的内联样式。
  *
- * 边距 / 圆角历史上有三套互不相通的写法，而这里原来只认顶层的 marginTop 等：
- *   顶层 marginTop…        画布（本函数）写、本函数读
- *   searchIpts.marginTop…  属性面板公共 mixin（basicMixins 的 sliderChange / RadiusChange）写
- *   spaceStyle.marginTop…  少数组件自己写，也是 App 端各 widget 读的那份
- * 于是运营在面板里拖「上下左右边距」「圆角」，画布纹丝不动 —— 值进了 searchIpts，
- * 而画布只看顶层字段。
+ * 只读顶层字段，不合并 searchIpts / spaceStyle。
  *
- * 按 顶层 < spaceStyle < searchIpts 的优先级合并。searchIpts 最高，因为它是
- * 「组件边距 / 圆角」两个公共控件唯一的写入口，代表运营最近一次的显式操作；
- * spaceStyle 是各组件自己写的，两者字段基本不重叠（写 spaceStyle-margin 的
- * carousel-img / img-ad / rubik-cube / star-car-care 都覆写了 sliderChange，不写 searchIpts）。
+ * 曾经在这里合并过那两套，目的是让「面板里拖了边距、画布不动」好起来，
+ * 但那是误判：61 个组件里有 33 个的 preview.vue（以及 DiyCenterMenu 这类控件）
+ * 本来就自己把 searchIpts / spaceStyle 绑在了内层元素上。外层 canvas-item 再加一遍，
+ * 同一个边距就被应用两次 —— 后台画布的间距变成实际值的两倍，
+ * 而 App 端是一倍，反而更对不上。
  *
- * 反过来让 spaceStyle 优先会出事：像 commonly-icon-group 这种只用公共边距控件的
- * 组件，历史数据里残留的 spaceStyle.margin 会永久压住运营新拖的值。
+ * 边距由各 preview 自己负责（现状）；还没处理的那 28 个组件应当在各自的
+ * preview 里补，不要回到这里统一加 —— 否则又会把那 33 个弄成两倍。
  *
- * 这个口径与 App 端 utils.normalizeComputedStyle 保持一致，两边改动时必须同步。
+ * App 端不存在这个问题：widget 只有 wrapStyle 一层，
+ * utils.normalizeComputedStyle 的合并仍然需要且正确。
  */
 export function toStyle(computedStyle) {
   const cs = computedStyle || {};
   const px = (v) => `${Number(v) || 0}px`;
-
-  const box = {};
-  TOP_STYLE_KEYS.forEach((k) => {
-    box[k] = px(cs[k]);
-  });
-
-  mergeStyleObj(box, cs.spaceStyle);
-  mergeStyleObj(box, cs.searchIpts);
-
-  box.background = cs.bgColor || 'transparent';
-  return box;
+  return {
+    marginTop: px(cs.marginTop),
+    marginBottom: px(cs.marginBottom),
+    marginLeft: px(cs.marginLeft),
+    marginRight: px(cs.marginRight),
+    paddingTop: px(cs.paddingTop),
+    paddingBottom: px(cs.paddingBottom),
+    borderRadius: px(cs.borderRadius),
+    background: cs.bgColor || 'transparent',
+  };
 }
