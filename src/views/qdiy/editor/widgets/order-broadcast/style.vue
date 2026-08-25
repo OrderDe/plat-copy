@@ -137,7 +137,9 @@ export default {
       wordColor: '#FFFFFF',
       timeColor: '#FFFFFF',
       borderRadius: 20,
-      dataType: 1,
+      // 默认给「虚拟数据」：真实数据依赖后端成交播报接口，目前未接入，
+      // 默认选 1 的话组件拖出来在 App 上就是一片空白，运营会以为组件坏了
+      dataType: 2,
       dataNumber: 5,
       content: ['avatar', 'time'],
       virtualTexts: '',

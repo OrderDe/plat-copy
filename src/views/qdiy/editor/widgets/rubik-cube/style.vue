@@ -133,8 +133,14 @@ export default {
     },
     // 覆写 mixin：第 0 项是图片间距，边距从第 1 项起
     sliderChange(val) {
-      this.defaultForm.sizeInfos = this.result.data.spaceInfo ? this.result.data.spaceInfo : val;
+      /*
+       * 这里的三目原来写反了：只要 data.spaceInfo 已存在，就把用户刚拖出来的 val 丢掉、
+       * 改用上次存的旧值写回去 —— 表现就是边距滑块只有第一次生效，之后怎么拖都弹回原位。
+       * val 才是本次变更，spaceInfo 只在 val 缺席时兜底。
+       */
+      this.defaultForm.sizeInfos = val || this.result.data.spaceInfo;
       const s = this.defaultForm.sizeInfos;
+      if (!Array.isArray(s) || s.length < 4) return;
       this.result.computedStyle.spaceStyle = {
         marginTop: s[1].value + s[1].unit,
         marginBottom: s[2].value + s[2].unit,
@@ -145,6 +151,13 @@ export default {
       this.updateInfos();
     },
     upImgIndex(index) {
+      /*
+       * 切换布局风格时必须把 styleBoo 放掉。它的含义是「装修切回来了，请复用已有图片」，
+       * 只在 init 时该为真；留着的话 diy-rubik-cube 的 styleArr watch 会拿上一套风格的
+       * 图片数据去匹配新风格的格子（见该组件 watch.styleArr 里的 styleBoo 分支），
+       * 于是换了风格网格却还是旧的样子。
+       */
+      this.styleBoo = false;
       this.imgIndex = index;
       this.result.data.imgIndex = index;
       this.updateInfos();

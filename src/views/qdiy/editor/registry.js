@@ -113,20 +113,48 @@ export function parsePermission(permission) {
   }
 }
 
+/** 画布默认认的那批顶层样式字段，值是不带单位的数字 */
+const TOP_STYLE_KEYS = [
+  'marginTop', 'marginBottom', 'marginLeft', 'marginRight',
+  'paddingTop', 'paddingBottom', 'borderRadius',
+];
+
+/** 把 searchIpts / spaceStyle 这类「已带单位」的样式对象叠加到 box 上，跳过空值和嵌套对象 */
+function mergeStyleObj(box, obj) {
+  if (!obj || typeof obj !== 'object') return;
+  Object.keys(obj).forEach((k) => {
+    const v = obj[k];
+    if (v === '' || v === null || v === undefined || typeof v === 'object') return;
+    box[k] = v;
+  });
+}
+
 /**
- * 把 computedStyle 转成画布上可用的内联样式
+ * 把 computedStyle 转成画布上可用的内联样式。
+ *
+ * 边距 / 圆角历史上有三套互不相通的写法，而这里原来只认顶层的 marginTop 等：
+ *   顶层 marginTop…        画布（本函数）写、本函数读
+ *   searchIpts.marginTop…  属性面板公共 mixin（basicMixins 的 sliderChange / RadiusChange）写
+ *   spaceStyle.marginTop…  少数组件自己写，也是 App 端各 widget 读的那份
+ * 于是运营在面板里拖「上下左右边距」「圆角」，画布纹丝不动 —— 值进了 searchIpts，
+ * 而画布只看顶层字段。
+ *
+ * 按 顶层 < searchIpts < spaceStyle 的优先级合并，spaceStyle 最高（那是组件显式配的，
+ * 不该被公共边距盖掉）。这个口径与 App 端 utils.normalizeComputedStyle 保持一致，
+ * 两边改动时必须同步，否则又会出现「画布有间距、App 上没有」。
  */
 export function toStyle(computedStyle) {
   const cs = computedStyle || {};
   const px = (v) => `${Number(v) || 0}px`;
-  return {
-    marginTop: px(cs.marginTop),
-    marginBottom: px(cs.marginBottom),
-    marginLeft: px(cs.marginLeft),
-    marginRight: px(cs.marginRight),
-    paddingTop: px(cs.paddingTop),
-    paddingBottom: px(cs.paddingBottom),
-    borderRadius: px(cs.borderRadius),
-    background: cs.bgColor || 'transparent',
-  };
+
+  const box = {};
+  TOP_STYLE_KEYS.forEach((k) => {
+    box[k] = px(cs[k]);
+  });
+
+  mergeStyleObj(box, cs.searchIpts);
+  mergeStyleObj(box, cs.spaceStyle);
+
+  box.background = cs.bgColor || 'transparent';
+  return box;
 }

@@ -50,6 +50,27 @@
             <el-radio :label="2">虚拟数据</el-radio>
           </el-radio-group>
           <div v-if="dataTypeTips[dataType]" class="tips-text">{{ dataTypeTips[dataType] }}</div>
+          <!--
+            与单行播报保持一致：虚拟数据原来没有任何配置入口，前端只能用写死的样例文案，
+            运营既改不了话术也换不了商品名。两个播报组件在 App 端共用
+            qdiyOrderBroadcast，读的都是 data.virtualTexts。
+          -->
+          <div v-if="dataType === 2" class="bc-virtual">
+            <div class="leabl">播报文案</div>
+            <el-input
+              v-model="virtualTexts"
+              type="textarea"
+              :rows="5"
+              maxlength="500"
+              show-word-limit
+              placeholder="一行一条，前端按「数据量」随机取。留空则用系统内置样例。"
+              @input="onVirtualTextsInput"
+            />
+            <div class="tips-text">
+              一行一条，可用占位符：{time} 随机时间（如「3分钟前」）。
+              例：138****6621 刚刚下单了一件商品 {time}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -100,12 +121,16 @@ export default {
       bgColor: '#F6F6F6',
       brodcastBgColor: '#FFF',
       wordColor: '#333',
-      dataType: 1,
+      // 默认给「虚拟数据」：真实数据依赖后端成交播报接口，目前未接入，
+      // 默认选 1 的话组件拖出来在 App 上就是一片空白，运营会以为组件坏了
+      dataType: 2,
       dataNumber: 5,
       content: ['avatar', 'time'],
       broadcastTitle: '装修展示',
+      virtualTexts: '',
       dataTypeTips: {
-        1: '显示3天之内的真实数据',
+        1: '显示3天之内的真实数据（需后端成交播报接口，当前未接入）',
+        2: '按下方文案随机播报，不涉及真实订单',
       },
     };
   },
@@ -119,6 +144,9 @@ export default {
       this.dataType = data.dataType || this.dataType;
       this.dataNumber = data.dataNumber || this.dataNumber;
       this.content = data.content || this.content;
+      this.virtualTexts = Array.isArray(data.virtualTexts)
+        ? data.virtualTexts.join('\n')
+        : (data.virtualTexts || '');
       this.brodcastBgColor = cs.brodcastBgColor || this.brodcastBgColor;
       this.bgColor = cs.bgColor || this.bgColor;
       this.wordColor = cs.wordColor || this.wordColor;
@@ -131,6 +159,14 @@ export default {
     },
     dataChange(e, name) {
       this.updataData(e, name);
+    },
+    /** 文案按行存成数组，前端直接取用，不必再解析换行 */
+    onVirtualTextsInput(val) {
+      const list = String(val || '')
+        .split('\n')
+        .map((e) => e.trim())
+        .filter((e) => e);
+      this.updataData(list, 'virtualTexts');
     },
     styleChange(e, name) {
       this.updataResult(e, name);

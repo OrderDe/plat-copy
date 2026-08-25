@@ -41,6 +41,13 @@
         <el-radio :label="1">读取系统</el-radio>
         <el-radio :label="2">自定义</el-radio>
       </el-radio-group>
+      <!--
+        「读取系统」并没有真的读系统：Java 侧没有公告接口，
+        它只会把下面 data 里写死的那句话发给前端，而面板上又没有任何
+        入口能改它。选中它时公告内容、点击类型、链接全部隐藏，
+        运营看到的就是「这个组件只能设图片和链接」。先把真相标出来。
+      -->
+      <div v-if="dataShowTips[dataShow.selected]" class="tips-text">{{ dataShowTips[dataShow.selected] }}</div>
 
       <div v-show="dataShow.selected == 2" class="img-data-show">
         <div class="img-data-model">
@@ -123,9 +130,18 @@ export default {
         diy: { img: [] },
       },
       dataShow: {
-        selected: 1,
+        /*
+         * 默认给「自定义」。原来默认是 1（读取系统），而读取系统取的是下面
+         * system.text 里写死的一句话（Java 侧没有公告接口），面板上又不给编辑入口，
+         * 于是组件拖出来就是一句改不掉的「物流推迟」，运营以为只能配图片和链接。
+         */
+        selected: 2,
         system: { text: '由于天气原因，近期物流会推迟发货' },
         diy: { text: '', clickType: 1, url: '', urlName: '', urlType: '' },
+      },
+      dataShowTips: {
+        1: '系统公告接口尚未接入，选它只会显示一条固定文案且无法编辑，建议用「自定义」',
+        2: '公告内容、点击行为均在下方配置',
       },
       placardColorArr: ['底部颜色', '组件背景', '线条颜色', '文字颜色'],
       fontSizeInfos: [{ name: '字体大小', value: 14, minValue: 14, maxValue: 20, unit: 'px' }],
@@ -254,5 +270,11 @@ export default {
 .img-data-text {
   min-width: 56px;
   margin-bottom: 6px;
+}
+/* 与订单播报面板保持一致的提示文样式 */
+.tips-text {
+  padding-top: 10px;
+  color: #999;
+  font-size: 12px;
 }
 </style>
