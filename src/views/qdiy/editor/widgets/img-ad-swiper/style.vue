@@ -63,7 +63,10 @@ export default {
     },
     // 覆写 mixin：这里写的是 padding 而不是 margin，与原实现一致
     sliderChange(val) {
-      this.defaultForm.sizeInfos = this.result.data.spaceInfo ? this.result.data.spaceInfo : val;
+      // 三目原本写反了：只要 data.spaceInfo 已存在就丢掉用户刚拖出的 val、
+      // 改用上次存的旧值，表现就是边距滑块只有第一次生效。
+      // val 才是本次变更，spaceInfo 只在 val 缺席时兜底。
+      this.defaultForm.sizeInfos = val || this.result.data.spaceInfo;
       const s = this.defaultForm.sizeInfos;
       this.result.computedStyle.spaceStyle = {
         paddingTop: s[0].value + s[0].unit,

@@ -190,7 +190,10 @@ export default {
     // 覆写 mixin：第 0 项是图片间距，边距从第 1 项起，另外要带上高度
     sliderChange(val) {
       if (this.buttonData.typeIndex === 0 && val[0]) val[0].hidden = true;
-      this.defaultForm.sizeInfos = this.result.data.spaceInfo ? this.result.data.spaceInfo : val;
+      // 三目原本写反了：只要 data.spaceInfo 已存在就丢掉用户刚拖出的 val、
+      // 改用上次存的旧值，表现就是边距滑块只有第一次生效。
+      // val 才是本次变更，spaceInfo 只在 val 缺席时兜底。
+      this.defaultForm.sizeInfos = val || this.result.data.spaceInfo;
       const s = this.defaultForm.sizeInfos;
       this.result.computedStyle.spaceStyle = {
         marginTop: s[1].value + s[1].unit,

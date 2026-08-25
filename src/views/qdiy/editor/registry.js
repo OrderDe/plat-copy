@@ -139,9 +139,15 @@ function mergeStyleObj(box, obj) {
  * 于是运营在面板里拖「上下左右边距」「圆角」，画布纹丝不动 —— 值进了 searchIpts，
  * 而画布只看顶层字段。
  *
- * 按 顶层 < searchIpts < spaceStyle 的优先级合并，spaceStyle 最高（那是组件显式配的，
- * 不该被公共边距盖掉）。这个口径与 App 端 utils.normalizeComputedStyle 保持一致，
- * 两边改动时必须同步，否则又会出现「画布有间距、App 上没有」。
+ * 按 顶层 < spaceStyle < searchIpts 的优先级合并。searchIpts 最高，因为它是
+ * 「组件边距 / 圆角」两个公共控件唯一的写入口，代表运营最近一次的显式操作；
+ * spaceStyle 是各组件自己写的，两者字段基本不重叠（写 spaceStyle-margin 的
+ * carousel-img / img-ad / rubik-cube / star-car-care 都覆写了 sliderChange，不写 searchIpts）。
+ *
+ * 反过来让 spaceStyle 优先会出事：像 commonly-icon-group 这种只用公共边距控件的
+ * 组件，历史数据里残留的 spaceStyle.margin 会永久压住运营新拖的值。
+ *
+ * 这个口径与 App 端 utils.normalizeComputedStyle 保持一致，两边改动时必须同步。
  */
 export function toStyle(computedStyle) {
   const cs = computedStyle || {};
@@ -152,8 +158,8 @@ export function toStyle(computedStyle) {
     box[k] = px(cs[k]);
   });
 
-  mergeStyleObj(box, cs.searchIpts);
   mergeStyleObj(box, cs.spaceStyle);
+  mergeStyleObj(box, cs.searchIpts);
 
   box.background = cs.bgColor || 'transparent';
   return box;
