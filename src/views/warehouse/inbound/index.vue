@@ -238,7 +238,8 @@
             <el-table-column label="货架 *" width="130">
               <template slot-scope="{row}">
                 <el-select v-model="row.shelfId" size="mini" filterable clearable style="width:100%" @change="onShelfChange(row)" :disabled="!form.warehouseId">
-                  <el-option v-for="s in shelfOptions" :key="s.id" :label="s.code" :value="s.id" />
+                  <!-- 停用货架保留在选项里只为让草稿显示得出名字，禁选避免继续用它 -->
+                  <el-option v-for="s in shelfOptions" :key="s.id" :label="shelfOptionLabel(s)" :value="s.id" :disabled="!shelfIsActive(s)" />
                 </el-select>
                 <div v-if="zoneRule && !shelfOptions.length" class="cap-warn">该仓没有{{ zoneRule.name }}货架，请先到货架管理配置</div>
               </template>
@@ -682,10 +683,17 @@ export default {
     async loadShelves(warehouseId) {
       if (!warehouseId) { this.shelfCache = []; return; }
       try {
-        const res = await shelfApi.page({ page: 1, limit: 999, warehouseId, status: 1 });
-        // 接口参数 status=1 是服务端过滤，前端再兜底一次，避免旧服务或缓存把停用货架带进下拉。
-        this.shelfCache = ((res && res.list) || []).filter((s) => Number(s.status) === 1);
+        // 不按 status 过滤：草稿里选的货架一旦被停用，选项里没有匹配项，
+        // el-select 只能把 value（货架ID）当文本显示，页面上就成了「货架 2」。
+        // 停用项留着显示名字并标注，是否可选由 shelfIsActive 控制。
+        const res = await shelfApi.page({ page: 1, limit: 999, warehouseId });
+        this.shelfCache = (res && res.list) || [];
       } catch (e) { this.shelfCache = []; }
+    },
+    shelfIsActive(shelf) { return Number(shelf && shelf.status) === 1; },
+    shelfOptionLabel(shelf) {
+      const code = (shelf && (shelf.code || shelf.name)) || `货架${shelf && shelf.id != null ? shelf.id : ''}`;
+      return this.shelfIsActive(shelf) ? code : `${code}（已停用）`;
     },
     async onShelfChange(row) {
       row.locationId = null;

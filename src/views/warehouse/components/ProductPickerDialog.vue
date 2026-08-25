@@ -39,11 +39,11 @@
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="现有库存" width="90">
+      <el-table-column :label="warehouseId ? '本仓可用库存' : '现有库存'" width="110">
         <template slot-scope="{row}">
           <!-- 只有「必须有货才能操作」的场景才标红：入库方向库存为 0 是常态，
                标红会让操作员以为该商品不能选 -->
-          <span :class="{ 'text-danger': requireStock && !row.stock }">{{ row.stock == null ? '-' : row.stock }}</span>
+          <span :class="{ 'text-danger': requireStock && !productStock(row) }">{{ productStockText(row) }}</span>
         </template>
       </el-table-column>
     </el-table>
@@ -51,7 +51,7 @@
       仅展示<b>已纳入仓储管理</b>且<b>已审核</b>的商品（无需审核 / 审核成功）；未纳管、待审核、审核拒绝的不可选。
       商品未纳管时，请先在「商品列表」里对它执行「纳入仓储管理」。
       未上架的已审核商品（如<b>待入仓</b>）同样可选，入库后会自动上架。
-      <span v-if="warehouseId" class="text-danger">本单从当前仓取货，只列该仓有可用库存的商品。</span>
+      <span v-if="warehouseId" class="text-danger">本单从当前仓取货，只列该仓有可用库存的商品，库存列显示的是<b>该仓可用库存</b>（不是全部仓库合计）。</span>
       <span v-else-if="requireStock" class="text-danger">本单需要从仓内取货，现有库存为 0 的商品无法完成作业。</span>
       <span v-else>本单是入库方向，<b>现有库存为 0 的商品可以正常选择</b>——入库正是给它加库存。</span>
     </p>
@@ -296,6 +296,19 @@ export default {
         seen.add(key);
         return true;
       });
+    },
+    /**
+     * 传了仓库就只认该仓的可用库存（后端 warehouseStock）。
+     * 商品行上的 stock 是所有仓合计的商城库存，照着它填出库数量，
+     * 单子提交得掉、组波次释放库存时才会报库存不足。
+     */
+    productStock(row) {
+      if (this.warehouseId) return Number(row.warehouseStock) || 0;
+      return row.stock == null ? null : (Number(row.stock) || 0);
+    },
+    productStockText(row) {
+      const value = this.productStock(row);
+      return value == null ? '-' : value;
     },
     stockKey(id) {
       return String(id == null ? 0 : id);
