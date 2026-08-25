@@ -211,8 +211,10 @@ export default {
       if (!this.batchForm.warehouseId) return this.$message.warning('请选择仓库');
       this.batchLoading = true;
       try {
-        const n = await shelfApi.batchGenerate(this.batchForm);
-        this.$message.success(`已生成 ${this.batchForm.shelfCount} 个货架、{n} 个库位`);
+        // 后端返回的是本次真正新增的库位数，编码已存在的会被跳过
+        const n = Number(await shelfApi.batchGenerate(this.batchForm)) || 0;
+        // 原来这里是字面量 {n}，模板串里漏了 $，提示上直接显示「{n} 个库位」
+        this.$message.success(`已生成 ${this.batchForm.shelfCount} 个货架、${n} 个库位`);
         this.batchDialog = false;
         this.loadPage();
       } finally { this.batchLoading = false; }

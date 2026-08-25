@@ -71,16 +71,26 @@
                 <el-option v-for="w in warehouseList" :key="w.id" :label="`${w.code} / ${w.name}`" :value="w.id" />
               </el-select>
             </el-form-item>
-            <el-form-item label="货品品类">
-              <el-select v-model="form.categoryId" clearable filterable placeholder="全部品类" style="width:100%">
-                <el-option v-for="c in categoryList" :key="c.id" :label="c.name" :value="c.id" />
-              </el-select>
+            <!--
+              盘点范围按商品，不再按品类：一个品类展开几百个 SKU，
+              盘点员没法只盘其中一个商品。留空 = 整仓全部商品。
+            -->
+            <el-form-item label="盘点商品">
+              <el-input v-model="form.productName" placeholder="留空则盘全部商品" readonly>
+                <el-button v-if="form.productId" slot="append" @click="clearProduct">清除</el-button>
+                <el-button slot="append" icon="el-icon-goods" @click="openProductPicker">选择</el-button>
+              </el-input>
+              <p v-if="form.productId" class="text-small text-muted">商品ID：{{ form.productId }}</p>
             </el-form-item>
             <!-- 盘点人同时是审批流的发起人，缺了流程派不出去 -->
             <el-form-item label="盘点人 / 审批申请人" prop="checkUserId">
               <el-input v-model="form.checkPeople" placeholder="点击选择盘点人" readonly>
                 <el-button slot="append" icon="el-icon-user" @click="pickCheckUser">选择</el-button>
               </el-input>
+            </el-form-item>
+            <!-- 选完盘点人自动带出，也允许手填（外包盘点人不一定有后台账号） -->
+            <el-form-item label="联系方式">
+              <el-input v-model="form.checkPhone" placeholder="选择盘点人后自动带出，可修改" maxlength="32" />
             </el-form-item>
             <el-form-item label="盘点方式">
               <el-select v-model="form.checkMode" style="width:100%">
@@ -168,8 +178,8 @@
 
         <div class="doc-band">
           <span>{{ form.checkNo || '未保存' }}</span>
-          <span>{{ warehousesText(form) }} · {{ categoryText(form.categoryId) }}</span>
-          <span>盘点人：{{ form.checkPeople || '-' }}</span>
+          <span>{{ warehousesText(form) }} · {{ rangeText(form) }}</span>
+          <span>盘点人：{{ form.checkPeople || '-' }}{{ form.checkPhone ? ' / ' + form.checkPhone : '' }}</span>
           <span>盘点日期：{{ form.checkDate || '-' }}</span>
         </div>
 
@@ -272,7 +282,7 @@
           <div class="sheet-meta">
             <span>盘点单号：<b>{{ form.checkNo || '-' }}</b></span>
             <span>仓库：<b>{{ warehousesText(form) }}</b></span>
-            <span>品类：<b>{{ categoryText(form.categoryId) }}</b></span>
+            <span>盘点范围：<b>{{ rangeText(form) }}</b></span>
             <span>盘点人：<b>{{ form.checkPeople || '-' }}</b></span>
             <span>日期：<b>{{ form.checkDate || '-' }}</b></span>
           </div>
@@ -318,15 +328,16 @@
               <el-option v-for="w in warehouseList" :key="w.id" :label="`${w.code} / ${w.name}`" :value="w.id" />
             </el-select>
           </label>
-          <label><span class="text-small text-muted">品类</span>
-            <el-select v-model="query.categoryId" size="small" clearable filterable placeholder="全部品类" style="width:100%">
-              <el-option v-for="c in categoryList" :key="c.id" :label="c.name" :value="c.id" />
-            </el-select>
-          </label>
           <label><span class="text-small text-muted">状态</span>
             <el-select v-model="query.status" size="small" clearable placeholder="全部状态" style="width:100%">
               <el-option v-for="status in statusOptions" :key="status.value" :label="status.label" :value="status.value" />
             </el-select>
+          </label>
+          <label><span class="text-small text-muted">盘点人</span>
+            <el-input v-model="query.checkPeople" size="small" placeholder="姓名模糊匹配" clearable @keyup.enter.native="onSearch" />
+          </label>
+          <label><span class="text-small text-muted">联系方式</span>
+            <el-input v-model="query.checkPhone" size="small" placeholder="手机号模糊匹配" clearable @keyup.enter.native="onSearch" />
           </label>
           <label class="filter-wide"><span class="text-small text-muted">盘点日期</span>
             <el-date-picker
@@ -339,20 +350,20 @@
 
         <table v-loading="loading" class="data-table history-table">
           <thead>
-            <tr><th>盘点单号</th><th>仓库 / 品类</th><th>盘点人</th><th>盘点日期</th><th>差异</th><th>差异金额</th><th>状态</th><th>操作</th></tr>
+            <tr><th>盘点单号</th><th>仓库 / 商品</th><th>盘点人</th><th>联系方式</th><th>盘点日期</th><th>差异</th><th>状态</th><th>操作</th></tr>
           </thead>
           <tbody>
             <tr v-for="row in tableData" :key="row.id">
               <td>{{ row.checkNo }}</td>
-              <td>{{ warehousesText(row) }} · {{ row.categoryName || '全部品类' }}</td>
+              <td>{{ warehousesText(row) }} · {{ rangeText(row) }}</td>
               <td>{{ row.checkPeople || '-' }}</td>
+              <td>{{ row.checkPhone || '-' }}</td>
               <td>{{ row.checkDate || '-' }}</td>
               <td>{{ row.totalDiff || 0 }}</td>
-              <td>¥{{ Number(row.diffAmount || 0).toFixed(2) }}</td>
+              <!-- 差异金额暂时隐藏：单位成本还没全部维护，算出来的金额不可信 -->
               <td><span class="badge" :class="statusBadgeClass(row.status)">{{ statusText(row.status) }}</span></td>
               <td class="row-actions">
                 <el-button type="text" @click="openHistory(row)">详情</el-button>
-                <el-button type="text" @click="openHistory(row, true)">打印</el-button>
                 <el-button v-if="canCancelHistory(row)" type="text" class="danger-text" @click="cancelHistory(row)">作废</el-button>
               </td>
             </tr>
@@ -383,7 +394,7 @@
             <span>盘点单号：{{ historyDetail.checkNo || '-' }}</span>
             <span>状态：{{ statusText(historyDetail.status) }}</span>
             <span>仓库：{{ warehousesText(historyDetail) }}</span>
-            <span>品类：{{ historyDetail.categoryName || categoryText(historyDetail.categoryId) }}</span>
+            <span>盘点范围：{{ rangeText(historyDetail) }}</span>
             <span>盘点人：{{ historyDetail.checkPeople || '-' }}</span>
             <span>盘点日期：{{ historyDetail.checkDate || '-' }}</span>
             <span>正常：{{ historyDetail.normalCount || 0 }}</span>
@@ -423,19 +434,28 @@
     </main>
 
     <admin-picker-dialog ref="adminPicker" title="选择盘点人" />
-  </div>
+  
+    <!--
+      盘点范围选商品，用仓储自己那个选择器：goodList 走的是营销商品接口
+      （只列上架且参与营销的商品），而盘点要盘的是仓里所有已审核商品，
+      未上架的照样在架子上。
+    -->
+    <product-picker-dialog ref="productPicker" />
+</div>
 </template>
 
 <script>
 import { stockCheckApi, shelfApi } from '@/api/warehouse';
 import * as categoryApi from '@/api/categoryApi';
 import warehouseFormMixin from '@/views/warehouse/components/warehouseFormMixin';
+import ProductPickerDialog from '@/views/warehouse/components/ProductPickerDialog.vue';
 
 // 与后端 WmsStockCheckServiceImpl 的状态常量一一对应
 const ST = { DRAFT: 0, ARCHIVED: 1, CANCELED: 2, AUDITING: 3, WAIT_FB: 4, FEEDBACK: 5, REJECTED: 6 };
 
 export default {
   name: 'WarehouseStockCheck',
+  components: { ProductPickerDialog },
   mixins: [warehouseFormMixin],
   data() {
     return {
@@ -449,7 +469,7 @@ export default {
       total: 0,
       tableData: [],
       dateRange: [],
-      query: { page: 1, limit: 20, checkNo: '', warehouseId: null, categoryId: null, status: null, startDate: '', endDate: '' },
+      query: { page: 1, limit: 20, checkNo: '', warehouseId: null, categoryId: null, checkPeople: '', checkPhone: '', status: null, startDate: '', endDate: '' },
       historyDetail: null,
       historyDialogVisible: false,
       checkDialogVisible: false,
@@ -511,7 +531,7 @@ export default {
     scopeText() {
       if (!this.details.length) return '保存并生成明细后显示应盘 SKU 与库位数量';
       const locations = new Set(this.details.map((d) => d.locationId).filter((x) => x != null));
-      return `${this.warehousesText(this.form)} · ${this.categoryText(this.form.categoryId)} · ${this.details.length} 个 SKU · ${locations.size} 个库位`;
+      return `${this.warehousesText(this.form)} · ${this.rangeText(this.form)} · ${this.details.length} 个 SKU · ${locations.size} 个库位`;
     },
     summary() {
       const result = { normal: 0, damaged: 0, missing: 0, abnormal: 0, totalDiff: 0, amount: 0, locations: 0 };
@@ -538,6 +558,7 @@ export default {
     emptyForm() {
       return {
         id: null, checkNo: '', warehouseId: null, warehouseIds: '', warehouseIdList: [], categoryId: null, categoryName: '',
+        productId: null, productName: '', checkPhone: '',
         checkDate: this.today(), checkUserId: null, checkPeople: '', checkMode: 0,
         lockedShelfIds: '', remark: '', status: ST.DRAFT,
         submitTime: null, auditTime: null, archiveTime: null, auditUser: '', auditComment: '',
@@ -560,6 +581,34 @@ export default {
     },
     statusBadgeClass(s) {
       return ({ [ST.ARCHIVED]: 'badge-success', [ST.CANCELED]: 'badge-danger', [ST.REJECTED]: 'badge-danger', [ST.AUDITING]: 'badge-warning' })[s] || '';
+    },
+    /** 建单时选盘点商品 */
+    async openProductPicker() {
+      // 限定在已选仓库里有库存的商品：别的仓的货盘不到，列出来只会选错
+      const warehouseId = this.selectedWarehouseIds[0] || null;
+      const res = await this.$refs.productPicker.open({ warehouseId, requireStock: !!warehouseId });
+      const item = res && res.product;
+      if (!item) return;
+      this.$set(this.form, 'productId', item.id);
+      this.$set(this.form, 'productName', item.name || String(item.id));
+    },
+    clearProduct() {
+      this.$set(this.form, 'productId', null);
+      this.$set(this.form, 'productName', '');
+    },
+    /**
+     * 盘点范围文案。
+     *
+     * 新单据按商品圈范围（product_id），老单据还是品类，两种都要能显示，
+     * 都没有就是整仓全盘。列表、单据头、打印单共用这一份，口径才不会各写各的。
+     */
+    rangeText(row) {
+      if (!row) return '全部商品';
+      if (row.productName) return row.productName;
+      if (row.productId) return `商品ID ${row.productId}`;
+      if (row.categoryName) return row.categoryName;
+      if (row.categoryId) return this.categoryText(row.categoryId);
+      return '全部商品';
     },
     categoryText(id) {
       if (!id) return '全部品类';
@@ -664,6 +713,8 @@ export default {
       if (!u) return;
       this.form.checkUserId = u.id;
       this.form.checkPeople = u.realName || u.account || '';
+      // 联系方式一并快照下来：盘出差异要找人核对，不该再回后台管理员列表里翻电话
+      this.$set(this.form, 'checkPhone', u.phone || '');
       if (this.$refs.formRef) this.$refs.formRef.clearValidate('checkUserId');
     },
 
@@ -684,6 +735,8 @@ export default {
           checkId: this.form.id,
           warehouseIdList: this.selectedWarehouseIds,
           warehouseId: this.selectedWarehouseIds[0] || null,
+          // 选了商品就按商品展开；categoryId 只有老单据才会有值，后端两者取商品优先
+          productId: this.form.productId || null,
           categoryId: this.form.categoryId,
           shelfIdList: this.lockedShelfIdList,
         });
@@ -858,7 +911,7 @@ export default {
     onSearch() { this.query.page = 1; this.loadPage(); },
     onReset() {
       this.dateRange = [];
-      this.query = { page: 1, limit: 20, checkNo: '', warehouseId: null, categoryId: null, status: null, startDate: '', endDate: '' };
+      this.query = { page: 1, limit: 20, checkNo: '', warehouseId: null, categoryId: null, checkPeople: '', checkPhone: '', status: null, startDate: '', endDate: '' };
       this.loadPage();
     },
     canCancelHistory(row) {

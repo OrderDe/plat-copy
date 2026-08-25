@@ -67,9 +67,21 @@ service.interceptors.response.use(
         type: 'error',
         duration: 5 * 1000,
       });
-      return Promise.reject();
+      /*
+       * reject 必须带上响应体：不少调用方写的是 .catch((res) => res.message)，
+       * 空 reject 会让它们在 catch 里再抛一个
+       * 「Cannot read properties of undefined (reading 'message')」，
+       * 真正的接口错误反而被这条噪音盖住。
+       */
+      return Promise.reject(res || new Error('Error'));
     } else {
-      return res.data || res;
+      /*
+       * 不能用 res.data || res：data 是 0 / '' / false 这些假值时会整个响应对象漏出去，
+       * 调用方拿到的就不是数字而是 {code,message,data}。
+       * 批量生成库位一个都没生成（返回 0）时提示「已生成 [object Object] 个库位」，
+       * 就是这么来的。只在 data 确实缺席时才回退到整个响应体。
+       */
+      return res.data === undefined || res.data === null ? res : res.data;
     }
   },
   (error) => {

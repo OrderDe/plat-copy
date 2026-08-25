@@ -19,12 +19,20 @@ export default {
     this.loadMerchants();
   },
   methods: {
+    /*
+     * 比较前统一转字符串。
+     *
+     * 后端的 Long 主键序列化成 JSON 是字符串（"4"），而页面里从
+     * warehouse_ids 这类逗号串解析出来的是数字（map(Number)），
+     * 严格相等永远匹配不上 —— 表现就是本该显示「测试仓库」的地方
+     * 直接掉成了仓库ID「4」。商户名同理。
+     */
     warehouseText(id) {
-      const w = this.warehouseList.find((x) => x.id === id);
+      const w = this.warehouseList.find((x) => String(x.id) === String(id));
       return w ? `${w.code} / ${w.name}` : id || '-';
     },
     merchantName(id) {
-      const m = this.merchantList.find((x) => x.id === id);
+      const m = this.merchantList.find((x) => String(x.id) === String(id));
       return m ? m.name : id || '';
     },
     async loadWarehouses() {
