@@ -176,10 +176,19 @@ export default {
       this.$message.success('保存成功');
       this.editVisible = false;
       this.load();
+      // 后端保存库位时会把货架容量重算一遍（syncShelfCapacity），
+      // 这里不通知外层，货架列表的容量就一直停在改之前的值，看着像没生效
+      this.$emit('refresh');
     },
     onDelete(row) {
       this.$confirm(`删除库位「${row.code}」?`, '提示', { type: 'warning' })
-        .then(async () => { await locationApi.del(row.id); this.$message.success('已删除'); this.load(); })
+        .then(async () => {
+          await locationApi.del(row.id);
+          this.$message.success('已删除');
+          this.load();
+          // 删库位同样会重算货架容量，外层列表要跟着刷新
+          this.$emit('refresh');
+        })
         .catch(() => {});
     },
     async onStatusChange(row) {
