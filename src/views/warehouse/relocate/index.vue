@@ -176,15 +176,31 @@
             </el-table-column>
             <el-table-column v-if="form.bizType === 1" label="源货架" width="150">
               <template slot-scope="{row}">
-                <el-select v-model="row.fromShelfId" size="mini" filterable clearable style="width:100%" @change="onShelfChange(row, 'from')">
-                  <el-option v-for="s in shelfCache" :key="s.id" :label="s.code" :value="s.id" />
+                <!--
+                  只列该商品在本仓真正有可用库存的货架：原来挂的是整仓货架清单，
+                  能选到根本没这个货的架子，一直要等提交生效才报「源库位无该商户商品库存」。
+                -->
+                <el-select
+                  v-model="row.fromShelfId" size="mini" filterable clearable style="width:100%"
+                  :disabled="!row.productId"
+                  :placeholder="row.productId ? (fromShelfOptions(row).length ? '请选择' : '该商品本仓无可用库存') : '请先选商品'"
+                  @change="onShelfChange(row, 'from')"
+                >
+                  <el-option v-for="s in fromShelfOptions(row)" :key="s.id" :label="s.label" :value="s.id" />
                 </el-select>
               </template>
             </el-table-column>
             <el-table-column v-if="form.bizType === 1" label="源库位" width="170">
               <template slot-scope="{row}">
-                <el-select v-model="row.fromLocationId" size="mini" filterable clearable style="width:100%" :disabled="!row.fromShelfId">
-                  <el-option v-for="l in (locationCache[row.fromShelfId]||[])" :key="l.id" :label="l.code" :value="l.id" />
+                <el-select
+                  v-model="row.fromLocationId" size="mini" filterable clearable style="width:100%"
+                  :disabled="!row.fromShelfId" @change="onFromLocationChange(row)"
+                >
+                  <!-- 带上可用量，选之前就知道这个库位能搬多少 -->
+                  <el-option
+                    v-for="l in fromLocationOptions(row)"
+                    :key="l.id" :label="`${l.code}（可用 ${l.availableNum}）`" :value="l.id"
+                  />
                 </el-select>
               </template>
             </el-table-column>
@@ -346,7 +362,7 @@ export default {
       else row.toLocationId = null;
       await this.ensureLocations(side === 'from' ? row.fromShelfId : row.toShelfId);
     },
-    addItem() { this.form.items.push({ productId: null, attrValueId: null, merId: null, sku: '', barCode: '', platformType: 0, goodsName: '', fromShelfId: null, fromLocationId: null, fromBatchId: null, toShelfId: null, toLocationId: null, toBatchId: null, num: 1, maxNum: null }); },
+    addItem() { this.form.items.push({ stockRows: [], productId: null, attrValueId: null, merId: null, sku: '', barCode: '', platformType: 0, goodsName: '', fromShelfId: null, fromLocationId: null, fromBatchId: null, toShelfId: null, toLocationId: null, toBatchId: null, num: 1, maxNum: null }); },
     onShopChange(row) {
       this.$set(row, 'productId', null);
       this.$set(row, 'goodsName', '');
@@ -360,26 +376,76 @@ export default {
       this.$set(row, 'maxNum', null);
     },
     /**
-     * 上架单的可上架数量 = 该商品该规格在本仓「还没放进库位」的可用量
-     * （wms_stock 里 location_id 为空的行，即收货入仓但未上架的部分）。
-     * 移库/补货是库位之间搬货，源库位可用量由后端在提交时校验，这里不限制。
+     * 拉该商品该规格在本仓的库存分布，一份数据同时喂两处：
+     *   上架单 —— 可上架数量（还没进库位的那部分）
+     *   移库单 —— 源货架/源库位的可选项，以及选中库位后的可搬数量
+     * 分布挂在行上（row.stockRows），每行商品不同，不能共用一份缓存。
      */
     async loadMaxNum(row) {
-      if (this.form.bizType !== 0) { this.$set(row, 'maxNum', null); return; }
+      this.$set(row, 'stockRows', []);
+      // 换了商品/规格，上一个商品选中的源货架、源库位对新商品未必有货，一律清掉
+      if (this.form.bizType === 1) {
+        this.$set(row, 'fromShelfId', null);
+        this.$set(row, 'fromLocationId', null);
+      }
       if (!this.form.warehouseId || !row.productId || !row.attrValueId) { this.$set(row, 'maxNum', null); return; }
       try {
         const params = { warehouseId: this.form.warehouseId, productId: row.productId, attrValueId: row.attrValueId };
         if (row.merId) params.merId = row.merId;
         const list = (await stockApi.distribution(params)) || [];
-        const pending = list
-          .filter((s) => !s.shelfId && !s.locationId)
-          .reduce((sum, s) => sum + (Number(s.availableNum) || 0), 0);
-        this.$set(row, 'maxNum', pending);
-        if (row.num > pending) this.$set(row, 'num', pending > 0 ? pending : 1);
+        this.$set(row, 'stockRows', list);
+        if (this.form.bizType === 0) {
+          const pending = list
+            .filter((s) => !s.shelfId && !s.locationId)
+            .reduce((sum, s) => sum + (Number(s.availableNum) || 0), 0);
+          this.$set(row, 'maxNum', pending);
+          if (row.num > pending) this.$set(row, 'num', pending > 0 ? pending : 1);
+        } else {
+          // 移库的可搬数量要等选定源库位才知道，先清掉上一次商品留下的限制
+          this.$set(row, 'maxNum', null);
+        }
       } catch (e) {
         // 查不到就不限制，交给后端提交时的库存校验兜底
+        this.$set(row, 'stockRows', []);
         this.$set(row, 'maxNum', null);
       }
+    },
+    /** 该行商品在本仓真正有可用库存、且已落到具体库位的分布 */
+    availableStockRows(row) {
+      return (row.stockRows || []).filter(
+        (s) => s.locationId && s.shelfId && Number(s.availableNum) > 0,
+      );
+    },
+    /** 源货架候选：按上面的分布去重，编码取整仓货架清单里的 code */
+    fromShelfOptions(row) {
+      const seen = new Map();
+      this.availableStockRows(row).forEach((s) => {
+        if (seen.has(s.shelfId)) return;
+        const shelf = this.shelfCache.find((x) => String(x.id) === String(s.shelfId));
+        seen.set(s.shelfId, { id: s.shelfId, label: shelf ? shelf.code : `货架${s.shelfId}` });
+      });
+      return Array.from(seen.values());
+    },
+    /** 源库位候选：限定在已选货架下，label 带上可用量 */
+    fromLocationOptions(row) {
+      const map = new Map();
+      this.availableStockRows(row)
+        .filter((s) => String(s.shelfId) === String(row.fromShelfId))
+        .forEach((s) => {
+          const prev = map.get(s.locationId);
+          const num = Number(s.availableNum) || 0;
+          // 同一库位可能有多个批次行，可用量累加
+          if (prev) prev.availableNum += num;
+          else map.set(s.locationId, { id: s.locationId, code: s.locationCode || `库位${s.locationId}`, availableNum: num });
+        });
+      return Array.from(map.values());
+    },
+    /** 选定源库位后按该库位的可用量限制搬运数量，不必等提交才报错 */
+    onFromLocationChange(row) {
+      const hit = this.fromLocationOptions(row).find((l) => String(l.id) === String(row.fromLocationId));
+      const max = hit ? hit.availableNum : null;
+      this.$set(row, 'maxNum', max);
+      if (max != null && row.num > max) this.$set(row, 'num', max > 0 ? max : 1);
     },
     async pickApplyUser() {
       const u = await this.$refs.adminPicker.open();
