@@ -147,6 +147,8 @@ export const stockCheckApi = {
   printData: (id) => request({ url: `/api/warehouse/stockCheck/printData/${id}`, method: 'get', baseURL }),
   /** 保存反馈；data.submit=true 时保存后直接提交审核 */
   feedback: (data) => request({ url: '/api/warehouse/stockCheck/feedback', method: 'post', data, baseURL }),
+  /** 某条明细可关联的报损单：同仓、含该 SKU、未驳回未作废 */
+  damageOptions: (detailId) => request({ url: `/api/warehouse/stockCheck/damageOptions/${detailId}`, method: 'get', baseURL }),
   /** 提交审批：以盘点人身份发起 flowable 审批流，回填 approvalInstanceId */
   submitAudit: (id, submitUser) => request({ url: `/api/warehouse/stockCheck/submitAudit/${id}`, method: 'post', params: { submitUser }, baseURL }),
   /** 人工兜底审核入口 { checkId, pass, comment, auditUser }，正常流程走审批中心 */

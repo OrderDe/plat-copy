@@ -131,7 +131,8 @@
             <h2>盘点与提交</h2>
             <p class="text-muted">
               打印盘点表线下盘 → 回来逐条录入实盘数量和货品状态 → 提交审批。
-              损坏、缺失或其他异常必须填写反馈说明。
+              损坏、缺失或其他异常必须填写反馈说明；
+              盘亏且状态为「损坏」的还要挂上对应报损单，库存由报损单扣减，盘点不再重复扣。
             </p>
           </div>
           <div class="heading-actions">
@@ -181,7 +182,7 @@
 
         <table class="data-table feedback-table">
           <thead>
-            <tr><th>库位 / SKU</th><th>商品名称</th><th>账面</th><th>实盘</th><th>差异</th><th>状态</th><th>反馈说明</th></tr>
+            <tr><th>库位 / SKU</th><th>商品名称</th><th>账面</th><th>实盘</th><th>差异</th><th>状态</th><th>关联报损单</th><th>反馈说明</th></tr>
           </thead>
           <tbody>
             <tr v-for="d in details" :key="d.id">
@@ -209,6 +210,29 @@
                 </el-select>
               </td>
               <td>
+                <!-- 报损差异的库存由报损单扣：不挂单，盘点调账 + 报损单拣货会把同一批货扣两遍 -->
+                <el-select
+                  v-if="needDamage(d) && feedbackEditable"
+                  v-model="d.damageId"
+                  size="mini"
+                  clearable
+                  filterable
+                  :loading="damageLoading[d.id]"
+                  placeholder="请选择报损单"
+                  style="width:100%"
+                  @visible-change="(v) => v && loadDamageOptions(d)"
+                >
+                  <el-option
+                    v-for="o in damageOptions[d.id] || []"
+                    :key="o.damageId"
+                    :label="`${o.code}（可报损 ${o.damageNum}）`"
+                    :value="o.damageId"
+                  />
+                </el-select>
+                <span v-else-if="d.damageCode" class="text-small">{{ d.damageCode }}</span>
+                <span v-else class="text-muted">—</span>
+              </td>
+              <td>
                 <el-input
                   v-model="d.feedbackRemark"
                   size="mini"
@@ -217,7 +241,7 @@
                 />
               </td>
             </tr>
-            <tr v-if="!details.length"><td colspan="7" class="empty-row">请先在「建单与范围」生成盘点明细</td></tr>
+            <tr v-if="!details.length"><td colspan="8" class="empty-row">请先在「建单与范围」生成盘点明细</td></tr>
           </tbody>
         </table>
 
@@ -445,6 +469,9 @@ export default {
         { value: ST.ARCHIVED, label: '已归档' },
         { value: ST.CANCELED, label: '已作废' },
       ],
+      // 报损单候选按明细行缓存：{ [detailId]: [option] }
+      damageOptions: {},
+      damageLoading: {},
       goodsStatusOptions: [
         { value: 'NORMAL', label: '正常' },
         { value: 'DAMAGED', label: '损坏' },
@@ -670,11 +697,35 @@ export default {
       this.form = { ...this.form, ...(res || {}) };
       // 后端只有 warehouseIds 串时（老单据）也要还原成多选用的数组
       this.form.warehouseIdList = this.warehouseIdsOf(this.form);
-      this.details = ((res && res.details) || []).map((d) => ({ ...d, goodsStatus: d.goodsStatus || 'NORMAL' }));
+      this.details = ((res && res.details) || []).map((d) => ({
+        ...d,
+        goodsStatus: d.goodsStatus || 'NORMAL',
+        damageId: d.damageId || null,
+      }));
+      // 明细重建后行ID可能变，旧缓存的报损单候选对不上号
+      this.damageOptions = {};
+      this.damageLoading = {};
     },
 
     onGoodsStatusChange(row) {
       if (row.goodsStatus === 'NORMAL' && !row.feedbackRemark) this.$set(row, 'feedbackRemark', '无异常');
+      // 不再是报损盘亏就把挂单清掉，否则这行会一直跳过库存校准
+      if (!this.needDamage(row)) this.$set(row, 'damageId', null);
+      else this.loadDamageOptions(row);
+    },
+
+    /** 报损且实盘少于账面时才需要挂单：盘盈没有可扣的量 */
+    needDamage(row) {
+      return row.goodsStatus === 'DAMAGED' && this.diffOf(row) < 0;
+    },
+
+    async loadDamageOptions(row) {
+      if (this.damageOptions[row.id] || this.damageLoading[row.id]) return;
+      this.$set(this.damageLoading, row.id, true);
+      try {
+        const res = await stockCheckApi.damageOptions(row.id);
+        this.$set(this.damageOptions, row.id, res || []);
+      } finally { this.$set(this.damageLoading, row.id, false); }
     },
 
     /**
@@ -693,6 +744,7 @@ export default {
         this.$set(row, 'goodsStatus', 'NORMAL');
         if (!String(row.feedbackRemark || '').trim()) this.$set(row, 'feedbackRemark', '无异常');
       }
+      if (!this.needDamage(row)) this.$set(row, 'damageId', null);
     },
 
     onPrint() {
@@ -732,6 +784,13 @@ export default {
         this.feedbackError = `${invalid.sku || invalid.goodsName} 为异常状态，请填写具体反馈说明。`;
         return false;
       }
+      // 报损盘亏必须挂报损单，否则盘点调账和报损单拣货会把同一批货各扣一次
+      const noDamage = this.details.find((d) => this.needDamage(d) && !d.damageId);
+      if (noDamage) {
+        this.feedbackError = `${noDamage.sku || noDamage.goodsName} 为报损异常，请选择对应的报损单，`
+          + '库存由报损单扣减，避免盘点重复扣一次。';
+        return false;
+      }
       this.feedbackError = '';
       if (!silent) this.saving = true;
       try {
@@ -743,6 +802,7 @@ export default {
             actualStock: d.actualStock || 0,
             goodsStatus: d.goodsStatus,
             feedbackRemark: d.feedbackRemark || '',
+            damageId: this.needDamage(d) ? d.damageId : null,
           })),
         });
         if (!silent) {
