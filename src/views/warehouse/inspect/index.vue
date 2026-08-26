@@ -288,6 +288,7 @@ import { locationLabel, locationDisabled } from '@/views/warehouse/components/lo
 /** 货架类型：3退货区 4不合格区（见 wms_shelf.type） */
 const SHELF_TYPE_RETURN = 3;
 const SHELF_TYPE_NG = 4;
+const SHELF_TYPE_QC = 7;
 /** 库位用途：2隔离/不合格区（见 wms_location.usage_type） */
 const USAGE_NG = 2;
 
@@ -332,7 +333,7 @@ export default {
      */
     passShelfOptions() {
       return this.shelfCache.filter((s) => s.type !== SHELF_TYPE_RETURN
-        && s.type !== SHELF_TYPE_NG && this.shelfIsActive(s));
+        && s.type !== SHELF_TYPE_NG && s.type !== SHELF_TYPE_QC && this.shelfIsActive(s));
     },
   },
   created() {
@@ -354,7 +355,7 @@ export default {
     isSellableShelf(shelfId) {
       const shelf = this.shelfCache.find((s) => s && String(s.id) === String(shelfId));
       return !!shelf && this.shelfIsActive(shelf)
-        && shelf.type !== SHELF_TYPE_RETURN && shelf.type !== SHELF_TYPE_NG;
+        && shelf.type !== SHELF_TYPE_RETURN && shelf.type !== SHELF_TYPE_NG && shelf.type !== SHELF_TYPE_QC;
     },
     isSellableLocation(shelfId, locationId) {
       if (!this.isSellableShelf(shelfId) || locationId == null) return false;
@@ -368,7 +369,7 @@ export default {
     shelfOptionDisabled(shelf, kind) {
       if (!this.shelfIsActive(shelf)) return true;
       if (kind === 'ng') return shelf.type !== SHELF_TYPE_NG;
-      return shelf.type === SHELF_TYPE_RETURN || shelf.type === SHELF_TYPE_NG;
+      return shelf.type === SHELF_TYPE_RETURN || shelf.type === SHELF_TYPE_NG || shelf.type === SHELF_TYPE_QC;
     },
     locationOptionLabel(location) {
       const label = locationLabel(location);
@@ -547,9 +548,9 @@ export default {
     async findDefaultSellableLocation() {
       for (const shelf of this.shelfCache) {
         if (!this.shelfIsActive(shelf)
-          || shelf.type === SHELF_TYPE_RETURN || shelf.type === SHELF_TYPE_NG) continue;
+          || shelf.type === SHELF_TYPE_RETURN || shelf.type === SHELF_TYPE_NG || shelf.type === SHELF_TYPE_QC) continue;
         await this.ensureLocations(shelf.id);
-        const hit = (this.locationCache[shelf.id] || []).find((l) => !l.usageType && Number(l.status) === 1);
+        const hit = (this.locationCache[shelf.id] || []).find((l) => Number(l.usageType || 0) === 0 && Number(l.status) === 1);
         if (hit) return { shelfId: shelf.id, locationId: hit.id };
       }
       return null;
@@ -569,7 +570,7 @@ export default {
     /** 合格品只能进可售区(usageType=0)；老数据 usageType 为空按可售区处理 */
     sellableLocations(shelfId, currentId) {
       if (!this.isSellableShelf(shelfId)) return [];
-      return (this.locationCache[shelfId] || []).filter((l) => !l.usageType
+      return (this.locationCache[shelfId] || []).filter((l) => Number(l.usageType || 0) === 0
         && (Number(l.status) === 1 || (currentId != null && String(l.id) === String(currentId))));
     },
     /** 不合格品只能进隔离/不合格区库位(usageType=2) */
