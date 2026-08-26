@@ -213,8 +213,11 @@ export default {
       try {
         // 后端返回的是本次真正新增的库位数，编码已存在的会被跳过
         const n = Number(await shelfApi.batchGenerate(this.batchForm)) || 0;
-        // 原来这里是字面量 {n}，模板串里漏了 $，提示上直接显示「{n} 个库位」
-        this.$message.success(`已生成 ${this.batchForm.shelfCount} 个货架、${n} 个库位`);
+        if (n > 0) {
+          this.$message.success(`已生成 ${this.batchForm.shelfCount} 个货架，本次新增 ${n} 个库位；已存在的库位已自动跳过`);
+        } else {
+          this.$message.warning('货架已处理，但本次未新增库位：所选层/行/列范围内的库位都已存在。需要重新生成时，请勾选“清除已有库位”');
+        }
         this.batchDialog = false;
         this.loadPage();
       } finally { this.batchLoading = false; }

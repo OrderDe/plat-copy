@@ -197,10 +197,9 @@ export default {
     },
     async onBatchSubmit() {
       const n = Number(await locationApi.batchGenerate({ shelfId: this.shelf.id, ...this.batchForm })) || 0;
-      // 编码已存在的会被后端跳过，一个都没新增时说清楚原因，
-      // 否则运营看到「已生成 0 个库位」只会以为功能坏了
-      if (n > 0) this.$message.success(`已生成 ${n} 个库位`);
-      else this.$message.warning('没有新增库位：当前设置覆盖的层/行/列位置均已存在；如需重建，请勾选「清除已有库位」');
+      // 已存在的编码会被后端跳过，明确告知用户结果和处理方式
+      if (n > 0) this.$message.success(`本次新增 ${n} 个库位；已存在的库位已自动跳过`);
+      else this.$message.warning('本次未新增库位：所选层/行/列范围内的库位都已存在。需要重新生成时，请勾选“清除已有库位”');
       this.batchVisible = false;
       this.load();
       this.$emit('refresh');
