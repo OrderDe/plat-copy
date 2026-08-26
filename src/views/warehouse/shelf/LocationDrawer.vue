@@ -81,9 +81,9 @@
     <el-dialog title="批量生成库位" :visible.sync="batchVisible" width="420px" append-to-body>
       <el-form :model="batchForm" label-width="120px" size="small">
         <el-row :gutter="8">
+          <el-col :span="8"><el-form-item label="层" label-width="40px"><el-input-number v-model="batchForm.layerNum" :min="1" controls-position="right" style="width:100%" /></el-form-item></el-col>
           <el-col :span="8"><el-form-item label="行" label-width="40px"><el-input-number v-model="batchForm.rowNum" :min="1" controls-position="right" style="width:100%" /></el-form-item></el-col>
           <el-col :span="8"><el-form-item label="列" label-width="40px"><el-input-number v-model="batchForm.colNum" :min="1" controls-position="right" style="width:100%" /></el-form-item></el-col>
-          <el-col :span="8"><el-form-item label="层" label-width="40px"><el-input-number v-model="batchForm.layerNum" :min="1" controls-position="right" style="width:100%" /></el-form-item></el-col>
         </el-row>
         <el-form-item label="单库位容量"><el-input-number v-model="batchForm.capacity" :min="0" style="width:100%" /></el-form-item>
         <el-form-item label="温区">

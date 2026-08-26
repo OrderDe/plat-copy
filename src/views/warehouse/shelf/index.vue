@@ -125,9 +125,9 @@
           </el-select>
         </el-form-item>
         <el-row :gutter="8">
+          <el-col :span="8"><el-form-item label="层"><el-input-number v-model="batchForm.layerNum" :min="1" style="width:100%" /></el-form-item></el-col>
           <el-col :span="8"><el-form-item label="行"><el-input-number v-model="batchForm.rowNum" :min="1" style="width:100%" /></el-form-item></el-col>
           <el-col :span="8"><el-form-item label="列"><el-input-number v-model="batchForm.colNum" :min="1" style="width:100%" /></el-form-item></el-col>
-          <el-col :span="8"><el-form-item label="层"><el-input-number v-model="batchForm.layerNum" :min="1" style="width:100%" /></el-form-item></el-col>
         </el-row>
         <el-form-item label="单库位容量"><el-input-number v-model="batchForm.locationCapacity" :min="0" style="width:100%" /></el-form-item>
         <div class="hint">将创建 {{ batchForm.shelfCount }} 个货架，共{{ batchTotal }} 个库位</div>
