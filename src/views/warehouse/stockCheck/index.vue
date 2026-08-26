@@ -270,6 +270,9 @@
         <div class="action-bar split-actions">
           <el-button size="small" icon="el-icon-arrow-left" @click="showStep('create')">返回范围</el-button>
           <div v-if="!submitted" class="button-group">
+            <el-button size="small" icon="el-icon-document-checked" :loading="saving" :disabled="!feedbackEditable" @click="onSaveFeedback()">
+              保存反馈
+            </el-button>
             <el-button type="primary" size="small" icon="el-icon-s-promotion" :loading="saving" :disabled="!canSubmitAudit" @click="onSubmit">
               保存并提交审批
             </el-button>
@@ -363,6 +366,11 @@
               <!-- 差异金额暂时隐藏：单位成本还没全部维护，算出来的金额不可信 -->
               <td><span class="badge" :class="statusBadgeClass(row.status)">{{ statusText(row.status) }}</span></td>
               <td class="row-actions">
+                <el-button
+                  v-if="canFeedbackHistory(row)"
+                  type="text"
+                  @click="openFeedback(row)"
+                >{{ row.status === ST.FEEDBACK ? '修改反馈' : '录入反馈' }}</el-button>
                 <el-button type="text" @click="openHistory(row)">详情</el-button>
                 <el-button v-if="canCancelHistory(row)" type="text" class="danger-text" @click="cancelHistory(row)">作废</el-button>
               </td>
@@ -917,6 +925,35 @@ export default {
     canCancelHistory(row) {
       return [ST.DRAFT, ST.WAIT_FB, ST.FEEDBACK, ST.AUDITING, ST.REJECTED].includes(row.status);
     },
+    canFeedbackHistory(row) {
+      return row && [ST.WAIT_FB, ST.FEEDBACK, ST.REJECTED].includes(row.status);
+    },
+    async openFeedback(row) {
+      try {
+        const res = await stockCheckApi.detail(row.id);
+        this.form = { ...this.emptyForm(), ...(res || {}) };
+        this.form.warehouseIdList = this.warehouseIdsOf(this.form);
+        this.lockedShelfIdList = String(this.form.lockedShelfIds || '')
+          .split(',')
+          .filter((id) => id !== '')
+          .map(Number);
+        this.details = ((res && res.details) || []).map((d) => ({
+          ...d,
+          goodsStatus: d.goodsStatus || 'NORMAL',
+          damageId: d.damageId || null,
+        }));
+        this.damageOptions = {};
+        this.damageLoading = {};
+        this.feedbackError = '';
+        this.historyDetail = null;
+        this.historyDialogVisible = false;
+        await this.loadShelfOptions(this.form.warehouseIdList);
+        this.activeStep = 'check';
+        this.checkDialogVisible = true;
+      } catch (e) {
+        this.$message.error((e && (e.message || e.msg)) || '盘点反馈明细加载失败');
+      }
+    },
     async openHistory(row, print) {
       try {
         const res = await stockCheckApi.detail(row.id);
@@ -1050,11 +1087,12 @@ main { padding-top: 14px; }
 .summary-card strong { font-size: 20px; }
 .summary-card small { color: #c0c4cc; font-size: 12px; }
 
-.feedback-table th:nth-child(1) { width: 14%; }
+.feedback-table th:nth-child(1) { width: 16%; }
 .feedback-table th:nth-child(2) { width: 18%; }
-.feedback-table th:nth-child(3), .feedback-table th:nth-child(4), .feedback-table th:nth-child(5) { width: 9%; }
-.feedback-table th:nth-child(6) { width: 13%; }
-.feedback-table th:nth-child(7) { width: 28%; }
+.feedback-table th:nth-child(3), .feedback-table th:nth-child(4), .feedback-table th:nth-child(5) { width: 8%; }
+.feedback-table th:nth-child(6) { width: 12%; }
+.feedback-table th:nth-child(7) { width: 14%; }
+.feedback-table th:nth-child(8) { width: 16%; }
 
 /* 只作为打印内容的载体，不占页面空间 */
 .is-hidden { position: absolute; left: -9999px; top: 0; width: 1000px; }
