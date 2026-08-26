@@ -7,6 +7,7 @@
     :empty-form="emptyForm"
     :empty-item="emptyItem"
     :rules="rules"
+    phone-only
   >
     <template #extra-columns="{ warehouseText }">
       <el-table-column label="退回仓库" width="180">
@@ -31,6 +32,12 @@
 import ApprovalDocList from '../components/ApprovalDocList.vue';
 import { returnApi } from '@/api/warehouse';
 
+const validateMobile = (rule, value, callback) => {
+  if (!value) return callback(new Error('请输入手机号'));
+  if (!/^1[3-9]\d{9}$/.test(value)) return callback(new Error('请输入正确的手机号'));
+  callback();
+};
+
 export default {
   name: 'WarehouseReturn',
   components: { ApprovalDocList },
@@ -42,6 +49,7 @@ export default {
       rules: {
         warehouseId: [{ required: true, message: '请选择仓库', trigger: 'change' }],
         returnReason: [{ required: true, message: '请输入退库原因', trigger: 'blur' }],
+        applyUserPhone: [{ validator: validateMobile, trigger: 'blur' }],
       },
     };
   },

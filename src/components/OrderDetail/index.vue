@@ -401,7 +401,7 @@
           <el-timeline v-if="result && result.length > 0" :reverse="reverse">
             <el-timeline-item v-for="(item, i) in result" :key="i">
               <p class="time" v-text="item.acceptTime"></p>
-              <p class="content" v-text="item.acceptStation + ' ' + item.actionName"></p>
+              <p class="content" v-text="formatTraceText(item)"></p>
             </el-timeline-item>
           </el-timeline>
           <div v-else class="no-data">暂无轨迹信息</div>
@@ -465,6 +465,11 @@ export default {
   },
   methods: {
     checkPermi,
+    formatTraceText(item) {
+      return [item.acceptStation, item.actionName]
+        .filter((value) => value != null && String(value).trim() && String(value).trim().toLowerCase() !== 'null')
+        .join(' ');
+    },
     getOrderBadge,
     formatShelf(location) {
       if (!location) return '待分配';

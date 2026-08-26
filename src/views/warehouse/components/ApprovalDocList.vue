@@ -75,8 +75,13 @@
             <el-button slot="append" icon="el-icon-user" @click="pickApplyUser">选择</el-button>
           </el-input>
         </el-form-item>
-        <el-form-item label="联系方式">
-          <el-input v-model="form.applyUserPhone" placeholder="选择申请人后自动带出，可手动修改" />
+        <el-form-item label="联系方式" prop="applyUserPhone">
+          <el-input
+            v-model.trim="form.applyUserPhone"
+            :type="phoneOnly ? 'tel' : 'text'"
+            :maxlength="phoneOnly ? 11 : undefined"
+            placeholder="选择申请人后自动带出，可手动修改"
+          />
         </el-form-item>
         <el-form-item label="备注">
           <el-input v-model="form.remark" type="textarea" :rows="2" />
@@ -147,6 +152,7 @@ export default {
     qtyLabel: { type: String, default: '数量' },
     emptyForm: { type: Function, required: true },
     rules: { type: Object, default: () => ({}) },
+    phoneOnly: { type: Boolean, default: false },
     emptyItem: { type: Function, required: true },
   },
   data() {
