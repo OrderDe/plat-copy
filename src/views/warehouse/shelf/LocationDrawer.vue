@@ -200,7 +200,7 @@ export default {
       // 编码已存在的会被后端跳过，一个都没新增时说清楚原因，
       // 否则运营看到「已生成 0 个库位」只会以为功能坏了
       if (n > 0) this.$message.success(`已生成 ${n} 个库位`);
-      else this.$message.warning('没有新增库位：该货架下这些编码的库位都已存在，如需重建请勾选「清除已有库位」');
+      else this.$message.warning('没有新增库位：当前设置覆盖的层/行/列位置均已存在；如需重建，请勾选「清除已有库位」');
       this.batchVisible = false;
       this.load();
       this.$emit('refresh');
