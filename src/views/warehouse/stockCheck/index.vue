@@ -642,7 +642,10 @@ export default {
       // 多仓时不带仓库名的话，两个仓里同名货架根本分不出是哪一个
       return this.selectedWarehouseIds.length > 1 ? `${this.warehouseText(shelf.warehouseId)} · ${name}` : name;
     },
-    diffOf(row) { return (row.actualStock || 0) - (row.bookStock || 0); },
+    diffOf(row) {
+      const bookStock = row.bookStock == null ? row._blindBookBaseline : row.bookStock;
+      return (row.actualStock || 0) - (bookStock || 0);
+    },
     diffLabel(row) {
       const diff = this.diffOf(row);
       return diff > 0 ? `+${diff}` : String(diff);
@@ -760,6 +763,8 @@ export default {
       this.form.warehouseIdList = this.warehouseIdsOf(this.form);
       this.details = ((res && res.details) || []).map((d) => ({
         ...d,
+        // 盲盘接口会隐藏 bookStock；生成明细时 actualStock 已按账面数初始化，可作为隐藏基线计算差异。
+        _blindBookBaseline: d.bookStock == null ? d.actualStock : null,
         goodsStatus: d.goodsStatus || 'NORMAL',
         damageId: d.damageId || null,
       }));

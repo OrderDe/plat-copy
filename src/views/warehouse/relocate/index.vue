@@ -347,7 +347,7 @@ export default {
       }
       // 换仓后可上架数量要按新仓重算
       for (const it of this.form.items) {
-        await this.loadMaxNum(it);
+        await this.loadMaxNum(it, resetSelections);
       }
     },
     async ensureLocations(shelfId) {
@@ -381,10 +381,10 @@ export default {
      *   移库单 —— 源货架/源库位的可选项，以及选中库位后的可搬数量
      * 分布挂在行上（row.stockRows），每行商品不同，不能共用一份缓存。
      */
-    async loadMaxNum(row) {
+    async loadMaxNum(row, resetSource = true) {
       this.$set(row, 'stockRows', []);
       // 换了商品/规格，上一个商品选中的源货架、源库位对新商品未必有货，一律清掉
-      if (this.form.bizType === 1) {
+      if (this.form.bizType === 1 && resetSource) {
         this.$set(row, 'fromShelfId', null);
         this.$set(row, 'fromLocationId', null);
       }
