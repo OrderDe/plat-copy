@@ -40,7 +40,7 @@
         <template slot-scope="{ row }">
           <div class="approval-action-group">
             <el-button class="approval-action-btn" type="primary" plain size="mini" icon="el-icon-edit-outline" @click.stop="goDetail(row)">审批</el-button>
-            <el-button class="approval-action-btn" type="success" plain size="mini" icon="el-icon-check" @click.stop="quickApprove(row)">一键通过</el-button>
+            <el-button class="approval-action-btn" type="success" plain size="mini" icon="el-icon-check" :loading="!!approving[row.taskId]" :disabled="!!approving[row.taskId]" @click.stop="quickApprove(row)">一键通过</el-button>
           </div>
         </template>
       </el-table-column>
@@ -57,6 +57,8 @@ export default {
     return {
       list: [],
       loading: false,
+      // 按 taskId 记正在提交中的审批，防止重复点击并发提交
+      approving: {},
       filter: { bizType: '', keyword: '' },
     };
   },
@@ -106,8 +108,14 @@ export default {
       this.$router.push({ path: `/approvalCenter/detail/${row.instanceId}`, query: { taskId: row.taskId } });
     },
     async quickApprove(row) {
+      // 之前这里没有任何防重：点两下就发两个 pass，两个事务同时改同一条
+      // HistoricTaskInstanceEntity，后提交的抛 Flowable 乐观锁异常，
+      // 页面上直接弹出一整段 "was updated by another transaction concurrently"
+      if (this.approving[row.taskId]) return;
       this.$confirm(`确定一键通过 [${row.title}]?`, '提示', { type: 'warning' })
         .then(async () => {
+          if (this.approving[row.taskId]) return;
+          this.$set(this.approving, row.taskId, true);
           try {
             await approvePass({
               taskId: row.taskId,
@@ -119,6 +127,8 @@ export default {
             this.loadList();
           } catch (e) {
             this.$message.error('操作失败: ' + (e.message || e));
+          } finally {
+            this.$set(this.approving, row.taskId, false);
           }
         }).catch(() => {});
     },
