@@ -92,12 +92,6 @@
             <el-form-item label="联系方式">
               <el-input v-model="form.checkPhone" placeholder="选择盘点人后自动带出，可修改" maxlength="32" />
             </el-form-item>
-            <el-form-item label="盘点方式">
-              <el-select v-model="form.checkMode" style="width:100%">
-                <el-option label="明盘（显示账面数）" :value="0" />
-                <el-option label="盲盘（隐藏账面数）" :value="1" />
-              </el-select>
-            </el-form-item>
             <el-form-item label="限定货架" class="form-span">
               <el-select
                 v-model="lockedShelfIdList"
@@ -146,7 +140,6 @@
             </p>
           </div>
           <div class="heading-actions">
-            <el-switch v-model="blindPrint" active-text="盲盘打印" />
             <el-button size="small" icon="el-icon-printer" :disabled="!details.length" @click="onPrint">打印盘点表</el-button>
             <el-button v-if="submitted" size="small" icon="el-icon-refresh" :loading="saving" @click="onRefreshApproval">刷新审批状态</el-button>
             <span class="badge" :class="statusBadgeClass(form.status)">{{ statusText(form.status) }}</span>
@@ -304,7 +297,7 @@
                 <td>{{ d.goodsName || '-' }}</td>
                 <td>{{ d.specName || '-' }}</td>
                 <td>{{ d.unitName || '-' }}</td>
-                <td>{{ blindPrint || d.bookStock == null ? '—' : d.bookStock }}</td>
+                <td>{{ d.bookStock == null ? '—' : d.bookStock }}</td>
                 <td /><td /><td />
               </tr>
             </tbody>
@@ -486,7 +479,6 @@ export default {
       lockedShelfIdList: [],
       form: this.emptyForm(),
       details: [],
-      blindPrint: false,
       feedbackError: '',
       statusOptions: [
         { value: ST.DRAFT, label: '草稿' },
@@ -567,6 +559,7 @@ export default {
       return {
         id: null, checkNo: '', warehouseId: null, warehouseIds: '', warehouseIdList: [], categoryId: null, categoryName: '',
         productId: null, productName: '', checkPhone: '',
+        // checkMode 恒传 0（明盘）：盲盘已下线，后端字段保留只为兼容历史单据
         checkDate: this.today(), checkUserId: null, checkPeople: '', checkMode: 0,
         lockedShelfIds: '', remark: '', status: ST.DRAFT,
         submitTime: null, auditTime: null, archiveTime: null, auditUser: '', auditComment: '',
@@ -642,9 +635,15 @@ export default {
       // 多仓时不带仓库名的话，两个仓里同名货架根本分不出是哪一个
       return this.selectedWarehouseIds.length > 1 ? `${this.warehouseText(shelf.warehouseId)} · ${name}` : name;
     },
+    /**
+     * 差异 = 实盘 - 账面。
+     *
+     * 盲盘下线前这里要从 actualStock 反推账面（因为接口把 bookStock 抹成了 null），
+     * 反推一旦失效差异就等于实盘全额，页面满屏假差异、状态还选不了「正常」。
+     * 现在账面数一律下发，直接减就行。
+     */
     diffOf(row) {
-      const bookStock = row.bookStock == null ? row._blindBookBaseline : row.bookStock;
-      return (row.actualStock || 0) - (bookStock || 0);
+      return (row.actualStock || 0) - (row.bookStock || 0);
     },
     diffLabel(row) {
       const diff = this.diffOf(row);
@@ -670,7 +669,6 @@ export default {
       this.details = [];
       this.lockedShelfIdList = [];
       this.shelfList = [];
-      this.blindPrint = false;
       this.feedbackError = '';
       this.historyDetail = null;
       this.checkDialogVisible = true;
@@ -763,8 +761,6 @@ export default {
       this.form.warehouseIdList = this.warehouseIdsOf(this.form);
       this.details = ((res && res.details) || []).map((d) => ({
         ...d,
-        // 盲盘接口会隐藏 bookStock；生成明细时 actualStock 已按账面数初始化，可作为隐藏基线计算差异。
-        _blindBookBaseline: d.bookStock == null ? d.actualStock : null,
         goodsStatus: d.goodsStatus || 'NORMAL',
         damageId: d.damageId || null,
       }));

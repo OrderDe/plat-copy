@@ -259,6 +259,11 @@ export default {
             if (requestId !== this.skuRequestId || this.selectedId !== productId) return;
             const totals = {};
             (list || []).forEach((stock) => {
+              // 只累加真正出得了库的行，口径必须和后端 checkDeductable 一致：
+              // 待检区/隔离区的货没放行、盘点锁定中的库位不许动。
+              // 这里把它们算进来，操作员照着填就会在保存那步被拒，
+              // 而且提示的可用数比页面显示的少，差额无从解释。
+              if (!this.stockDeductable(stock)) return;
               const key = this.stockKey(stock.attrValueId);
               totals[key] = (totals[key] || 0) + (Number(stock.availableNum) || 0);
             });
@@ -309,6 +314,16 @@ export default {
     productStockText(row) {
       const value = this.productStock(row);
       return value == null ? '-' : value;
+    },
+    /**
+     * 这一行库存能不能拿去出库，和后端 WmsStockServiceImpl#checkDeductable 同口径。
+     * locationId 为空（通用池行）或库位信息没回填时按可用算，与后端的兜底一致。
+     */
+    stockDeductable(stock) {
+      if (!stock || stock.locationId == null) return true;
+      if (Number(stock.locationStatus) === 2) return false;      // 盘点锁定中
+      const usage = stock.locationUsageType;
+      return usage == null || Number(usage) === 0;               // 只认可售区
     },
     stockKey(id) {
       return String(id == null ? 0 : id);

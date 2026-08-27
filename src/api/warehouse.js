@@ -143,7 +143,7 @@ export const stockCheckApi = {
   add: (data) => request({ url: '/api/warehouse/stockCheck/add', method: 'post', data, baseURL }),
   /** 按仓库+品类+货架从库存自动展开应盘明细 */
   generate: (data) => request({ url: '/api/warehouse/stockCheck/generate', method: 'post', data, baseURL }),
-  /** 打印数据：不含金额，盲盘不含账面数 */
+  /** 打印数据：账面数照常下发，不含金额 */
   printData: (id) => request({ url: `/api/warehouse/stockCheck/printData/${id}`, method: 'get', baseURL }),
   /** 保存反馈；data.submit=true 时保存后直接提交审核 */
   feedback: (data) => request({ url: '/api/warehouse/stockCheck/feedback', method: 'post', data, baseURL }),

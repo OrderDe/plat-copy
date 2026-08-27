@@ -68,6 +68,16 @@
             <div class="stock-metric stock-metric--available">
               <span>可用</span>
               <b>{{ row.availableNum || 0 }}</b>
+              <!-- 账面可用里有一部分在待检/隔离区或被盘点锁着，出库根本取不出来。
+                   不标出来的话，操作员照着「可用」去建出库单会被后端拒，
+                   而且提示的数字比这里小，差额无从解释 -->
+              <el-tooltip
+                v-if="blockedStock(row) > 0"
+                :content="`其中 ${blockedStock(row)} 件在待检/隔离库位或盘点锁定中，出库取不出来`"
+                placement="top"
+              >
+                <em class="warn-stock">可发 {{ row.sellableAvailableNum }}</em>
+              </el-tooltip>
             </div>
             <div class="stock-metric stock-metric--occupied">
               <span>预占</span>
@@ -313,6 +323,11 @@ export default {
     formatDateTime,
     warehouseText(id) { const w = this.warehouseList.find(x => x.id === id); return w ? `${w.code} / ${w.name}` : id || '-'; },
     merchantName(id) { const m = this.merchantList.find(x => x.id === id); return m ? m.name : ('商户#' + id); },
+    /** 账面可用里出不了库的那部分（待检/隔离区 + 盘点锁定），后端 sellableAvailableNum 已按出库口径算好 */
+    blockedStock(row) {
+      if (!row || row.sellableAvailableNum == null) return 0;
+      return Math.max((Number(row.availableNum) || 0) - (Number(row.sellableAvailableNum) || 0), 0);
+    },
     async loadMerchants() {
       try { const r = await merchantListApi({ page: 1, limit: 999 }); this.merchantList = (r && r.list) || (r && r.records) || []; } catch (e) {}
     },
