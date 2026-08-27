@@ -88,9 +88,10 @@
           </el-select>
         </el-form-item>
         <el-row :gutter="8">
+          <!-- 层/行/列的顺序与「批量生成」弹窗保持一致，两处对不上会让人以为填错了格子 -->
+          <el-col :span="8"><el-form-item label="层" label-width="40px"><el-input-number v-model="form.layerNum" :min="1" controls-position="right" style="width:100%" /></el-form-item></el-col>
           <el-col :span="8"><el-form-item label="行" label-width="40px"><el-input-number v-model="form.rowNum" :min="1" controls-position="right" style="width:100%" /></el-form-item></el-col>
           <el-col :span="8"><el-form-item label="列" label-width="40px"><el-input-number v-model="form.colNum" :min="1" controls-position="right" style="width:100%" /></el-form-item></el-col>
-          <el-col :span="8"><el-form-item label="层" label-width="40px"><el-input-number v-model="form.layerNum" :min="1" controls-position="right" style="width:100%" /></el-form-item></el-col>
         </el-row>
         <el-form-item label="容量"><el-input-number v-model="form.capacity" :min="0" style="width:100%" /></el-form-item>
         <el-form-item label="状态">
@@ -125,12 +126,14 @@
           </el-select>
         </el-form-item>
         <el-row :gutter="8">
-          <el-col :span="8"><el-form-item label="层"><el-input-number v-model="batchForm.layerNum" :min="1" style="width:100%" /></el-form-item></el-col>
-          <el-col :span="8"><el-form-item label="行"><el-input-number v-model="batchForm.rowNum" :min="1" style="width:100%" /></el-form-item></el-col>
-          <el-col :span="8"><el-form-item label="列"><el-input-number v-model="batchForm.colNum" :min="1" style="width:100%" /></el-form-item></el-col>
+          <!-- 必须显式指定 label-width：不写会继承 el-form 的 120px，而这里每列只有约 180px，
+               label 就吃掉大半，输入框被挤到只剩一个加号 -->
+          <el-col :span="8"><el-form-item label="层" label-width="40px"><el-input-number v-model="batchForm.layerNum" :min="1" controls-position="right" style="width:100%" /></el-form-item></el-col>
+          <el-col :span="8"><el-form-item label="行" label-width="40px"><el-input-number v-model="batchForm.rowNum" :min="1" controls-position="right" style="width:100%" /></el-form-item></el-col>
+          <el-col :span="8"><el-form-item label="列" label-width="40px"><el-input-number v-model="batchForm.colNum" :min="1" controls-position="right" style="width:100%" /></el-form-item></el-col>
         </el-row>
         <el-form-item label="单库位容量"><el-input-number v-model="batchForm.locationCapacity" :min="0" style="width:100%" /></el-form-item>
-        <div class="hint">将创建 {{ batchForm.shelfCount }} 个货架，共{{ batchTotal }} 个库位</div>
+        <div class="hint">将创建 {{ batchForm.shelfCount }} 个货架，共 {{ batchTotal }} 个库位（每架 层×行×列 = {{ perShelfLocations }}）</div>
       </el-form>
       <div slot="footer">
         <el-button size="small" @click="batchDialog = false">取消</el-button>
@@ -168,7 +171,9 @@ export default {
     };
   },
   computed: {
-    batchTotal() { return (this.batchForm.shelfCount || 0) * (this.batchForm.rowNum || 0) * (this.batchForm.colNum || 0) * (this.batchForm.layerNum || 0); },
+    /** 单个货架的库位数 = 层 × 行 × 列，单独拎出来给提示文案用，方便核对填的维度对不对 */
+    perShelfLocations() { return (this.batchForm.layerNum || 0) * (this.batchForm.rowNum || 0) * (this.batchForm.colNum || 0); },
+    batchTotal() { return (this.batchForm.shelfCount || 0) * this.perShelfLocations; },
   },
   created() { this.loadWarehouses(); this.loadPage(); },
   methods: {
