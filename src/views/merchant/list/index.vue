@@ -565,6 +565,13 @@ export default {
       roleTemplateApi.getEnabledRoleTemplates().then((res) => {
         this.roleTemplateList = res || [];
       });
+      // 回显该商户当前绑定的模板。
+      // 之前只把 templateId 置成 null 就弹窗，运营看到的永远是「请选择角色模板」，
+      // 分不清是没绑过还是绑了不显示，随手一确定就把原来的绑定覆盖掉。
+      // 后端 /grant/{merId} 早就有了，注释里写的就是「打开授权弹窗时回显」，只是没人调。
+      roleTemplateApi.getGrantedRole(row.id).then((res) => {
+        this.roleForm.templateId = res || null;
+      });
     },
     // 提交绑定角色
     submitBindRole() {
