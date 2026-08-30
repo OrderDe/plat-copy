@@ -6,6 +6,8 @@ const VUE_APP_API_URL3 = process.env.VUE_APP_BASE_API3 || `${location.origin}`;
 const VUE_APP_API_URL4 = process.env.VUE_APP_BASE_API4 || `${location.origin}`;
 // 推荐试算走网关的 /front 路由（tjMall-app 模块）——召回逻辑在 app 里，只能找它要
 const VUE_APP_API_URL5 = process.env.VUE_APP_BASE_API5 || `${location.origin}`;
+// 校园收益联盟走网关的 /alliance 路由（tjMall-alliance 模块，网关 StripPrefix=1）
+const VUE_APP_API_URL6 = process.env.VUE_APP_BASE_API6 || `${location.origin}`;
 const VUE_APP_WS_URL =
   process.env.VUE_APP_WS_URL || (location.protocol === 'https' ? 'wss' : 'ws') + ':' + location.hostname;
 
@@ -18,6 +20,7 @@ const SettingMer = {
   apiBaseURL3: VUE_APP_API_URL3 + '/',
   apiBaseURL4: VUE_APP_API_URL4 + '/',
   apiBaseURL5: VUE_APP_API_URL5 + '/',
+  apiBaseURL6: VUE_APP_API_URL6 + '/',
   // socket连接
   wsSocketUrl: VUE_APP_WS_URL,
   // 是否为平台端

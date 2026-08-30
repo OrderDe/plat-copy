@@ -1,0 +1,199 @@
+<template>
+  <div class="divBox">
+    <el-card class="box-card" shadow="never" :bordered="false" v-loading="loading">
+      <div class="tips">
+        改动即时生效（后端写库并刷新进程内缓存），不需要重启联盟服务。
+        红线项（自购返佣、等级差返佣）在页面上只读，不提供修改入口。
+      </div>
+      <el-form inline size="small" @submit.native.prevent>
+        <el-form-item>
+          <el-button type="primary" :loading="loading" @click="loadConfig">刷新</el-button>
+        </el-form-item>
+      </el-form>
+
+      <el-table :data="list" size="small" border>
+        <el-table-column prop="key" label="配置项" min-width="240">
+          <template slot-scope="{ row }">
+            <div>{{ row.name }}</div>
+            <div class="key">{{ row.key }}</div>
+          </template>
+        </el-table-column>
+        <el-table-column label="当前值" min-width="180">
+          <template slot-scope="{ row }">
+            <span>{{ row.value }}</span>
+            <span v-if="row.unit" class="unit">{{ row.unit }}</span>
+            <span v-if="row.type === 'RATIO'" class="unit">（{{ (row.value / 100).toFixed(2) }}%）</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="remark" label="说明" min-width="320" show-overflow-tooltip />
+        <el-table-column label="操作" width="100" fixed="right">
+          <template slot-scope="{ row }">
+            <el-button v-if="!row.locked" type="text" size="small" @click="openDialog(row)">修改</el-button>
+            <el-tag v-else size="mini" type="danger">红线锁定</el-tag>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-card>
+
+    <el-dialog title="修改配置" :visible.sync="dialogVisible" width="560px">
+      <el-form ref="form" :model="form" :rules="rules" label-width="90px" size="small">
+        <el-form-item label="配置项">
+          <div>{{ current.name }}</div>
+          <div class="key">{{ current.key }}</div>
+        </el-form-item>
+        <el-form-item label="说明">
+          <div class="remark">{{ current.remark }}</div>
+        </el-form-item>
+        <el-form-item label="新值" prop="value">
+          <el-input v-model.trim="form.value" class="selWidth" />
+          <div v-if="current.type === 'RATIO'" class="hint">万分比整数，例如 1500 表示 15%</div>
+          <div v-else-if="current.type === 'INT'" class="hint">整数</div>
+        </el-form-item>
+      </el-form>
+      <div slot="footer">
+        <el-button size="small" @click="dialogVisible = false">取消</el-button>
+        <el-button size="small" type="primary" :loading="saving" @click="submit">确定</el-button>
+      </div>
+    </el-dialog>
+  </div>
+</template>
+
+<script>
+import { getAllianceConfig, updateAllianceConfig } from '@/api/alliance';
+
+/**
+ * 配置项元信息。后端 /config 只返回 key -> value 的字符串字典，
+ * 中文名、单位、类型跟着 DDL 的种子数据在这里维护；
+ * 出现表里没有的 key 也会照常展示，只是没有中文名。
+ */
+const META = {
+  'points.exchange.rate': { name: '积分记账汇率', type: 'INT', unit: '积分 = 1 元', remark: 'PRD 17.1 固定 100，商户不得改' },
+  'invite.protect.days': { name: '积分邀请关系保护期', type: 'INT', unit: '天', remark: 'PRD 5.2' },
+  'leader.bind.protect.days': { name: '团长绑定保护期', type: 'INT', unit: '天', remark: 'PRD 10.4，保护期内不改绑' },
+  'commission.max.payout.ratio': { name: '单笔佣金总上限', type: 'RATIO', remark: 'PRD 10.7.5，团长+代理合计占实付的上限，超出按比例削减' },
+  'commission.settlement.days': { name: '确认收货后入账天数', type: 'INT', unit: '天', remark: 'PRD 10.6 的 T+N，全局配置优先于此兜底值' },
+  'commission.leader.ratio': { name: '团长默认分成比例', type: 'RATIO', remark: '兜底值，优先读 eb_distribution_config.leader_ratio' },
+  'commission.agent.ratio': { name: '区域代理默认分成比例', type: 'RATIO', remark: '兜底值' },
+  'region.no.agent.fallback': { name: '无代理区域分成去向', type: 'STRING', remark: 'PLATFORM-平台兜底 / SUSPEND-暂挂待开通。PRD 17.3 待确认' },
+  'verify.confirm.timeout.seconds': { name: '核销待确认超时', type: 'INT', unit: '秒', remark: 'PRD 8.5，超时自动作废并原路解冻积分' },
+  'verify.cancel.window.hours': { name: '核销自助撤销时限', type: 'INT', unit: '小时', remark: 'PRD 8.8，超期走售后退款；平台财务不受限' },
+  'verify.dynamic.code.ttl.seconds': { name: '动态码有效期', type: 'INT', unit: '秒', remark: 'PRD 8.4，订单码与用户付款码共用' },
+  'verify.code.fail.lock.times': { name: '解析失败锁定次数', type: 'INT', unit: '次', remark: 'PRD 8.4，同设备连续失败上限' },
+  'verify.code.fail.lock.seconds': { name: '解析失败锁定时长', type: 'INT', unit: '秒', remark: 'PRD 8.4' },
+  'risk.address.change.threshold': { name: '改址次数告警阈值', type: 'INT', unit: '次/30天', remark: 'PRD 8.9 改址套利' },
+  'risk.agent.audit.daily.limit': { name: '代理单日审批上限', type: 'INT', unit: '人/日', remark: 'PRD 8.9 代理滥招' },
+  'distribution.self.buy.rebate': { name: '自购返佣', type: 'BOOL', locked: true, remark: '红线 R4/R5，本期强制关闭' },
+  'distribution.level.diff.enable': { name: '等级差返佣', type: 'BOOL', locked: true, remark: '红线 R3，本期强制关闭' },
+};
+
+export default {
+  name: 'AllianceConfig',
+  data() {
+    return {
+      loading: false,
+      saving: false,
+      list: [],
+      dialogVisible: false,
+      current: {},
+      form: { value: '' },
+      rules: {
+        value: [
+          { required: true, message: '请填写配置值', trigger: 'blur' },
+          { validator: this.validateValue, trigger: 'blur' },
+        ],
+      },
+    };
+  },
+  created() {
+    this.loadConfig();
+  },
+  methods: {
+    validateValue(rule, value, callback) {
+      const type = this.current.type;
+      if ((type === 'INT' || type === 'RATIO') && !/^\d+$/.test(value)) {
+        return callback(new Error('必须是非负整数'));
+      }
+      if (type === 'BOOL' && value !== '0' && value !== '1') {
+        return callback(new Error('只能填 0 或 1'));
+      }
+      callback();
+    },
+    async loadConfig() {
+      this.loading = true;
+      try {
+        const res = await getAllianceConfig();
+        const map = res && typeof res === 'object' ? res : {};
+        this.list = Object.keys(map)
+          .sort()
+          .map((key) => {
+            const meta = META[key] || {};
+            return {
+              key,
+              value: map[key],
+              name: meta.name || key,
+              type: meta.type || 'STRING',
+              unit: meta.unit || '',
+              remark: meta.remark || '',
+              locked: !!meta.locked,
+            };
+          });
+      } catch (e) {
+        /* 拦截器已弹过错误 */
+      } finally {
+        this.loading = false;
+      }
+    },
+    openDialog(row) {
+      this.current = row;
+      this.form = { value: row.value };
+      this.dialogVisible = true;
+      this.$nextTick(() => this.$refs.form && this.$refs.form.clearValidate());
+    },
+    submit() {
+      this.$refs.form.validate(async (valid) => {
+        if (!valid) return;
+        this.saving = true;
+        try {
+          await updateAllianceConfig(this.current.key, this.form.value);
+          this.$message.success('已生效');
+          this.dialogVisible = false;
+          this.loadConfig();
+        } catch (e) {
+          /* 拦截器已弹过错误 */
+        } finally {
+          this.saving = false;
+        }
+      });
+    },
+  },
+};
+</script>
+
+<style scoped lang="scss">
+.selWidth {
+  width: 260px;
+}
+.tips {
+  color: #999;
+  font-size: 13px;
+  line-height: 20px;
+  margin-bottom: 12px;
+}
+.key {
+  color: #999;
+  font-size: 12px;
+}
+.remark {
+  color: #666;
+  font-size: 12px;
+  line-height: 18px;
+}
+.hint {
+  color: #999;
+  font-size: 12px;
+}
+.unit {
+  margin-left: 6px;
+  color: #666;
+}
+</style>
