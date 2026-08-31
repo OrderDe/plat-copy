@@ -1,34 +1,6 @@
 <template>
   <div class="divBox">
-    <el-card class="box-card" shadow="never" :bordered="false">
-      <div class="tips">
-        一区一代理：一个区域同时只允许存在一位生效代理。该区已有代理时「开通」会被后端拒绝，
-        新申请人一律进候补队列，等现任停用且待结算收益结清后再启用。
-      </div>
-      <el-form inline size="small" @submit.native.prevent>
-        <el-form-item label="选择区域">
-          <el-cascader
-            v-model="regionIds"
-            :options="cityOptions"
-            :props="cascaderProps"
-            class="selWidth"
-            clearable
-            filterable
-            placeholder="请选择省/市/区"
-            @change="onRegionChange"
-          />
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" :disabled="!regionCode" :loading="loading" @click="loadAll">查询</el-button>
-          <el-button type="success" :disabled="!regionCode" @click="openAgentDialog">开通代理</el-button>
-        </el-form-item>
-      </el-form>
-      <div v-if="regionCode" class="region-meta">
-        区域编码：<b>{{ regionCode }}</b>　区域名称：{{ regionName || '-' }}　路径：{{ regionPath || '-' }}
-      </div>
-    </el-card>
-
-    <el-card class="box-card mt16" shadow="never" :bordered="false" v-loading="listLoading">
+    <el-card class="box-card" shadow="never" :bordered="false" v-loading="listLoading">
       <div slot="header">
         全部区域代理
         <span class="sub">默认只列生效记录。交接产生的历史行要勾「含已失效」才出，否则一个区会看到好几条</span>
@@ -58,6 +30,7 @@
         <el-form-item>
           <el-button type="primary" @click="loadAgentList(1)">查询</el-button>
           <el-button @click="resetAgentList">重置</el-button>
+          <el-button type="success" @click="openAgentDialog">开通代理</el-button>
         </el-form-item>
       </el-form>
       <el-table :data="agentList" size="small" border>
@@ -69,17 +42,31 @@
             <div class="sub-line">uid {{ row.agentUid }}{{ agentPhone(row) ? ' · ' + agentPhone(row) : '' }}</div>
           </template>
         </el-table-column>
-        <el-table-column prop="contractNo" label="合同号" min-width="120" show-overflow-tooltip />
-        <el-table-column prop="leaderCount" label="名下团长" width="90" />
-        <el-table-column label="补贴比例" width="90">
-          <template slot-scope="{ row }">{{ row.subsidyRatio || 0 }}%</template>
+        <el-table-column label="联系人" min-width="150">
+          <template slot-scope="{ row }">
+            <div>{{ row.contactName || '-' }}</div>
+            <div v-if="row.contactPhone" class="sub-line">{{ row.contactPhone }}</div>
+          </template>
         </el-table-column>
+        <el-table-column prop="leaderCount" label="名下团长" width="90" />
         <el-table-column label="合作期" min-width="200">
           <template slot-scope="{ row }">{{ termText(row) }}</template>
         </el-table-column>
-        <el-table-column label="状态" width="90">
+        <el-table-column label="状态" width="150">
           <template slot-scope="{ row }">
-            <el-tag size="mini" :type="agentTagType(row)">{{ agentStatusText(row) }}</el-tag>
+            <!--
+              开关只能从「生效」拨到「停用」，反向拨不回来：
+              停用会把 active_key 回填、腾出该区名额，这期间可能已经开了新代理，
+              直接改回 status=1 会让同区出现两条 active_key=0 撞唯一索引。
+              要恢复请重新开通或从候补队列启用。
+            -->
+            <el-switch
+              :value="row.status === 1 && Number(row.activeKey) === 0"
+              :disabled="!(row.status === 1 && Number(row.activeKey) === 0)"
+              active-color="#13ce66"
+              @change="onToggleStatus(row)"
+            />
+            <el-tag size="mini" class="ml6" :type="agentTagType(row)">{{ agentStatusText(row) }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="createTime" label="开通时间" min-width="150" />
@@ -91,9 +78,8 @@
               v-if="row.status === 1 && Number(row.activeKey) === 0"
               type="text"
               size="small"
-              class="danger-text"
-              @click="onDisable(row)"
-            >停用</el-button>
+              @click="openHandoverDialog(row)"
+            >交接</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -116,8 +102,8 @@
       <el-form v-if="agent" label-width="110px" class="agent-detail">
         <el-row>
           <el-col :span="8"><el-form-item label="代理 uid：">{{ agent.agentUid || '-' }}</el-form-item></el-col>
-          <el-col :span="8"><el-form-item label="合同号：">{{ agent.contractNo || '-' }}</el-form-item></el-col>
-          <el-col :span="8"><el-form-item label="补贴比例：">{{ agent.subsidyRatio || 0 }}%</el-form-item></el-col>
+          <el-col :span="8"><el-form-item label="联系人：">{{ agent.contactName || '-' }}</el-form-item></el-col>
+          <el-col :span="8"><el-form-item label="联系方式：">{{ agent.contactPhone || '-' }}</el-form-item></el-col>
           <el-col :span="8"><el-form-item label="名下团长数：">{{ agent.leaderCount || 0 }}</el-form-item></el-col>
           <el-col :span="8"><el-form-item label="状态：">
             <el-tag :type="agent.status === 1 ? 'success' : 'info'" size="mini">
@@ -126,11 +112,8 @@
           </el-form-item></el-col>
           <el-col :span="8"><el-form-item label="开通时间：">{{ agent.createTime || '-' }}</el-form-item></el-col>
         </el-row>
-        <el-form-item>
-          <el-button type="warning" size="small" @click="openHandoverDialog">代理交接</el-button>
-        </el-form-item>
       </el-form>
-      <div v-else class="empty">{{ regionCode ? '该区域暂无生效代理，团长申请将由平台兜底审批' : '请先选择区域' }}</div>
+      <div v-else class="empty">{{ regionCode ? '该区域暂无生效代理，团长申请将由平台兜底审批' : '请在上方列表点「查看」选一个区域' }}</div>
     </el-card>
 
     <el-card class="box-card mt16" shadow="never" :bordered="false" v-loading="loading">
@@ -173,36 +156,62 @@
       </el-table>
     </el-card>
 
-    <el-dialog title="开通区域代理" :visible.sync="agentDialog" width="520px">
+    <el-dialog title="开通区域代理" :visible.sync="agentDialog" width="560px">
+      <div class="tips">
+        一区一代理：一个区域同时只允许存在一位生效代理。该区已有代理时开通会被后端拒绝，
+        新申请人一律进候补队列，等现任停用且待结算收益结清后再启用。
+      </div>
       <el-form ref="agentForm" :model="agentForm" :rules="agentRules" label-width="110px" size="small">
-        <el-form-item label="区域">{{ regionName }}（{{ regionCode }}）</el-form-item>
-        <el-form-item label="代理 uid" prop="agentUid">
-          <el-input-number
-            v-model="agentForm.agentUid"
-            :min="1"
-            :controls="false"
+        <el-form-item label="区域" prop="regionCode">
+          <el-cascader
+            v-model="agentForm.regionIds"
+            :options="cityOptions"
+            :props="cascaderProps"
             class="selWidth"
-            @change="lookupAgentUser"
+            clearable
+            filterable
+            placeholder="请选择省/市/区"
+            @change="onAgentRegionChange"
           />
+          <div v-if="agentForm.regionCode" class="uid-hint">
+            编码 {{ agentForm.regionCode }}　路径 {{ agentForm.regionPath }}
+          </div>
+        </el-form-item>
+        <el-form-item label="代理账号" prop="agentUid">
           <!--
-            填完当场显示是谁。在此之前这里只是个数字，填错了照样开通成功，
-            结果是一条没人能登录使用的空壳记录 —— 列表显示生效、分账照算，
-            但团长申请堆在那里永远没人审批。
+            搜出来选，不让人手打 uid。代理是靠这个 uid 登录小程序审批团长、看分成的，
+            填错了照样开通成功 —— 列表显示生效、分账照算，但没有任何人登得进代理端，
+            团长申请堆在那里永远没人审批。
           -->
-          <div v-if="uidChecking" class="uid-hint">查询中…</div>
-          <div v-else-if="uidBrief && uidBrief.valid" class="uid-hint ok">
-            {{ uidBrief.nickname || '（未设昵称）' }}　{{ uidBrief.phone }}
-          </div>
-          <div v-else-if="uidBrief" class="uid-hint bad">
-            查无此人或账号不可用，请确认填的是商城用户的 uid
+          <el-select
+            v-model="agentForm.agentUid"
+            filterable
+            remote
+            clearable
+            reserve-keyword
+            class="selWidth"
+            placeholder="搜代理本人的小程序昵称 / 手机号"
+            :remote-method="searchAgentUser"
+            :loading="uidChecking"
+          >
+            <el-option
+              v-for="u in userOptions"
+              :key="u.uid"
+              :label="`${u.nickname || '（未设昵称）'}　${u.phone}　uid ${u.uid}`"
+              :value="u.uid"
+              :disabled="!u.valid"
+            />
+          </el-select>
+          <div class="uid-hint">
+            就是代理本人登录微信小程序的那个账号，不另发账号密码。
+            他必须先在小程序注册/登录过才搜得到；选中后他下次打开小程序即可看到「代理中心」。
           </div>
         </el-form-item>
-        <el-form-item label="合同号" prop="contractNo">
-          <el-input v-model.trim="agentForm.contractNo" maxlength="64" class="selWidth" />
+        <el-form-item label="联系人" prop="contactName">
+          <el-input v-model.trim="agentForm.contactName" maxlength="32" class="selWidth" />
         </el-form-item>
-        <el-form-item label="补贴比例">
-          <el-input-number v-model="agentForm.subsidyRatio" :min="0" :max="100" :precision="2" class="selWidth" />
-          <span class="unit">%</span>
+        <el-form-item label="联系方式" prop="contactPhone">
+          <el-input v-model.trim="agentForm.contactPhone" maxlength="32" class="selWidth" />
         </el-form-item>
         <el-form-item label="合作期">
           <el-date-picker
@@ -235,12 +244,11 @@
       <el-form ref="editForm" :model="editForm" label-width="110px" size="small">
         <el-form-item label="区域">{{ editForm.regionName }}（{{ editForm.regionCode }}）</el-form-item>
         <el-form-item label="代理">{{ editForm.agentName }}（uid {{ editForm.agentUid }}）</el-form-item>
-        <el-form-item label="合同号">
-          <el-input v-model.trim="editForm.contractNo" maxlength="64" class="selWidth" />
+        <el-form-item label="联系人">
+          <el-input v-model.trim="editForm.contactName" maxlength="32" class="selWidth" />
         </el-form-item>
-        <el-form-item label="补贴比例">
-          <el-input-number v-model="editForm.subsidyRatio" :min="0" :max="100" :precision="2" class="selWidth" />
-          <span class="unit">%</span>
+        <el-form-item label="联系方式">
+          <el-input v-model.trim="editForm.contactPhone" maxlength="32" class="selWidth" />
         </el-form-item>
         <el-form-item label="合作期">
           <el-date-picker
@@ -261,13 +269,39 @@
     </el-dialog>
 
     <el-dialog title="代理交接" :visible.sync="handoverDialog" width="520px">
-      <div class="tips">现任代理有待结算收益时不允许交接，必须先结清。待结算金额需要从结算侧核对后填入。</div>
+      <div class="tips">
+        交接后原代理立即失去代理端全部功能，历史订单仍按当时快照结算、<b>不回溯改算</b>。
+        <br />
+        ⚠️ 现任的<b>待结算收益不会自动校验</b> —— 后端那道「未结清不允许交接」的判定要传入待结算金额，
+        而代理侧目前没有余额表（只有资金流水），这里传不出真实数字。交接前请先人工确认已结清。
+      </div>
       <el-form ref="handoverForm" :model="handoverForm" :rules="handoverRules" label-width="130px" size="small">
-        <el-form-item label="新代理 uid" prop="newAgentUid">
-          <el-input-number v-model="handoverForm.newAgentUid" :min="1" :controls="false" class="selWidth" />
-        </el-form-item>
-        <el-form-item label="现任待结算(元)">
-          <el-input-number v-model="handoverForm.pendingSettleYuan" :min="0" :precision="2" class="selWidth" />
+        <el-form-item label="区域">{{ handoverForm.regionName }}（{{ handoverForm.regionCode }}）</el-form-item>
+        <el-form-item label="现任代理">{{ handoverForm.currentAgent }}</el-form-item>
+        <el-form-item label="新代理账号" prop="newAgentUid">
+          <el-select
+            v-model="handoverForm.newAgentUid"
+            filterable
+            remote
+            clearable
+            reserve-keyword
+            class="selWidth"
+            placeholder="搜新代理本人的小程序昵称 / 手机号"
+            :remote-method="searchAgentUser"
+            :loading="uidChecking"
+          >
+            <el-option
+              v-for="u in userOptions"
+              :key="u.uid"
+              :label="`${u.nickname || '（未设昵称）'}　${u.phone}　uid ${u.uid}`"
+              :value="u.uid"
+              :disabled="!u.valid"
+            />
+          </el-select>
+          <div class="uid-hint">
+            同样是他登录微信小程序的那个账号，必须先注册/登录过才搜得到。
+            交接后原代理立即失去代理端全部功能，历史订单仍按当时快照结算、不回溯改算。
+          </div>
         </el-form-item>
         <el-form-item label="交接原因" prop="reason">
           <el-input v-model.trim="handoverForm.reason" type="textarea" :rows="3" maxlength="200" show-word-limit />
@@ -293,7 +327,7 @@ import {
   getAgentList,
   updateRegionAgent,
   disableRegionAgent,
-  getUserBrief,
+  searchUser,
 } from '@/api/alliance';
 
 const cityListTree = () => request({ url: '/admin/merchant/city/region/city/tree', method: 'get' });
@@ -309,12 +343,10 @@ export default {
       agentTotal: 0,
       // agentUid -> {nickname, phone, valid}，由列表接口一次性带回来
       agentUsers: {},
-      uidBrief: null,
       uidChecking: false,
       listQuery: { regionPrefix: '', agentUid: undefined, includeInactive: false, page: 1, size: 20 },
       cityOptions: [],
       cascaderProps: { value: 'id', label: 'name', children: 'child', checkStrictly: true, emitPath: true },
-      regionIds: [],
       regionCode: '',
       regionName: '',
       regionPath: '',
@@ -323,20 +355,30 @@ export default {
       assignments: [],
       agentDialog: false,
       // term 是 [开始, 结束] 的数组，提交时才拆成两个字段；留空即长期有效
-      agentForm: { agentUid: undefined, contractNo: '', subsidyRatio: 0, term: null },
+      // 区域在弹窗里自己选：页面上方不再有全局的区域选择器
+      agentForm: {
+        regionIds: [], regionCode: '', regionName: '', regionPath: '',
+        agentUid: undefined, contactName: '', contactPhone: '', term: null,
+      },
+      // 搜出来的候选用户，只服务于开通弹窗里的那个下拉
+      userOptions: [],
       editDialog: false,
+      // contractNo / subsidyRatio 不在界面上，但要原样带回提交 ——
+      // 不传的话后端会当成「清空」，把存量的合同号抹掉
       editForm: {
         id: null, regionCode: '', regionName: '', agentUid: null, agentName: '',
-        contractNo: '', subsidyRatio: 0, term: null,
+        contactName: '', contactPhone: '', contractNo: '', subsidyRatio: 0, term: null,
       },
       agentRules: {
-        agentUid: [{ required: true, message: '请填写代理 uid', trigger: 'blur' }],
-        contractNo: [{ required: true, message: '请填写签约合同号', trigger: 'blur' }],
+        regionCode: [{ required: true, message: '请选择省/市/区', trigger: 'change' }],
+        agentUid: [{ required: true, message: '请搜索并选择代理账号', trigger: 'change' }],
+        contactName: [{ required: true, message: '请填写联系人', trigger: 'blur' }],
+        contactPhone: [{ required: true, message: '请填写联系方式', trigger: 'blur' }],
       },
       handoverDialog: false,
-      handoverForm: { newAgentUid: undefined, pendingSettleYuan: 0, reason: '' },
+      handoverForm: { regionCode: '', regionName: '', currentAgent: '', newAgentUid: undefined, reason: '' },
       handoverRules: {
-        newAgentUid: [{ required: true, message: '请填写新代理 uid', trigger: 'blur' }],
+        newAgentUid: [{ required: true, message: '请搜索并选择新代理账号', trigger: 'change' }],
         reason: [{ required: true, message: '请填写交接原因', trigger: 'blur' }],
       },
     };
@@ -437,14 +479,21 @@ export default {
       const u = this.agentUsers[row.agentUid];
       return u ? u.phone : '';
     },
-    async lookupAgentUser(uid) {
-      this.uidBrief = null;
-      if (!uid) return;
+    /**
+     * 远程搜候选代理。keyword 是纯数字时后端会同时按 uid 精确匹配和手机号前缀试，
+     * 所以运营手上只有 uid 也照样搜得到。
+     */
+    async searchAgentUser(keyword) {
+      if (!keyword || !keyword.trim()) {
+        this.userOptions = [];
+        return;
+      }
       this.uidChecking = true;
       try {
-        this.uidBrief = await getUserBrief(uid);
+        const res = await searchUser(keyword.trim(), 10);
+        this.userOptions = Array.isArray(res) ? res : [];
       } catch (e) {
-        this.uidBrief = null;
+        this.userOptions = [];
       } finally {
         this.uidChecking = false;
       }
@@ -472,6 +521,8 @@ export default {
         regionCode: row.regionCode,
         regionName: row.regionName,
         agentUid: row.agentUid,
+        contactName: row.contactName || '',
+        contactPhone: row.contactPhone || '',
         contractNo: row.contractNo || '',
         subsidyRatio: Number(row.subsidyRatio) || 0,
         term: row.startTime && row.endTime ? [row.startTime, row.endTime] : null,
@@ -483,6 +534,8 @@ export default {
       try {
         await updateRegionAgent(this.editForm.id, {
           contractNo: this.editForm.contractNo,
+          contactName: this.editForm.contactName,
+          contactPhone: this.editForm.contactPhone,
           subsidyRatio: this.editForm.subsidyRatio,
           startTime: this.termStart(this.editForm.term),
           endTime: this.termEnd(this.editForm.term),
@@ -496,6 +549,13 @@ export default {
       } finally {
         this.saving = false;
       }
+    },
+    /**
+     * 状态开关。只有「生效 → 停用」这一个方向，反向拨不回来 ——
+     * 停用会腾出该区名额，这期间可能已经开了新代理。
+     */
+    onToggleStatus(row) {
+      this.onDisable(row);
     },
     async onDisable(row) {
       try {
@@ -534,19 +594,6 @@ export default {
         if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
       });
     },
-    onRegionChange(ids) {
-      if (!ids || !ids.length) {
-        this.regionCode = '';
-        this.regionName = '';
-        this.regionPath = '';
-        this.resetResult();
-        return;
-      }
-      this.regionCode = String(ids[ids.length - 1]);
-      this.regionPath = ids.join(',');
-      this.regionName = this.pathNames(ids).join('/');
-      this.loadAll();
-    },
     pathNames(ids) {
       const names = [];
       let level = this.cityOptions;
@@ -558,11 +605,6 @@ export default {
         }
       });
       return names;
-    },
-    resetResult() {
-      this.agent = null;
-      this.queue = [];
-      this.assignments = [];
     },
     async loadAll() {
       if (!this.regionCode) return;
@@ -588,14 +630,28 @@ export default {
       return { 0: 'warning', 1: 'success', 2: 'info', 3: 'danger' }[s] || 'info';
     },
     openAgentDialog() {
-      if (this.agent) {
-        this.$message.warning('该区域已有生效代理，新申请人请走候补队列');
-        return;
-      }
-      this.agentForm = { agentUid: undefined, contractNo: '', subsidyRatio: 0, term: null };
-      this.uidBrief = null;
+      // 「该区已有代理」不在这里拦：弹窗打开时还没选区，无从判断。
+      // 后端有 uk_region_active 唯一索引兜底，会返回 REGION_AGENT_EXISTS，
+      // 拦截器直接把「现任代理 uid=x」弹出来，比前端猜一遍更准
+      this.agentForm = {
+        regionIds: [], regionCode: '', regionName: '', regionPath: '',
+        agentUid: undefined, contactName: '', contactPhone: '', term: null,
+      };
+      this.userOptions = [];
       this.agentDialog = true;
       this.$nextTick(() => this.$refs.agentForm && this.$refs.agentForm.clearValidate());
+    },
+    onAgentRegionChange(ids) {
+      if (!ids || !ids.length) {
+        this.agentForm.regionCode = '';
+        this.agentForm.regionName = '';
+        this.agentForm.regionPath = '';
+        return;
+      }
+      // regionCode 取末级 id，regionPath 是逗号分隔的整条 id 路径，与后端约定一致
+      this.agentForm.regionCode = String(ids[ids.length - 1]);
+      this.agentForm.regionPath = ids.join(',');
+      this.agentForm.regionName = this.pathNames(ids).join('/');
     },
     submitOpen() {
       this.$refs.agentForm.validate(async (valid) => {
@@ -603,17 +659,21 @@ export default {
         this.saving = true;
         try {
           await openRegionAgent({
-            regionCode: this.regionCode,
-            regionName: this.regionName,
-            regionPath: this.regionPath,
+            regionCode: this.agentForm.regionCode,
+            regionName: this.agentForm.regionName,
+            regionPath: this.agentForm.regionPath,
             agentUid: this.agentForm.agentUid,
-            contractNo: this.agentForm.contractNo,
-            subsidyRatio: this.agentForm.subsidyRatio,
+            contactName: this.agentForm.contactName,
+            contactPhone: this.agentForm.contactPhone,
             startTime: this.termStart(this.agentForm.term),
             endTime: this.termEnd(this.agentForm.term),
           });
           this.$message.success('开通成功');
           this.agentDialog = false;
+          // 顺手把下方详情切到刚开通的这个区，省得再回列表点一次「查看」
+          this.regionCode = this.agentForm.regionCode;
+          this.regionName = this.agentForm.regionName;
+          this.regionPath = this.agentForm.regionPath;
           this.loadAll();
           this.loadAgentList(1);
         } catch (e) {
@@ -638,8 +698,17 @@ export default {
         /* 拦截器已弹过错误 */
       }
     },
-    openHandoverDialog() {
-      this.handoverForm = { newAgentUid: undefined, pendingSettleYuan: 0, reason: '' };
+    openHandoverDialog(row) {
+      // 区域从行上带，不再依赖下方详情选中的那个区
+      this.handoverForm = {
+        regionCode: row.regionCode,
+        regionName: row.regionName || '',
+        currentAgent: `${this.agentName(row)}（uid ${row.agentUid}）`,
+        newAgentUid: undefined,
+        reason: '',
+      };
+      // 两个弹窗共用这一份候选，开之前清掉，免得带着上次开通时搜的人
+      this.userOptions = [];
       this.handoverDialog = true;
       this.$nextTick(() => this.$refs.handoverForm && this.$refs.handoverForm.clearValidate());
     },
@@ -649,16 +718,19 @@ export default {
         this.saving = true;
         try {
           await handoverRegionAgent({
-            regionCode: this.regionCode,
+            regionCode: this.handoverForm.regionCode,
             newAgentUid: this.handoverForm.newAgentUid,
             reason: this.handoverForm.reason,
-            // 后端金额单位是分，页面按元填，这里换算并取整，避免浮点尾数
-            pendingSettleAmount: Math.round((this.handoverForm.pendingSettleYuan || 0) * 100),
+            // 待结算金额不再由页面填。后端拿它做「未结清不允许交接」的判定，
+            // 传 0 等于这道判定不生效 —— 代理侧没有余额表，前端拿不到真实数字，
+            // 让人手填反而更糟：填错就是绕过校验，还留下一条像是核对过的记录。
+            // 补上 §8.4 的代理账户表后改成后端自己算，不再走入参
+            pendingSettleAmount: 0,
           });
           this.$message.success('交接完成');
           this.handoverDialog = false;
-          this.loadAll();
           this.loadAgentList(this.listQuery.page);
+          if (this.regionCode === this.handoverForm.regionCode) this.loadAll();
         } catch (e) {
           /* 拦截器已弹过错误 */
         } finally {
@@ -686,6 +758,9 @@ export default {
 .sub-line {
   color: #999;
   font-size: 12px;
+}
+.ml6 {
+  margin-left: 6px;
 }
 .uid-hint {
   font-size: 12px;

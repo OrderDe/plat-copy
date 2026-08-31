@@ -37,6 +37,30 @@ const distributionRouter = {
       meta: { title: '佣金规则', icon: '' },
     },
     {
+      path: 'alliance/leader',
+      component: () => import('@/views/distribution/alliance/leader/index'),
+      name: 'allianceLeader',
+      meta: { title: '团长业绩', icon: '' },
+    },
+    {
+      path: 'alliance/commission',
+      component: () => import('@/views/distribution/alliance/commission/index'),
+      name: 'allianceCommission',
+      meta: { title: '分账明细', icon: '' },
+    },
+    {
+      path: 'alliance/points',
+      component: () => import('@/views/distribution/alliance/points/index'),
+      name: 'alliancePoints',
+      meta: { title: '积分对账', icon: '' },
+    },
+    {
+      path: 'alliance/verify',
+      component: () => import('@/views/distribution/alliance/verify/index'),
+      name: 'allianceVerifyRecords',
+      meta: { title: '核销记录', icon: '' },
+    },
+    {
       path: 'alliance/risk',
       component: () => import('@/views/distribution/alliance/risk/index'),
       name: 'allianceRisk',

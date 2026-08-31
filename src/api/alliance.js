@@ -62,6 +62,16 @@ export function updateRegionAgent(id, data) {
 }
 
 /**
+ * 按昵称 / 手机号 / uid 搜商城用户，开通代理时挑人用。
+ *
+ * 代理 uid 必须是真实存在的商城用户 —— 代理靠它登录小程序审批团长、看分成。
+ * 让运营手打一个数字必然抄错，抄错就是一条没人能登录的空壳记录。
+ */
+export function searchUser(keyword, limit = 10) {
+  return request({ url: '/api/platform/user/search', method: 'get', params: { keyword, limit }, baseURL });
+}
+
+/**
  * 按 uid 查用户，开通代理时确认「这个 uid 是谁」。
  *
  * 返回 valid=false 表示查无此人或账号已注销/禁用 —— 这种 uid 存进去就是一条
@@ -162,4 +172,57 @@ export function getAllianceConfig() {
 /** 更新单个配置并立即生效 */
 export function updateAllianceConfig(key, value) {
   return request({ url: '/api/platform/config', method: 'post', params: { key, value }, baseURL });
+}
+
+// ===================== 平台报表 =====================
+//
+// 以下六个都是「不限本人 / 不限本区」的全量查询，只有平台端能调。
+// 代理端与团长端的同类接口一律带范围过滤，拿来做平台报表会少一大截数据。
+//
+// 统一返回 { total, list, users }：users 是 uid -> { nickname, phone, valid } 的字典，
+// 后端一次性补齐，页面别再逐行去查用户。查不到的 uid 不在字典里，显示「查无此人」。
+
+/**
+ * 全平台团长分页。
+ *
+ * regionPrefix 是行政区划编码前缀；auditStatus：0-待审 1-通过 2-驳回。
+ * 默认不限审批状态 —— 被驳回和被否决的那些也要看得见。
+ */
+export function getLeaderList(params) {
+  return request({ url: '/api/platform/leaders', method: 'get', params, baseURL });
+}
+
+/** 全平台团长申请分页，含待抽查。抽查否决从这个列表选单 */
+export function getLeaderApplyList(params) {
+  return request({ url: '/api/platform/leader/applies', method: 'get', params, baseURL });
+}
+
+/**
+ * 全平台分成明细分页。
+ *
+ * role：LEADER 团长侧 / AGENT 收货地代理 / AGENT_ORIGIN 招募代理。
+ * 跨区订单里 AGENT 与 AGENT_ORIGIN 是两个不同的人，各占一行。
+ */
+export function getCommissionList(params) {
+  return request({ url: '/api/platform/commissions', method: 'get', params, baseURL });
+}
+
+/** 积分账户分页，按可用余额倒序 */
+export function getPointsAccounts(params) {
+  return request({ url: '/api/platform/points/accounts', method: 'get', params, baseURL });
+}
+
+/** 积分账本分页。账本不可变，冲正是另写一行，所以按时间求和就是那段时间的净额 */
+export function getPointsLedger(params) {
+  return request({ url: '/api/platform/points/ledger', method: 'get', params, baseURL });
+}
+
+/** 全平台核销单分页。merchantId 留空即查全平台 */
+export function getVerifyRecords(params) {
+  return request({ url: '/api/platform/verify/records', method: 'get', params, baseURL });
+}
+
+/** 指定商户的经营概览。商户端同名接口只能看自己 */
+export function getMerchantOverview(merchantId) {
+  return request({ url: '/api/platform/merchant/overview', method: 'get', params: { merchantId }, baseURL });
 }
