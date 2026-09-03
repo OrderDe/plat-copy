@@ -196,6 +196,12 @@ const warehouseRouter = {
           meta: { title: '库存管理' },
         },
         {
+          path: '/warehouse/stock-expired',
+          component: () => import('@/views/warehouse/stockExpired/index'),
+          name: 'WarehouseStockExpired',
+          meta: { title: '过期库存' },
+        },
+        {
           path: '/warehouse/stock-record',
           component: () => import('@/views/warehouse/record/index'),
           name: 'WarehouseStockRecord',

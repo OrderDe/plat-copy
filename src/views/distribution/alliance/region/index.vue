@@ -15,7 +15,7 @@
             @keyup.enter.native="loadAgentList(1)"
           />
         </el-form-item>
-        <el-form-item label="代理 uid">
+        <el-form-item label="代理账号">
           <el-input-number
             v-model="listQuery.agentUid"
             :min="1"
@@ -39,7 +39,7 @@
         <el-table-column label="代理" min-width="170">
           <template slot-scope="{ row }">
             <div>{{ agentName(row) }}</div>
-            <div class="sub-line">uid {{ row.agentUid }}{{ agentPhone(row) ? ' · ' + agentPhone(row) : '' }}</div>
+            <div v-if="agentPhone(row)" class="sub-line">{{ agentPhone(row) }}</div>
           </template>
         </el-table-column>
         <el-table-column label="联系人" min-width="150">
@@ -48,7 +48,12 @@
             <div v-if="row.contactPhone" class="sub-line">{{ row.contactPhone }}</div>
           </template>
         </el-table-column>
-        <el-table-column prop="leaderCount" label="名下团长" width="90" />
+        <el-table-column label="名下团长" width="120">
+          <template slot-scope="{ row }">
+            <span>{{ row.leaderCount || 0 }}</span>
+            <el-button type="text" size="small" class="ml6" @click="viewLeaders(row)">查看</el-button>
+          </template>
+        </el-table-column>
         <el-table-column label="合作期" min-width="200">
           <template slot-scope="{ row }">{{ termText(row) }}</template>
         </el-table-column>
@@ -97,14 +102,18 @@
       </div>
     </el-card>
 
-    <el-card class="box-card mt16" shadow="never" :bordered="false" v-loading="loading">
+    <el-card v-if="regionCode" class="box-card mt16" shadow="never" :bordered="false" v-loading="loading">
       <div slot="header">当前生效代理</div>
       <el-form v-if="agent" label-width="110px" class="agent-detail">
         <el-row>
-          <el-col :span="8"><el-form-item label="代理 uid：">{{ agent.agentUid || '-' }}</el-form-item></el-col>
           <el-col :span="8"><el-form-item label="联系人：">{{ agent.contactName || '-' }}</el-form-item></el-col>
           <el-col :span="8"><el-form-item label="联系方式：">{{ agent.contactPhone || '-' }}</el-form-item></el-col>
-          <el-col :span="8"><el-form-item label="名下团长数：">{{ agent.leaderCount || 0 }}</el-form-item></el-col>
+          <el-col :span="8">
+            <el-form-item label="名下团长数：">
+              <span>{{ agent.leaderCount || 0 }}</span>
+              <el-button type="text" size="small" class="ml6" @click="viewLeaders(agent)">查看</el-button>
+            </el-form-item>
+          </el-col>
           <el-col :span="8"><el-form-item label="状态：">
             <el-tag :type="agent.status === 1 ? 'success' : 'info'" size="mini">
               {{ agent.status === 1 ? '生效' : '已失效' }}
@@ -116,11 +125,10 @@
       <div v-else class="empty">{{ regionCode ? '该区域暂无生效代理，团长申请将由平台兜底审批' : '请在上方列表点「查看」选一个区域' }}</div>
     </el-card>
 
-    <el-card class="box-card mt16" shadow="never" :bordered="false" v-loading="loading">
+    <el-card v-if="regionCode && queue.length" class="box-card mt16" shadow="never" :bordered="false" v-loading="loading">
       <div slot="header">候补队列</div>
       <el-table :data="queue" size="small" border>
         <el-table-column prop="id" label="ID" width="70" />
-        <el-table-column prop="applicantUid" label="申请人 uid" width="110" />
         <el-table-column prop="realName" label="姓名" min-width="100" />
         <el-table-column prop="phone" label="手机号" min-width="120" />
         <el-table-column prop="description" label="说明" min-width="160" show-overflow-tooltip />
@@ -138,14 +146,13 @@
       </el-table>
     </el-card>
 
-    <el-card class="box-card mt16" shadow="never" :bordered="false" v-loading="loading">
+    <el-card v-if="regionCode && assignments.length" class="box-card mt16" shadow="never" :bordered="false" v-loading="loading">
       <div slot="header">
         历史归属版本
         <span class="sub">交接会让版本号递增，历史订单按当时的版本追溯归属，不回溯改算</span>
       </div>
       <el-table :data="assignments" size="small" border>
         <el-table-column prop="version" label="版本" width="70" />
-        <el-table-column prop="agentUid" label="代理 uid" width="110" />
         <el-table-column prop="agentId" label="代理记录 ID" width="120" />
         <el-table-column prop="regionPath" label="区域路径" min-width="140" />
         <el-table-column prop="startTime" label="生效时间" min-width="150" />
@@ -197,7 +204,7 @@
             <el-option
               v-for="u in userOptions"
               :key="u.uid"
-              :label="`${u.nickname || '（未设昵称）'}　${u.phone}　uid ${u.uid}`"
+              :label="`${u.nickname || '（未设昵称）'}　${u.phone || ''}`"
               :value="u.uid"
               :disabled="!u.valid"
             />
@@ -243,7 +250,7 @@
       </div>
       <el-form ref="editForm" :model="editForm" label-width="110px" size="small">
         <el-form-item label="区域">{{ editForm.regionName }}（{{ editForm.regionCode }}）</el-form-item>
-        <el-form-item label="代理">{{ editForm.agentName }}（uid {{ editForm.agentUid }}）</el-form-item>
+        <el-form-item label="代理">{{ editForm.agentName }}</el-form-item>
         <el-form-item label="联系人">
           <el-input v-model.trim="editForm.contactName" maxlength="32" class="selWidth" />
         </el-form-item>
@@ -293,7 +300,7 @@
             <el-option
               v-for="u in userOptions"
               :key="u.uid"
-              :label="`${u.nickname || '（未设昵称）'}　${u.phone}　uid ${u.uid}`"
+              :label="`${u.nickname || '（未设昵称）'}　${u.phone || ''}`"
               :value="u.uid"
               :disabled="!u.valid"
             />
@@ -560,7 +567,7 @@ export default {
     async onDisable(row) {
       try {
         await this.$confirm(
-          `确认停用 ${row.regionName || row.regionCode} 的代理（uid ${row.agentUid}）？` +
+          `确认停用 ${row.regionName || row.regionCode} 的代理？` +
             '停用后该代理端全部功能立即不可用，该区名额释放，可重新开通或从候补队列启用。' +
             '历史分账记录不受影响。',
           '提示',
@@ -592,6 +599,17 @@ export default {
       this.$nextTick(() => {
         const el = this.$el.querySelector('.agent-detail') || this.$el;
         if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+    },
+    viewLeaders(row) {
+      const agentId = row && row.id;
+      if (!agentId) {
+        this.$message.warning('未找到代理记录，无法查看名下团长');
+        return;
+      }
+      this.$router.push({
+        name: 'allianceLeader',
+        query: { agentId: String(agentId) },
       });
     },
     pathNames(ids) {
@@ -685,7 +703,7 @@ export default {
     },
     async onEnable(row) {
       try {
-        await this.$confirm(`确认从候补队列启用 uid ${row.applicantUid} 为该区代理？`, '提示', { type: 'warning' });
+        await this.$confirm('确认从候补队列启用该申请人为该区代理？', '提示', { type: 'warning' });
       } catch (e) {
         return;
       }
@@ -703,7 +721,7 @@ export default {
       this.handoverForm = {
         regionCode: row.regionCode,
         regionName: row.regionName || '',
-        currentAgent: `${this.agentName(row)}（uid ${row.agentUid}）`,
+        currentAgent: this.agentName(row),
         newAgentUid: undefined,
         reason: '',
       };

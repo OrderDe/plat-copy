@@ -511,6 +511,8 @@ import { formatDateTime } from '../components/dateTime';
 
 const WAVE_MASTER_DEFAULT_WIDTH = 400;
 const WAVE_MASTER_STORAGE_KEY = 'warehouse-wave-master-width';
+// 调拨/报损/领用出库由源单直接扣账，只作凭证，不能进入普通销售波次。
+const SOURCE_DOC_TYPES = [1, 2, 3];
 
 export default {
   name: 'WarehouseWave',
@@ -705,12 +707,15 @@ export default {
       if (!this.buildForm.warehouseId) return;
       // notInWave：已进过波次的单不能再组，列出来只会让人白勾一次
       const r = await outboundApi.page({ page: 1, limit: 200, warehouseId: this.buildForm.warehouseId, status: 0, notInWave: true });
-      this.candidates = (r && r.list) || [];
+      // 后端已按 notInWave 过滤，这里再做一次类型兜底，兼容旧服务或缓存接口返回的源单凭证。
+      this.candidates = ((r && r.list) || []).filter((row) => !SOURCE_DOC_TYPES.includes(Number(row.type)));
     },
     // release=true 时组完直接释放，省掉「建草稿 → 找到它 → 再点释放」三步
     async onBuildSubmit(release) {
       if (!this.buildForm.warehouseId) return this.$message.warning('请选择仓库');
       if (!this.selectedOutbounds.length) return this.$message.warning('请勾选出库单');
+      const sourceDoc = this.selectedOutbounds.find((row) => SOURCE_DOC_TYPES.includes(Number(row.type)));
+      if (sourceDoc) return this.$message.warning(`出库单 ${sourceDoc.code || sourceDoc.id} 是源单凭证，不能进入波次`);
       this.saving = true;
       try {
         const wave = await waveApi.build({ ...this.buildForm, outboundIds: this.selectedOutbounds.map(x => x.id) });

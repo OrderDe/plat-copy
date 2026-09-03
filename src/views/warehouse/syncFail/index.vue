@@ -6,6 +6,7 @@
         <div class="alert-body">
           <div>· <b>售后退货入库</b>：商家确认收货、钱已经退了，但退回的货没同步进仓储库存 —— 可一键重试</div>
           <div>· <b>订单发货出库</b>：商城已发货、物流单已下，但仓储库存没扣 —— 只能人工核对</div>
+          <div>· <b>私域渠道订单 WMS 建单</b>：出库草稿未创建成功 —— 可安全重试，成功后自动结案</div>
           <div class="alert-note">
             主流程（发货、退款）不会因为同步失败而回滚：钱和物流已经动了，回滚代价更大。
             这里的每一条都代表<b>一笔账实不符</b>，不处理会一直存在，只能靠盘点冲掉。
@@ -21,6 +22,7 @@
           <el-select v-model="query.bizType" clearable placeholder="全部" style="width:170px" @change="onSearch">
             <el-option label="售后退货入库" value="REFUND_INBOUND" />
             <el-option label="订单发货出库" value="ORDER_SHIP" />
+            <el-option label="私域渠道订单 WMS 建单" value="CHANNEL_ORDER_SHIP" />
           </el-select>
         </el-form-item>
         <el-form-item label="处理状态">
@@ -70,9 +72,9 @@
         <el-table-column label="操作" width="210" fixed="right">
           <template slot-scope="{row}">
             <el-button type="text" @click="openDetail(row)">详情</el-button>
-            <!-- 只有退货入库能一键重试：发货出库在仓储侧没有幂等键，重放会二次扣库存 -->
+            <!-- 退货入库和私域渠道 WMS 建单均按业务单号幂等；普通商城发货不允许重放 -->
             <el-button
-              v-if="row.status === 0 && row.bizType === 'REFUND_INBOUND'"
+              v-if="row.status === 0 && ['REFUND_INBOUND', 'CHANNEL_ORDER_SHIP'].includes(row.bizType)"
               type="text" :loading="retryingId === row.id" @click="onRetry(row)"
             >重试</el-button>
             <!-- 发货异常：货发不出去时的兜底出口，退款成功后记录自动结案 -->
@@ -128,7 +130,11 @@ export default {
       loading: false, batchRetrying: false, retryingId: null,
       list: [], total: 0,
       query: { page: 1, limit: 20, bizNo: '', bizType: null, status: 0 },
-      bizTypeMap: { REFUND_INBOUND: '售后退货入库', ORDER_SHIP: '订单发货出库' },
+      bizTypeMap: {
+        REFUND_INBOUND: '售后退货入库',
+        ORDER_SHIP: '订单发货出库',
+        CHANNEL_ORDER_SHIP: '私域渠道订单 WMS 建单',
+      },
       statusMap: { 0: '待处理', 1: '已处理', 2: '已忽略' },
       detailVisible: false, current: {},
     };
@@ -161,7 +167,7 @@ export default {
       this.retryingId = row.id;
       try {
         const code = await syncFailApi.retry(row.id, this.operator());
-        this.$message.success(`重试成功，入库单 ${code}`);
+        this.$message.success(`重试成功，${row.bizType === 'CHANNEL_ORDER_SHIP' ? '出库单' : '入库单'} ${code}`);
         this.load();
       } finally { this.retryingId = null; }
     },
@@ -187,7 +193,7 @@ export default {
       );
       await syncFailApi.refund(row.id, this.operator());
       this.$message.success('退款成功，该异常已结案');
-      this.loadPage();
+      this.load();
     },
     async onHandle(row, status) {
       const title = status === 1 ? '标记已处理' : '忽略';

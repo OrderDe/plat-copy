@@ -115,6 +115,7 @@
           <el-table-column label="商品ID" width="110">
             <template slot-scope="{row}"><el-input v-model="row.productId" size="mini" readonly /></template>
           </el-table-column>
+          <slot name="item-columns" :form="form" />
           <el-table-column :label="qtyLabel" width="130">
             <template slot-scope="{row}">
               <el-input-number v-model="row[qtyField]" :min="1" :precision="0" step-strictly v-int-only size="mini" controls-position="right" />

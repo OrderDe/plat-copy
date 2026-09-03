@@ -124,6 +124,7 @@ export const reviewApi = {
 export const stockApi = {
   page: (data) => request({ url: '/api/warehouse/stock/page', method: 'post', data, baseURL }),
   pageAgg: (data) => request({ url: '/api/warehouse/stock/pageAgg', method: 'post', data, baseURL }),
+  pageExpired: (data) => request({ url: '/api/warehouse/stock/pageExpired', method: 'post', data, baseURL }),
   distribution: (params) => request({ url: '/api/warehouse/stock/distribution', method: 'get', params, baseURL }),
   adjust: (params) => request({ url: '/api/warehouse/stock/adjust', method: 'post', params, baseURL }),
   updateWarn: (id, warnNum) => request({ url: `/api/warehouse/stock/update/warn/${id}`, method: 'post', params: { warnNum }, baseURL }),

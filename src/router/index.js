@@ -13,6 +13,7 @@ import productRouter from './modules/product';
 import orderRouter from './modules/order';
 import userRouter from './modules/user';
 import distributionRouter from './modules/distribution';
+import channelRouter from './modules/channel';
 import marketingRouter from './modules/marketing';
 import financeRouter from './modules/finance';
 import operationRouter from './modules/operation';
@@ -66,6 +67,8 @@ export const constantRoutes = [
   userRouter,
   // 分销
   distributionRouter,
+  // 第三方私域渠道订单
+  channelRouter,
   // 营销
   marketingRouter,
   // 财务

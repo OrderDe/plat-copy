@@ -66,8 +66,8 @@
               <b :class="{ 'warn-stock': (row.warnNum||0) > 0 && (row.availableNum||0) <= row.warnNum }">{{ row.stockNum || 0 }}</b>
             </div>
             <div class="stock-metric stock-metric--available">
-              <span>可用</span>
-              <b>{{ row.availableNum || 0 }}</b>
+              <span>可发</span>
+              <b>{{ row.sellableAvailableNum != null ? row.sellableAvailableNum : (row.availableNum || 0) }}</b>
               <!-- 账面可用里有一部分在待检/隔离区或被盘点锁着，出库根本取不出来。
                    不标出来的话，操作员照着「可用」去建出库单会被后端拒，
                    而且提示的数字比这里小，差额无从解释 -->
@@ -76,7 +76,7 @@
                 :content="`其中 ${blockedStock(row)} 件在待检/隔离库位或盘点锁定中，出库取不出来`"
                 placement="top"
               >
-                <em class="warn-stock">可发 {{ row.sellableAvailableNum }}</em>
+                <em class="warn-stock">账面可用 {{ row.availableNum || 0 }}，可发 {{ row.sellableAvailableNum || 0 }}</em>
               </el-tooltip>
             </div>
             <div class="stock-metric stock-metric--occupied">
@@ -161,7 +161,7 @@
           <span :class="{ 'warn-stock': (row.warnNum||0) > 0 && (row.availableNum||0) <= row.warnNum }">{{ row.stockNum }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="可用" width="80"><template slot-scope="{row}"><b class="text-success">{{ row.availableNum || 0 }}</b></template></el-table-column>
+      <el-table-column label="可发" width="80"><template slot-scope="{row}"><b class="text-success">{{ row.sellableAvailableNum != null ? row.sellableAvailableNum : (row.availableNum || 0) }}</b></template></el-table-column>
       <el-table-column label="预占" width="80"><template slot-scope="{row}"><span class="text-warn">{{ row.occupiedNum || 0 }}</span></template></el-table-column>
       <el-table-column label="冻结" width="80"><template slot-scope="{row}"><span class="text-danger">{{ row.frozenNum || 0 }}</span></template></el-table-column>
       <el-table-column prop="warnNum" label="预警下限" width="80" />
@@ -219,7 +219,7 @@
             </template>
           </el-table-column>
           <el-table-column prop="stockNum" label="总量" width="70" />
-          <el-table-column prop="availableNum" label="可用" width="70" />
+          <el-table-column prop="sellableAvailableNum" label="可发" width="70" />
           <el-table-column prop="occupiedNum" label="预占" width="70" />
           <el-table-column prop="frozenNum" label="冻结" width="70" />
           <el-table-column label="更新时间" min-width="150">

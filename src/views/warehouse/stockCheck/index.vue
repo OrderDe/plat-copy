@@ -136,7 +136,7 @@
             <p class="text-muted">
               打印盘点表线下盘 → 回来逐条录入实盘数量和货品状态 → 提交审批。
               损坏、缺失或其他异常必须填写反馈说明；
-              盘亏且状态为「损坏」的还要挂上对应报损单，库存由报损单扣减，盘点不再重复扣。
+              状态为「损坏」的（含实盘与账面一致的）还要挂上对应报损单，库存由报损单扣减，盘点不再重复扣。
             </p>
           </div>
           <div class="heading-actions">
@@ -776,9 +776,13 @@ export default {
       else this.loadDamageOptions(row);
     },
 
-    /** 报损且实盘少于账面时才需要挂单：盘盈没有可扣的量 */
+    /**
+     * 标了损坏就要挂报损单，差异为 0 也不例外 ——
+     * 坏货被算进了实盘数还躺在库位上，盘点这行不调账，不挂单这批货就一直留在可售库存里。
+     * 只有盘盈（差异 > 0）没有可报损的量，才不要求。
+     */
     needDamage(row) {
-      return row.goodsStatus === 'DAMAGED' && this.diffOf(row) < 0;
+      return row.goodsStatus === 'DAMAGED' && this.diffOf(row) <= 0;
     },
 
     async loadDamageOptions(row) {

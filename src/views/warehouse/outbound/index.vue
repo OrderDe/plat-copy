@@ -298,7 +298,7 @@
                   <el-option
                     v-for="b in (batchOptions[batchKey(row)] || [])"
                     :key="b.id"
-                    :label="b.batchNo + '（剩' + b.remainNum + (b.expiryDate ? ' / 至' + b.expiryDate : '') + '）'"
+                    :label="b.batchNo + '（可用' + (b.availableNum != null ? b.availableNum : b.remainNum) + (b.expiryDate ? ' / 至' + b.expiryDate : '') + '）'"
                     :value="b.id"
                   />
                 </el-select>

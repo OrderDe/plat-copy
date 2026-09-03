@@ -320,8 +320,10 @@ export default {
      * locationId 为空（通用池行）或库位信息没回填时按可用算，与后端的兜底一致。
      */
     stockDeductable(stock) {
-      if (!stock || stock.locationId == null) return true;
-      if (Number(stock.locationStatus) === 2) return false;      // 盘点锁定中
+      // locationId 为空表示尚未上架的通用池库存，不能作为出库/报损/领用的可发来源。
+      if (!stock || stock.locationId == null) return false;
+      // 后端只允许启用中的库位；停用、锁定或库位已不存在都不能作为可发来源。
+      if (Number(stock.locationStatus) !== 1) return false;
       const usage = stock.locationUsageType;
       return usage == null || Number(usage) === 0;               // 只认可售区
     },

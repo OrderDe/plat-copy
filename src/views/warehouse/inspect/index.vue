@@ -545,26 +545,35 @@ export default {
      * 合格品必须落到可售区才会计入可售库存，让操作员在最右侧的列里自己找一遍太折磨人。
      * 该仓没有可售区库位时返回 null，由校验提示去配置。
      */
-    async findDefaultSellableLocation() {
+    async findDefaultSellableLocation(needQty) {
       for (const shelf of this.shelfCache) {
         if (!this.shelfIsActive(shelf)
           || shelf.type === SHELF_TYPE_RETURN || shelf.type === SHELF_TYPE_NG || shelf.type === SHELF_TYPE_QC) continue;
         await this.ensureLocations(shelf.id);
-        const hit = (this.locationCache[shelf.id] || []).find((l) => Number(l.usageType || 0) === 0 && Number(l.status) === 1);
+        const hit = (this.locationCache[shelf.id] || []).find((l) => {
+          if (Number(l.usageType || 0) !== 0 || Number(l.status) !== 1) return false;
+          if (l.remainNum == null) return true;
+          const assigned = (this.form.items || []).reduce((sum, row) => {
+            if (row.passLocationId == null || String(row.passLocationId) !== String(l.id)) return sum;
+            const qty = Number(row.qtyPass || 0);
+            return sum + (Number.isFinite(qty) && qty > 0 ? qty : 0);
+          }, 0);
+          return Number(l.remainNum) - assigned >= (Number(needQty) || 0);
+        });
         if (hit) return { shelfId: shelf.id, locationId: hit.id };
       }
       return null;
     },
     /** 给还没指定合格品库位的明细行补上默认可售库位 */
     async fillDefaultPassLocation() {
-      const need = this.form.items.filter((it) => !it.passLocationId);
+      const need = this.form.items.filter((it) => !it.passLocationId && Number(it.qtyPass || 0) > 0);
       if (!need.length) return;
-      const def = await this.findDefaultSellableLocation();
-      if (!def) return;
-      need.forEach((it) => {
+      for (const it of need) {
+        const def = await this.findDefaultSellableLocation(Number(it.qtyPass || 0));
+        if (!def) continue;
         this.$set(it, 'passShelfId', def.shelfId);
         this.$set(it, 'passLocationId', def.locationId);
-      });
+      }
     },
 
     /** 合格品只能进可售区(usageType=0)；老数据 usageType 为空按可售区处理 */

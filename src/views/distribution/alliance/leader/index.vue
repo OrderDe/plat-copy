@@ -227,6 +227,10 @@ export default {
     };
   },
   created() {
+    const agentId = Number(this.$route && this.$route.query && this.$route.query.agentId);
+    if (Number.isInteger(agentId) && agentId > 0) {
+      this.leaderQuery.agentId = agentId;
+    }
     this.loadLeaders(1);
   },
   methods: {
