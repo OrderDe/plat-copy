@@ -257,9 +257,20 @@
             </el-option>
           </el-select>
         </el-form-item>
-        <el-divider v-if="form.implemented" content-position="left" style="margin: 20px 0 12px; font-size: 12px; color: #909399;">
+
+        <el-form-item label="启用">
+          <el-switch v-model="form.enabled" />
+          <span class="tip" style="margin-left: 8px;">开启后业务侧才会走审批</span>
+        </el-form-item>
+
+        <el-divider content-position="left" style="margin: 20px 0 12px; font-size: 12px; color: #909399;">
           开发接入信息
         </el-divider>
+
+        <el-form-item label="已接入">
+          <el-switch v-model="form.implemented" />
+          <span class="tip" style="margin-left: 8px;">开发同学添加代码 hook 后勾选</span>
+        </el-form-item>
 
         <el-form-item v-if="form.implemented" label="接入位置">
           <div style="display: flex; gap: 8px;">
