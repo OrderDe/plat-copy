@@ -57,11 +57,11 @@
         <el-table-column label="接入状态" width="100" align="center">
           <template slot-scope="{ row }">
             <el-tooltip v-if="row.implemented" effect="dark" placement="top">
-              <div slot="content">代码接入位置:<br><code>{{ row.hookLocation || '(未填)' }}</code></div>
-              <el-tag size="mini" type="success"><i class="el-icon-check"></i> 已接入</el-tag>
+              <div slot="content">代码接入位置:<br><code>{{ row.hookLocation || '(未填)' }}</code><br><span>点击状态可编辑</span></div>
+              <el-tag class="scene-status-tag" size="mini" type="success" @click.native="openSceneEdit(row)"><i class="el-icon-check"></i> 已接入</el-tag>
             </el-tooltip>
-            <el-tooltip v-else effect="dark" content="业务代码没读取此场景, 配置不会生效, 请开发同学添加 hook 后勾选" placement="top">
-              <el-tag size="mini" type="info"><i class="el-icon-warning-outline"></i> 未接入</el-tag>
+            <el-tooltip v-else effect="dark" content="业务代码没读取此场景, 配置不会生效, 请开发同学添加 hook 后点击状态或编辑后勾选" placement="top">
+              <el-tag class="scene-status-tag" size="mini" type="info" @click.native="openSceneEdit(row)"><i class="el-icon-warning-outline"></i> 未接入</el-tag>
             </el-tooltip>
           </template>
         </el-table-column>
@@ -621,6 +621,7 @@ export default {
 .scene-name { font-weight: 500; }
 .scene-meta { margin-top: 2px; }
 .scene-desc { font-size: 12px; color: #909399; margin-top: 2px; }
+.scene-status-tag { cursor: pointer; }
 .mono { background: #f2f3f5; color: #606266; padding: 1px 6px; border-radius: 3px; font-size: 12px; }
 .copy-btn { margin-left: 6px; cursor: pointer; color: #909399; }
 .copy-btn:hover { color: #409EFF; }
