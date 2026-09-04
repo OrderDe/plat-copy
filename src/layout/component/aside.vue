@@ -12,7 +12,7 @@
     <el-aside class="layout-aside w100 h100">
       <Logo v-if="setShowLogo && menuList.length" />
       <el-scrollbar class="flex-auto" ref="layoutAsideRef">
-        <Vertical :menuList="menuList" />
+        <Vertical :menuList="menuList" @click.native="closeMobileDrawer" />
       </el-scrollbar>
     </el-aside>
   </el-drawer>
@@ -39,14 +39,8 @@ export default {
     // 设置左侧菜单的具体宽度
     menuList() {
       if (isPlatform) {
-        this.$store.state.user.childMenuList.length > 0
-          ? (this.$store.state.themeConfig.themeConfig.isCollapse = false)
-          : (this.$store.state.themeConfig.themeConfig.isCollapse = true);
         return this.$store.state.user.childMenuList;
       } else {
-        this.$store.state.user.circleChildMenuList.length > 0
-          ? (this.$store.state.themeConfig.themeConfig.isCollapse = false)
-          : (this.$store.state.themeConfig.themeConfig.isCollapse = true);
         return this.$store.state.user.circleChildMenuList;
       }
     },
@@ -109,6 +103,11 @@ export default {
     this.bus.$off('routesListChange');
   },
   methods: {
+    closeMobileDrawer() {
+      if (document.body.clientWidth < 1000) {
+        this.$store.state.themeConfig.themeConfig.isCollapse = false;
+      }
+    },
     getMenus() {
       this.$store.dispatch('user/getMenus');
     },

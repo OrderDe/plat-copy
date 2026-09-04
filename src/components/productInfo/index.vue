@@ -397,6 +397,7 @@ import { getListName, getFrontDomainUrl } from '@/utils/ZBKJIutil';
 import product from '@/mixins/product';
 import { defaultObj, objTitle } from '@/views/marketing/pointsMall/default';
 import { OrderSecondTypeEnum } from '@/enums/productEnums';
+import { normalizeProductId } from '@/utils/productId';
 
 export default {
   name: 'ProductProductAdd',
@@ -527,7 +528,7 @@ export default {
     if (!localStorage.getItem('merPlatProductClassify')) this.$store.dispatch('product/getAdminProductClassify');
   },
   mounted() {
-    if (this.productId) {
+    if (normalizeProductId(this.productId) !== null) {
       this.currentTab = '0';
       this.setTagsViewTitle();
     }
@@ -623,8 +624,10 @@ export default {
       return data;
     },
     setTagsViewTitle() {
+      const productId = normalizeProductId(this.productId);
+      if (productId === null) return;
       const title = this.isDisabled ? '商品详情' : '编辑商品';
-      const route = Object.assign({}, this.tempRoute, { title: `${title}-${this.$route.params.id}` });
+      const route = Object.assign({}, this.tempRoute, { title: `${title}-${productId}` });
       this.$store.dispatch('tagsView/updateVisitedView', route);
     },
     // 表单验证

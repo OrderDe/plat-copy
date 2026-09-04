@@ -42,6 +42,10 @@ export default {
   watch: {
     $route(newRoute) {
       this.headMenuNoShow = this.$route.meta.fullScreen;
+      if (document.body.clientWidth < 1000) {
+        // Mobile navigation uses el-drawer: false means the drawer is closed.
+        this.$store.state.themeConfig.themeConfig.isCollapse = false;
+      }
       const { name, query, params, meta, path } = newRoute;
       this.addTag({
         route: { name, query, params, meta, path },

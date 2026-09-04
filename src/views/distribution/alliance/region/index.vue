@@ -75,7 +75,7 @@
           </template>
         </el-table-column>
         <el-table-column prop="createTime" label="开通时间" min-width="150" />
-        <el-table-column label="操作" width="170" fixed="right">
+        <el-table-column label="操作" width="220" fixed="right">
           <template slot-scope="{ row }">
             <el-button type="text" size="small" @click="viewRegion(row)">查看</el-button>
             <el-button type="text" size="small" @click="openEditDialog(row)">修改</el-button>
@@ -85,6 +85,13 @@
               size="small"
               @click="openHandoverDialog(row)"
             >交接</el-button>
+            <el-button
+              v-if="row.status === 1 && Number(row.activeKey) === 0 && Number(row.leaderCount || 0) === 0"
+              type="text"
+              size="small"
+              class="danger-text"
+              @click="onDelete(row)"
+            >删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -334,6 +341,7 @@ import {
   getAgentList,
   updateRegionAgent,
   disableRegionAgent,
+  deleteRegionAgent,
   searchUser,
 } from '@/api/alliance';
 
@@ -563,6 +571,21 @@ export default {
      */
     onToggleStatus(row) {
       this.onDisable(row);
+    },
+    async onDelete(row) {
+      try {
+        await this.$confirm(
+          `确认删除 ${row.regionName || row.regionCode} 的区域代理记录？该区域未绑定团长，删除后可重新开通。`,
+          '提示',
+          { type: 'warning' },
+        );
+        await deleteRegionAgent(row.id);
+        this.$message.success('删除成功');
+        this.loadAgentList(this.listQuery.page);
+        if (this.regionCode === row.regionCode) this.loadAll();
+      } catch (e) {
+        // 用户取消或后端校验失败
+      }
     },
     async onDisable(row) {
       try {

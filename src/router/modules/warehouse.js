@@ -107,6 +107,12 @@ const warehouseRouter = {
           meta: { title: '出库管理' },
         },
         {
+          path: '/warehouse/channel-order',
+          component: () => import('@/views/warehouse/channelOrder/index'),
+          name: 'WarehouseChannelOrder',
+          meta: { title: '渠道订单' },
+        },
+        {
           path: '/warehouse/wave',
           component: () => import('@/views/warehouse/wave/index'),
           name: 'WarehouseWave',

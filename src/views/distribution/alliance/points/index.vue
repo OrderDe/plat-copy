@@ -12,8 +12,8 @@
         <!-- ============ 账户 ============ -->
         <el-tab-pane label="积分账户" name="account">
           <el-form inline size="small" @submit.native.prevent>
-            <el-form-item label="用户uid">
-              <el-input v-model.number="accountQuery.uid" clearable class="selWidthSm" />
+            <el-form-item label="联系方式">
+              <el-input v-model.trim="accountQuery.contact" placeholder="手机号" clearable class="selWidthSm" />
             </el-form-item>
             <el-form-item>
               <el-button type="primary" @click="loadAccounts(1)">查询</el-button>
@@ -161,6 +161,7 @@ const SOURCE = {
   CONSUME_REBATE: '消费返积分',
   VERIFY_FREEZE: '核销冻结',
   VERIFY_DEDUCT: '核销抵扣',
+  LEADER_POINTS_TRANSFER: '积分核销转入团长',
   MANUAL: '人工调整',
   REVERSAL: '冲正',
 };
@@ -178,7 +179,7 @@ export default {
       accountList: [],
       accountUsers: {},
       accountTotal: 0,
-      accountQuery: { uid: null, page: 1, size: 20 },
+      accountQuery: { contact: '', page: 1, size: 20 },
 
       ledgerLoading: false,
       ledgerList: [],
@@ -242,7 +243,7 @@ export default {
       this.loadAccounts(1);
     },
     resetAccounts() {
-      this.accountQuery = { uid: null, page: 1, size: 20 };
+      this.accountQuery = { contact: '', page: 1, size: 20 };
       this.loadAccounts(1);
     },
 

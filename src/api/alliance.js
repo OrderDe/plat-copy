@@ -86,6 +86,11 @@ export function disableRegionAgent(id, reason) {
   return request({ url: `/api/platform/region/agent/${id}/disable`, method: 'post', params: { reason }, baseURL });
 }
 
+/** 删除没有绑定团长的区域代理（后端会再次校验团长数量） */
+export function deleteRegionAgent(id) {
+  return request({ url: `/api/platform/region/agent/${id}/delete`, method: 'post', baseURL });
+}
+
 /** 某区域的候补队列 */
 export function getRegionQueue(regionCode) {
   return request({ url: '/api/platform/region/queue', method: 'get', params: { regionCode }, baseURL });
@@ -124,6 +129,16 @@ export function changeLeaderAgent(leaderUid, newRegionCode, reason) {
     url: `/api/platform/leader/${leaderUid}/change-agent`,
     method: 'post',
     params: { newRegionCode, reason },
+    baseURL,
+  });
+}
+
+/** 解除团长与区域代理的管理绑定，保留团长身份及历史数据 */
+export function unbindLeaderAgent(leaderUid, reason) {
+  return request({
+    url: `/api/platform/leader/${leaderUid}/unbind-agent`,
+    method: 'post',
+    params: { reason },
     baseURL,
   });
 }
@@ -207,6 +222,23 @@ export function getCommissionList(params) {
   return request({ url: '/api/platform/commissions', method: 'get', params, baseURL });
 }
 
+/** 团长提现申请：平台人工审核和确认打款 */
+export function getLeaderWithdrawList(params) {
+  return request({ url: '/api/platform/withdrawals', method: 'get', params, baseURL });
+}
+
+export function approveLeaderWithdraw(id, remark) {
+  return request({ url: `/api/platform/withdrawals/${id}/approve`, method: 'post', data: { remark }, baseURL });
+}
+
+export function rejectLeaderWithdraw(id, remark) {
+  return request({ url: `/api/platform/withdrawals/${id}/reject`, method: 'post', data: { remark }, baseURL });
+}
+
+export function markLeaderWithdrawPaid(id, remark) {
+  return request({ url: `/api/platform/withdrawals/${id}/paid`, method: 'post', data: { remark }, baseURL });
+}
+
 /** 积分账户分页，按可用余额倒序 */
 export function getPointsAccounts(params) {
   return request({ url: '/api/platform/points/accounts', method: 'get', params, baseURL });
@@ -215,6 +247,19 @@ export function getPointsAccounts(params) {
 /** 积分账本分页。账本不可变，冲正是另写一行，所以按时间求和就是那段时间的净额 */
 export function getPointsLedger(params) {
   return request({ url: '/api/platform/points/ledger', method: 'get', params, baseURL });
+}
+
+/** 同一团长对同一用户的每日积分核销次数、积分额度配置。0 表示不限。 */
+export function getLeaderUserVerifyLimitList(params) {
+  return request({ url: '/api/platform/leader-user-verify-limits', method: 'get', params, baseURL });
+}
+
+export function saveLeaderUserVerifyLimit(data) {
+  return request({ url: '/api/platform/leader-user-verify-limits', method: 'post', data, baseURL });
+}
+
+export function disableLeaderUserVerifyLimit(id) {
+  return request({ url: `/api/platform/leader-user-verify-limits/${id}/disable`, method: 'post', baseURL });
 }
 
 /** 全平台核销单分页。merchantId 留空即查全平台 */

@@ -4,6 +4,7 @@ import { pointsProductDetailApi } from '@/api/pointsMall';
 import { objTitlePoints, defaultObj, defaultObjAttrValue, objTitle } from '@/views/marketing/pointsMall/default';
 import * as areaApi from '@/api/area.js';
 import { isPlatform } from '@/utils/settingMer';
+import { normalizeProductId } from '@/utils/productId';
 
 export default {
   data() {
@@ -115,13 +116,18 @@ export default {
 
     //普通商品详情
     getProductInfo(id, type) {
-      
+      const productId = normalizeProductId(id);
+      if (productId === null) {
+        this.fullscreenLoading = false;
+        if (this.$message) this.$message.warning('商品数据缺少有效 ID，请刷新后重试');
+        return Promise.resolve(null);
+      }
       this.formThead = Object.assign({}, objTitle);
       this.fullscreenLoading = true;
       this.getbrandList();
       
       if (isPlatform) {
-        productDetailApi(id)
+        productDetailApi(productId)
           .then(async (res) => {
             this.isShowAttr = true
             this.getData(res, type);
@@ -131,7 +137,7 @@ export default {
             this.fullscreenLoading = false;
           });
       } else {
-        areaApi.areasProductInfoApi(id)
+        areaApi.areasProductInfoApi(productId)
           .then(async (res) => {
             this.isShowAttr = true
             this.getData(res, type);
@@ -144,10 +150,16 @@ export default {
     },
     // 积分商品详情
     getPointsProductInfo(id, type) {
+      const productId = normalizeProductId(id);
+      if (productId === null) {
+        this.fullscreenLoading = false;
+        if (this.$message) this.$message.warning('积分商品数据缺少有效 ID，请刷新后重试');
+        return Promise.resolve(null);
+      }
       this.formThead = Object.assign({}, objTitlePoints);
       // this.getPointsProductAttrValue();
       this.fullscreenLoading = true;
-      pointsProductDetailApi(id)
+      pointsProductDetailApi(productId)
         .then(async (res) => {
           this.isShowAttr = true
           this.getData(res, type);
@@ -167,6 +179,11 @@ export default {
     getData(res, type) {
       this.AttrValueList = [];
       let info = res;
+      const productId = normalizeProductId(info);
+      if (productId === null) {
+        if (this.$message) this.$message.warning('商品详情缺少有效 ID，请刷新后重试');
+        return;
+      }
       this.formValidate = {
         ...info,
         image: this.$selfUtil.setDomain(info.image),
@@ -177,7 +194,7 @@ export default {
         attrList: info.attrList || [],
         attrValueList: info.attrValueList ? info.attrValueList : [],
         content: info.content ? this.$selfUtil.replaceImgSrcHttps(info.content) : '',
-        id: info.id ? info.id : 0,
+        id: productId,
         exchangeNum: info.exchangeNum || 0,
         isHot: info.isHot,
       };

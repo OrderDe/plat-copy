@@ -49,6 +49,24 @@ const distributionRouter = {
       meta: { title: '分账明细', icon: '' },
     },
     {
+      path: 'alliance/withdraw',
+      component: () => import('@/views/distribution/alliance/withdraw/index'),
+      name: 'allianceWithdraw',
+      meta: { title: '团长提现', icon: '' },
+    },
+    {
+      path: 'alliance/distribution-product',
+      component: () => import('@/views/distribution/alliance/distribution-product/index'),
+      name: 'allianceDistributionProduct',
+      meta: { title: '分销商品', icon: '' },
+    },
+    {
+      path: 'alliance/verify-limit',
+      component: () => import('@/views/distribution/alliance/verify-limit/index'),
+      name: 'allianceVerifyLimit',
+      meta: { title: '核销限额', icon: '' },
+    },
+    {
       path: 'alliance/points',
       component: () => import('@/views/distribution/alliance/points/index'),
       name: 'alliancePoints',

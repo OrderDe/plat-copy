@@ -48,6 +48,7 @@
           <el-input v-model.trim="form.value" class="selWidth" />
           <div v-if="current.type === 'RATIO'" class="hint">万分比整数，例如 1500 表示 15%</div>
           <div v-else-if="current.type === 'INT'" class="hint">整数</div>
+          <div v-else-if="current.type === 'DECIMAL'" class="hint">金额，单位为元，最多两位小数</div>
         </el-form-item>
       </el-form>
       <div slot="footer">
@@ -68,6 +69,8 @@ import { getAllianceConfig, updateAllianceConfig } from '@/api/alliance';
  */
 const META = {
   'points.exchange.rate': { name: '积分记账汇率', type: 'INT', unit: '积分 = 1 元', remark: 'PRD 17.1 固定 100，商户不得改' },
+  'points.withdraw.min.points': { name: '积分提现最低积分', type: 'INT', unit: '积分', remark: '低于该积分数不允许提交提现申请，默认 1000 积分' },
+  'leader.withdraw.min.amount': { name: '团长最低提现金额', type: 'DECIMAL', unit: '元', remark: '低于该金额不允许提交团长佣金提现申请，默认 50 元；平台人工审核打款' },
   'invite.protect.days': { name: '积分邀请关系保护期', type: 'INT', unit: '天', remark: 'PRD 5.2' },
   'leader.bind.protect.days': { name: '团长绑定保护期', type: 'INT', unit: '天', remark: 'PRD 10.4，保护期内不改绑' },
   'commission.max.payout.ratio': { name: '单笔佣金总上限', type: 'RATIO', remark: 'PRD 10.7.5，团长+代理合计占实付的上限，超出按比例削减' },
@@ -112,6 +115,9 @@ export default {
       const type = this.current.type;
       if ((type === 'INT' || type === 'RATIO') && !/^\d+$/.test(value)) {
         return callback(new Error('必须是非负整数'));
+      }
+      if (type === 'DECIMAL' && !/^\d+(\.\d{1,2})?$/.test(value)) {
+        return callback(new Error('必须是非负金额，最多保留两位小数'));
       }
       if (type === 'BOOL' && value !== '0' && value !== '1') {
         return callback(new Error('只能填 0 或 1'));

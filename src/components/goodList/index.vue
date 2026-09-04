@@ -124,6 +124,7 @@ import { merCategoryListApi } from '@/api/merchant';
 import { mapGetters } from 'vuex';
 import store from '@/store';
 import product from '@/mixins/product';
+import { normalizeSelectableProducts } from '@/utils/productId';
 export default {
   name: 'GoodList',
   mixins: [product],
@@ -281,7 +282,9 @@ export default {
       this.tableFrom.merIds = this.merIds.toString();
       productMarketingListApi(this.tableFrom)
         .then((res) => {
-          this.tableData.data = res.list;
+          // 积分商品不能再次作为普通营销商品添加；同时丢弃没有有效 ID 的脏数据，
+          // 避免选择后把 null 拼进后续页面 URL。
+          this.tableData.data = normalizeSelectableProducts(res.list);
           this.tableData.total = res.total;
           this.tableData.data.forEach((item) => {
             this.checked.forEach((element) => {

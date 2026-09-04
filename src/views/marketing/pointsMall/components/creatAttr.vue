@@ -415,6 +415,7 @@
 </template>
 
 <script>
+import { normalizeProductId } from '@/utils/productId';
 import vuedraggable from 'vuedraggable';
 import product from '@/mixins/product';
 import { defaultObj } from '@/views/marketing/pointsMall/default';
@@ -523,7 +524,7 @@ export default {
     },
   },
   mounted() {
-    if (this.$route.params.id && this.$route.params.id != 0) {
+    if (normalizeProductId(this.$route.params.id) !== null) {
       this.formValidate.attrs = this.formValidate.attrList.map((i) => {
         return {
           value: i.attributeName,
@@ -815,7 +816,7 @@ export default {
     // 选择规格
     onChangeSpec(num) {
       if (num) {
-        if (this.$route.params.id != 0) this.formValidate.attrs = [];
+        if (normalizeProductId(this.$route.params.id) !== null) this.formValidate.attrs = [];
       } else {
         this.formValidate.attrs = [];
         this.formValidate.attrList = [];

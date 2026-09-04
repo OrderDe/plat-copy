@@ -2,7 +2,7 @@
   <div class="divBox">
     <pages-header
       ref="pageHeader"
-      :title="isChoose || isCopy || isDisabled || $route.params.id == 0 ? '添加商品' : '编辑商品'"
+      :title="isChoose || isCopy || isDisabled || routeProductId === null ? '添加商品' : '编辑商品'"
       backUrl="/marketing/pointsMall/productManage"
     ></pages-header>
     <el-card class="box-card mt14" :body-style="{ padding: '0 20px 20px' }" shadow="never" :bordered="false">
@@ -241,7 +241,7 @@
             >下一步</el-button
           >
           <el-button
-            v-show="(currentTab === '3' || $route.params.id) && !isDisabled"
+            v-show="(currentTab === '3' || routeProductId !== null) && !isDisabled"
             type="primary"
             class="submission"
             @click="handleSubmit('formValidate')"
@@ -266,6 +266,7 @@ import product from '@/mixins/product';
 import { objTitlePoints, defaultObj, objTitle } from '@/views/marketing/pointsMall/default';
 import creatAttr from '../components/creatAttr';
 import { productDetailApi } from '@/api/product';
+import { normalizeProductId } from '@/utils/productId';
 
 export default {
   name: 'ProductProductAdd',
@@ -397,28 +398,36 @@ export default {
     visitedViews() {
       return this.$store.state.tagsView.visitedViews;
     },
+    routeProductId() {
+      return normalizeProductId(this.$route.params.id);
+    },
   },
   created() {
     this.tempRoute = Object.assign({}, this.$route);
-    if (parseFloat(this.$route.params.id) > 0 && this.formValidate.specType) {
+    if (this.routeProductId !== null && this.formValidate.specType) {
     }
   },
   async mounted() {
     this.setTagsViewTitle();
     this.formValidate.sliderImages = [];
     this.formValidate.attrs = [];
-    if (this.$route.params.id && this.$route.params.id != 0) {
+    if (this.routeProductId !== null) {
       if (!this.isChoose) {
         // 积分商品详情
-        if (checkPermi(['platform:integral:product:detail'])) await this.getPointsProductInfo(this.$route.params.id, 'points');
+        if (checkPermi(['platform:integral:product:detail'])) await this.getPointsProductInfo(this.routeProductId, 'points');
       } else {
         //普通商品详情
-        await this.getProductInfo(this.$route.params.id, 'normal');
+        await this.getProductInfo(this.routeProductId, 'normal');
         this.formThead = Object.assign({}, objTitlePoints);
         this.getPointsProductAttrValue(); //获取积分商品规格数据
       }
     } else {
       this.isShowAttr = true;
+      const rawId = this.$route.params.id;
+      if (rawId !== undefined && rawId !== null && String(rawId).trim() !== '' && String(rawId) !== '0') {
+        this.$message.warning('商品 ID 无效，请从商品列表重新进入');
+        this.$router.replace({ path: '/marketing/pointsMall/productManage' });
+      }
     }
   },
   methods: {
@@ -495,9 +504,9 @@ export default {
       this.formValidate.sort = e.target.value.replace('.', '');
     },
     setTagsViewTitle() {
-      if (this.$route.params.id && this.$route.params.id != 0) {
+      if (this.routeProductId !== null) {
         const title = this.isDisabled ? '商品详情' : '编辑商品';
-        const route = Object.assign({}, this.tempRoute, { title: `${title}-${this.$route.params.id}` });
+        const route = Object.assign({}, this.tempRoute, { title: `${title}-${this.routeProductId}` });
         this.$store.dispatch('tagsView/updateVisitedView', route);
       } else {
         const title = '采集商品';
@@ -648,7 +657,7 @@ export default {
       }
       this.loadingBtn = true;
       let data = this.getFromData();
-      parseFloat(this.$route.params.id) > 0 && !this.isChoose && !this.isCopy
+      this.routeProductId !== null && !this.isChoose && !this.isCopy
         ? productUpdateApi(data)
             .then(async (res) => {
               this.$message.success('编辑成功');

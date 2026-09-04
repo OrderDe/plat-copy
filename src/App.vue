@@ -26,7 +26,7 @@ export default {
   watch: {
     // 监听路由 控制侧边栏显示 标记当前顶栏菜单（如需要）
     $route(to, from) {
-      const onRoutes = to.meta.activeMenu ? to.meta.activeMenu : to.meta.path;
+      const onRoutes = to.meta.activeMenu || to.meta.path || to.path;
       this.$store.commit('menu/setActivePath', onRoutes);
       let arr = isPlatform ? this.$store.state.user.oneLvRoutes : this.$store.state.user.circleOneLvRoutes;
       if (to.name == 'crud_crud') {
@@ -51,7 +51,15 @@ export default {
         let route = to.matched[1].path.split(':')[0];
         arr.map((e) => {
           if (route.indexOf(e.path) != -1) {
-            to.meta.title = `${e.title} ${to.params.id ? 'ID:' + to.params.id : ''}`;
+            const rawId = to.params.id;
+            const idText = rawId === undefined || rawId === null ? '' : String(rawId).trim();
+            const numericId = Number(idText);
+            const hasValidId = idText !== ''
+              && idText !== 'null'
+              && idText !== 'undefined'
+              && Number.isSafeInteger(numericId)
+              && numericId > 0;
+            to.meta.title = `${e.title}${hasValidId ? ' ID:' + numericId : ''}`;
           }
         });
       }

@@ -56,3 +56,12 @@ export function channelShipApi(data) {
 export function channelCancelApi(params) {
   return request({ url: '/admin/platform/channel/order/cancel', method: 'post', params });
 }
+
+// 仓库端只读渠道订单：订单数据仍在 admin 服务，必须走默认 baseURL，不能走 WMS baseURL3
+export function warehouseChannelOrderListApi(params) {
+  return request({ url: '/admin/platform/warehouse/channel-order/list', method: 'get', params });
+}
+
+export function warehouseChannelOrderDetailApi(orderNo, warehouseId) {
+  return request({ url: `/admin/platform/warehouse/channel-order/detail/${encodeURIComponent(orderNo)}`, method: 'get', params: { warehouseId } });
+}

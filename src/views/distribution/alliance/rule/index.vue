@@ -2,7 +2,7 @@
   <div class="divBox">
     <el-card class="box-card" shadow="never" :bordered="false">
       <div class="tips">
-        三层取值：单品覆盖 &gt; 本页规则（区域专属 &gt; 商品分类 &gt; 平台默认）&gt; 全局默认，命中即停，不叠加。
+        两层取值：单品覆盖 &gt; 本页规则（区域专属 &gt; 平台默认）&gt; 全局默认，命中即停，不叠加。
         发布即版本化，改规则不回溯已按旧版本算过的订单。
       </div>
       <el-form inline size="small" @submit.native.prevent>
@@ -25,11 +25,6 @@
         <el-table-column label="适用区域" min-width="140">
           <template slot-scope="{ row }">{{ row.regionScope || '全平台' }}</template>
         </el-table-column>
-        <el-table-column label="限定" min-width="150">
-          <template slot-scope="{ row }">
-            分类：{{ row.categoryId ? row.categoryId : '不限' }}　活动：{{ row.activityId ? row.activityId : '不限' }}
-          </template>
-        </el-table-column>
         <el-table-column label="计算方式" width="100">
           <template slot-scope="{ row }">{{ row.calcMode === 2 ? '固定金额' : '比例' }}</template>
         </el-table-column>
@@ -43,7 +38,6 @@
             {{ row.calcMode === 2 ? fenToYuan(row.agentFixed) + ' 元' : bpToPercent(row.agentRatio) + '%' }}
           </template>
         </el-table-column>
-        <el-table-column prop="priority" label="优先级" width="80" />
         <el-table-column label="生效区间" min-width="200">
           <template slot-scope="{ row }">
             {{ row.startTime || '不限' }} ~ {{ row.endTime || '不限' }}
@@ -71,15 +65,7 @@
           <el-input v-model.trim="form.ruleName" maxlength="64" class="selWidth" />
         </el-form-item>
         <el-form-item label="适用区域编码">
-          <el-input v-model.trim="form.regionScope" class="selWidth" placeholder="逗号分隔，留空表示全平台" />
-        </el-form-item>
-        <el-form-item label="商品分类 ID">
-          <el-input-number v-model="form.categoryId" :min="0" :controls="false" class="selWidth" />
-          <span class="unit">0 表示不限</span>
-        </el-form-item>
-        <el-form-item label="活动 ID">
-          <el-input-number v-model="form.activityId" :min="0" :controls="false" class="selWidth" />
-          <span class="unit">0 表示不限</span>
+          <el-cascader v-model="form.regionIds" :options="cityOptions" :props="cascaderProps" clearable class="selWidth" placeholder="请选择省/市/区（不选表示全平台）" @change="onRegionChange" />
         </el-form-item>
         <el-form-item label="计算方式" prop="calcMode">
           <el-radio-group v-model="form.calcMode" @change="onCalcModeChange">
@@ -89,12 +75,12 @@
           <div class="hint">同一规则只能选其一，另一种的取值会被后端要求为 0</div>
         </el-form-item>
         <template v-if="form.calcMode === 1">
-          <el-form-item label="团长比例">
-            <el-input-number v-model="form.leaderPercent" :min="0" :max="100" :precision="2" class="selWidth" />
-            <span class="unit">%</span>
-          </el-form-item>
           <el-form-item label="区域代理比例">
             <el-input-number v-model="form.agentPercent" :min="0" :max="100" :precision="2" class="selWidth" />
+            <span class="unit">%</span>
+          </el-form-item>
+          <el-form-item label="团长比例">
+            <el-input-number v-model="form.leaderPercent" :min="0" :max="100" :precision="2" class="selWidth" />
             <span class="unit">%</span>
           </el-form-item>
         </template>
@@ -108,10 +94,6 @@
             <span class="unit">元</span>
           </el-form-item>
         </template>
-        <el-form-item label="优先级">
-          <el-input-number v-model="form.priority" :min="0" class="selWidth" />
-          <span class="unit">值越小越优先</span>
-        </el-form-item>
         <el-form-item label="生效区间">
           <el-date-picker
             v-model="timeRange"
@@ -134,6 +116,8 @@
 
 <script>
 import { getRuleList, saveRule, publishRule, disableRule } from '@/api/alliance';
+import request from '@/utils/request';
+const cityListTree = () => request({ url: '/admin/merchant/city/region/city/tree', method: 'get' });
 
 export default {
   name: 'AllianceCommissionRule',
@@ -145,6 +129,8 @@ export default {
       list: [],
       dialogVisible: false,
       timeRange: [],
+      cityOptions: [],
+      cascaderProps: { value: 'id', label: 'name', children: 'child', checkStrictly: true, emitPath: true },
       form: this.emptyForm(),
       rules: {
         ruleName: [{ required: true, message: '请填写规则名称', trigger: 'blur' }],
@@ -153,22 +139,24 @@ export default {
     };
   },
   created() {
+    this.loadCityTree();
     this.loadList();
   },
   methods: {
+    async loadCityTree() { try { const res = await cityListTree(); const list = Array.isArray(res) ? res : (res && res.list) || []; this.cityOptions = this.normalizeTree(list); } catch (e) { this.cityOptions = []; } },
+    normalizeTree(list, depth = 1) { if (!Array.isArray(list)) return []; return list.map(n => { const item = { id: String(n.regionId != null ? n.regionId : n.id), name: n.regionName || n.name }; const children = n.child || n.children; if (depth < 3 && Array.isArray(children) && children.length) item.child = this.normalizeTree(children, depth + 1); return item; }); },
+    onRegionChange(value) { this.form.regionScope = value && value.length ? value[value.length - 1] : ''; },
     emptyForm() {
       return {
         id: null,
         ruleName: '',
         regionScope: '',
-        categoryId: 0,
-        activityId: 0,
         calcMode: 1,
         leaderPercent: 0,
         agentPercent: 0,
         leaderFixedYuan: 0,
         agentFixedYuan: 0,
-        priority: 100,
+        regionIds: [],
       };
     },
     // 后端存万分比，页面按百分比展示：1000 → 10%
@@ -211,14 +199,12 @@ export default {
           id: row.id,
           ruleName: row.ruleName,
           regionScope: row.regionScope || '',
-          categoryId: row.categoryId || 0,
-          activityId: row.activityId || 0,
           calcMode: row.calcMode || 1,
           leaderPercent: Number(this.bpToPercent(row.leaderRatio)),
           agentPercent: Number(this.bpToPercent(row.agentRatio)),
           leaderFixedYuan: Number(this.fenToYuan(row.leaderFixed)),
           agentFixedYuan: Number(this.fenToYuan(row.agentFixed)),
-          priority: row.priority == null ? 100 : row.priority,
+          regionIds: row.regionScope ? [String(row.regionScope)] : [],
         };
         this.timeRange = row.startTime && row.endTime ? [row.startTime, row.endTime] : [];
       } else {
@@ -236,14 +222,12 @@ export default {
           id: f.id,
           ruleName: f.ruleName,
           regionScope: f.regionScope,
-          categoryId: f.categoryId || 0,
-          activityId: f.activityId || 0,
+          categoryId: 0,
           calcMode: f.calcMode,
           leaderRatio: f.calcMode === 1 ? Math.round(f.leaderPercent * 100) : 0,
           agentRatio: f.calcMode === 1 ? Math.round(f.agentPercent * 100) : 0,
           leaderFixed: f.calcMode === 2 ? Math.round(f.leaderFixedYuan * 100) : 0,
           agentFixed: f.calcMode === 2 ? Math.round(f.agentFixedYuan * 100) : 0,
-          priority: f.priority,
           startTime: this.timeRange && this.timeRange.length ? this.timeRange[0] : null,
           endTime: this.timeRange && this.timeRange.length ? this.timeRange[1] : null,
         };

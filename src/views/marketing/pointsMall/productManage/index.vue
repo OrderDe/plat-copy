@@ -159,6 +159,7 @@ import BatchAudit from '@/views/product/batchAudit';
 import merchantName from '@/components/merchantName';
 import previewBox from '@/views/product/previewBox';
 import product from '@/mixins/product';
+import { normalizeProductId } from '@/utils/productId';
 const objTitle = ['已上架', '未上架'];
 const tableFroms = {
   page: 1,
@@ -213,7 +214,12 @@ export default {
     checkPermi,
     // 查看详情
     handleView(id) {
-      this.productId = id;
+      const productId = normalizeProductId(id);
+      if (productId === null) {
+        this.$message.warning('商品数据缺少有效 ID，请刷新列表后重试');
+        return;
+      }
+      this.productId = productId;
       this.isShow = true;
       this.componentKey += 1;
       this.dialogVisibleInfo = true;
@@ -235,7 +241,12 @@ export default {
       const _this = this;
       this.$modalGoodList(function (row) {
         //id:商品id，isDisabled：是否能编辑(noEdit不能，edit能)，isChoose：是否是选择商品(choose是，noChoose不是)
-        _this.$router.push({ path: `/marketing/pointsMall/productManage/creatProduct/${row.id}/edit/choose` });
+        const productId = normalizeProductId(row);
+        if (productId === null) {
+          _this.$message.warning('所选商品缺少有效 ID，请刷新商品列表后重试');
+          return;
+        }
+        _this.$router.push({ path: `/marketing/pointsMall/productManage/creatProduct/${productId}/edit/choose` });
       }, '');
     },
     //添加商品
@@ -246,16 +257,21 @@ export default {
     //编辑商品
     onEdit(row, copy) {
       //id:商品id，isDisabled：是否能编辑(noEdit不能，edit能)，isChoose：是否是选择商品(choose是，noChoose不是)
+      const productId = normalizeProductId(row);
+      if (productId === null) {
+        this.$message.warning('商品数据缺少有效 ID，请刷新列表后重试');
+        return;
+      }
       if (this.tableFrom.type === '1') {
         this.$modalSure('下架该商品吗？出售商品需下架之后可编辑。').then(() => {
-          offShellApi(row.id).then(() => {
+          offShellApi(productId).then(() => {
             this.$router.push({
-              path: `/marketing/pointsMall/productManage/creatProduct/${row.id}/edit/noChoose/${copy}`,
+              path: `/marketing/pointsMall/productManage/creatProduct/${productId}/edit/noChoose/${copy}`,
             });
           });
         });
       } else {
-        this.$router.push({ path: `/marketing/pointsMall/productManage/creatProduct/${row.id}/edit/noChoose/${copy}` });
+        this.$router.push({ path: `/marketing/pointsMall/productManage/creatProduct/${productId}/edit/noChoose/${copy}` });
       }
     },
     handleCloseEdit() {
@@ -300,7 +316,11 @@ export default {
       this.tableFrom.keywords = encodeURIComponent(this.keywords);
       productLstApi(this.tableFrom)
         .then((res) => {
-          this.tableData.data = res.list;
+          const list = Array.isArray(res.list) ? res.list : [];
+          this.tableData.data = list.map((row) => ({
+            ...row,
+            id: normalizeProductId(row),
+          }));
           this.tableData.total = res.total;
           this.listLoading = false;
         })
@@ -322,8 +342,13 @@ export default {
     },
     // 删除
     handleDelete(id, type) {
-      this.$modalSure(`删除 id 为 ${id} 的积分商品`).then(() => {
-        productDeleteApi(id).then(() => {
+      const productId = normalizeProductId(id);
+      if (productId === null) {
+        this.$message.warning('商品数据缺少有效 ID，请刷新列表后重试');
+        return;
+      }
+      this.$modalSure(`删除 id 为 ${productId} 的积分商品`).then(() => {
+        productDeleteApi(productId).then(() => {
           this.$message.success('删除成功');
           this.delSuccess();
         });
@@ -331,7 +356,13 @@ export default {
     },
     //上下架
     onchangeIsShow(row) {
-      putOnShellApi(row.id)
+      const productId = normalizeProductId(row);
+      if (productId === null) {
+        row.isShow = !row.isShow;
+        this.$message.warning('商品数据缺少有效 ID，请刷新列表后重试');
+        return;
+      }
+      putOnShellApi(productId)
         .then(() => {
           this.$message.success('操作成功');
           this.delSuccess();
