@@ -118,6 +118,7 @@
             <div class="acea-row">
               <font v-show="scope.row.type === 1" class="mr5">[秒杀]</font>
               <font v-show="scope.row.type === 2" class="mr5">[拼团]</font>
+              <font v-show="scope.row.type === 3" class="mr5">[分销]</font>
               <span style="display: block" v-text="scope.row.orderNo" />
             </div>
             <!-- 发货同步仓储失败：买家侧已显示发货，但仓储没扣库存也没出货，
@@ -300,6 +301,7 @@ export default {
         { value: '0', text: '普通' },
         { value: '1', text: '秒杀' },
         { value: '2', text: '拼团' },
+        { value: '3', text: '分销' },
       ],
       orderStatusOptions: [
         { value: 'all', label: '全部' },
