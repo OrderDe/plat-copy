@@ -34,6 +34,9 @@
             </div>
           </template>
         </el-table-column>
+        <el-table-column label="原始售价（元）" width="115">
+          <template slot-scope="{ row }">{{ originPriceText(row) }}</template>
+        </el-table-column>
         <el-table-column prop="price" label="售价（元）" width="105" />
         <el-table-column prop="sales" label="销量" width="80" />
         <el-table-column prop="stock" label="库存" width="80" />
@@ -158,6 +161,9 @@
         </el-table-column>
         <el-table-column prop="id" label="ID" width="80" />
         <el-table-column prop="name" label="商品名称" min-width="280" show-overflow-tooltip />
+        <el-table-column label="原始售价" width="100">
+          <template slot-scope="{ row }">{{ originPriceText(row) }}</template>
+        </el-table-column>
         <el-table-column prop="price" label="售价" width="100" />
         <el-table-column prop="sales" label="销量" width="80" />
         <el-table-column prop="stock" label="库存" width="80" />
@@ -283,6 +289,11 @@ export default {
         if (row[keys[i]] !== undefined && row[keys[i]] !== null) return `${row[keys[i]]}%`;
       }
       return '全局规则';
+    },
+    /** 原始售价取商品库的 origin_price（接入时的售价快照）；未接入商品库的商品显示 -。 */
+    originPriceText(row) {
+      const raw = row.originPrice !== undefined && row.originPrice !== null ? row.originPrice : row.origin_price;
+      return raw === undefined || raw === null || raw === '' ? '-' : raw;
     },
     rewardType(row, camelKey, snakeKey) {
       const raw = row[camelKey] !== undefined && row[camelKey] !== null ? row[camelKey] : row[snakeKey];
