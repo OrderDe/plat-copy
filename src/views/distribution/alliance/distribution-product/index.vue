@@ -43,6 +43,15 @@
         <el-table-column label="代理比例" width="105">
           <template slot-scope="{ row }">{{ ratio(row, 'agentRatio', 'agent_ratio', 'l2Ratio', 'l2_ratio') }}</template>
         </el-table-column>
+        <el-table-column label="分享官奖励" width="120">
+          <template slot-scope="{ row }">{{ rewardText(row, 'shareReward', 'share_reward') }}</template>
+        </el-table-column>
+        <el-table-column label="合伙人奖励" width="120">
+          <template slot-scope="{ row }">{{ rewardText(row, 'partnerReward', 'partner_reward') }}</template>
+        </el-table-column>
+        <el-table-column label="下单送积分" width="120">
+          <template slot-scope="{ row }">{{ pointsText(row) }}</template>
+        </el-table-column>
         <el-table-column prop="sort" label="排序" width="70" />
         <el-table-column label="分销状态" width="100">
           <template slot-scope="{ row }">
@@ -96,6 +105,30 @@
         <el-form-item label="代理分成比例" prop="agentRatio">
           <el-input-number v-model="form.agentRatio" :min="0" :max="100" :precision="2" :step="0.1" controls-position="right" />
           <span class="field-tip">百分比，0 表示使用全局规则</span>
+        </el-form-item>
+        <el-form-item label="分享官奖励" prop="shareRewardValue">
+          <el-radio-group v-model="form.shareRewardType" class="reward-type">
+            <el-radio :label="1">佣金</el-radio>
+            <el-radio :label="2">积分</el-radio>
+          </el-radio-group>
+          <el-input-number v-model="form.shareRewardValue" :min="0" :precision="2" :step="1" controls-position="right" />
+          <span class="field-tip">{{ rewardUnit(form.shareRewardType) }}，0 表示不发放</span>
+        </el-form-item>
+        <el-form-item label="合伙人奖励" prop="partnerRewardValue">
+          <el-radio-group v-model="form.partnerRewardType" class="reward-type">
+            <el-radio :label="1">佣金</el-radio>
+            <el-radio :label="2">积分</el-radio>
+          </el-radio-group>
+          <el-input-number v-model="form.partnerRewardValue" :min="0" :precision="2" :step="1" controls-position="right" />
+          <span class="field-tip">{{ rewardUnit(form.partnerRewardType) }}，0 表示不发放</span>
+        </el-form-item>
+        <el-form-item label="下单送积分" prop="orderPointsValue">
+          <el-radio-group v-model="form.orderPointsType" class="reward-type">
+            <el-radio :label="1">积分</el-radio>
+            <el-radio :label="2">支付金额倍数</el-radio>
+          </el-radio-group>
+          <el-input-number v-model="form.orderPointsValue" :min="0" :precision="2" :step="1" controls-position="right" />
+          <span class="field-tip">{{ form.orderPointsType === 2 ? '倍' : '积分' }}，0 表示不赠送</span>
         </el-form-item>
         <el-form-item label="排序">
           <el-input-number v-model="form.sort" :min="0" :max="999999" controls-position="right" />
@@ -201,7 +234,25 @@ export default {
   },
   methods: {
     emptyForm() {
-      return { id: null, merId: 0, productId: null, productName: '', image: '', leaderRatio: 0, agentRatio: 0, levelDiffRatio: 0, commissionOpen: 1, sort: 0 };
+      return {
+        id: null,
+        merId: 0,
+        productId: null,
+        productName: '',
+        image: '',
+        leaderRatio: 0,
+        agentRatio: 0,
+        levelDiffRatio: 0,
+        // 奖励类配置：类型 1 为佣金/固定积分，2 为积分/支付金额倍数；购物券红包不在分销设置内配置。
+        shareRewardType: 1,
+        shareRewardValue: 0,
+        partnerRewardType: 1,
+        partnerRewardValue: 0,
+        orderPointsType: 1,
+        orderPointsValue: 0,
+        commissionOpen: 1,
+        sort: 0,
+      };
     },
     normalizePage(res) {
       const data = res && res.data !== undefined ? res.data : res;
@@ -240,6 +291,29 @@ export default {
       }
       return '全局规则';
     },
+    rewardType(row, camelKey, snakeKey) {
+      const raw = row[camelKey] !== undefined && row[camelKey] !== null ? row[camelKey] : row[snakeKey];
+      return Number(raw) === 2 ? 2 : 1;
+    },
+    rewardValue(row, camelKey, snakeKey) {
+      const raw = row[camelKey] !== undefined && row[camelKey] !== null ? row[camelKey] : row[snakeKey];
+      return Number(raw) || 0;
+    },
+    rewardUnit(type) {
+      return Number(type) === 2 ? '积分' : '元';
+    },
+    rewardText(row, camelPrefix, snakePrefix) {
+      const type = this.rewardType(row, `${camelPrefix}Type`, `${snakePrefix}_type`);
+      const value = this.rewardValue(row, `${camelPrefix}Value`, `${snakePrefix}_value`);
+      if (!value) return '不发放';
+      return type === 2 ? `${value} 积分` : `${value} 元`;
+    },
+    pointsText(row) {
+      const type = this.rewardType(row, 'orderPointsType', 'order_points_type');
+      const value = this.rewardValue(row, 'orderPointsValue', 'order_points_value');
+      if (!value) return '不赠送';
+      return type === 2 ? `${value} 倍` : `${value} 积分`;
+    },
     openCreate() {
       this.form = this.emptyForm();
       this.selectedProduct = null;
@@ -257,6 +331,12 @@ export default {
         leaderRatio: Number(row.leaderRatio || row.leader_ratio || row.l1Ratio || row.l1_ratio || 0),
         agentRatio: Number(row.agentRatio || row.agent_ratio || row.l2Ratio || row.l2_ratio || 0),
         levelDiffRatio: Number(row.levelDiffRatio || row.level_diff_ratio || 0),
+        shareRewardType: this.rewardType(row, 'shareRewardType', 'share_reward_type'),
+        shareRewardValue: this.rewardValue(row, 'shareRewardValue', 'share_reward_value'),
+        partnerRewardType: this.rewardType(row, 'partnerRewardType', 'partner_reward_type'),
+        partnerRewardValue: this.rewardValue(row, 'partnerRewardValue', 'partner_reward_value'),
+        orderPointsType: this.rewardType(row, 'orderPointsType', 'order_points_type'),
+        orderPointsValue: this.rewardValue(row, 'orderPointsValue', 'order_points_value'),
         commissionOpen: Number(row.commissionOpen !== undefined ? row.commissionOpen : row.commission_open) === 1 ? 1 : 0,
         sort: Number(row.sort) || 0,
       };
@@ -380,6 +460,7 @@ export default {
 .product-id,
 .field-tip { color: #909399; font-size: 12px; line-height: 20px; }
 .field-tip { margin-left: 10px; }
+.reward-type { margin-right: 12px; }
 .danger-text { color: #f56c6c; }
 .el-pagination { margin-top: 14px; text-align: right; }
 </style>
