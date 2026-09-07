@@ -43,10 +43,10 @@
         <el-table-column label="代理比例" width="105">
           <template slot-scope="{ row }">{{ ratio(row, 'agentRatio', 'agent_ratio', 'l2Ratio', 'l2_ratio') }}</template>
         </el-table-column>
-        <el-table-column label="分享官奖励" width="120">
+        <el-table-column label="代理奖励" width="120">
           <template slot-scope="{ row }">{{ rewardText(row, 'shareReward', 'share_reward') }}</template>
         </el-table-column>
-        <el-table-column label="合伙人奖励" width="120">
+        <el-table-column label="团长奖励" width="120">
           <template slot-scope="{ row }">{{ rewardText(row, 'partnerReward', 'partner_reward') }}</template>
         </el-table-column>
         <el-table-column label="下单送积分" width="120">
@@ -98,15 +98,7 @@
           <span class="field-tip" v-if="form.productId">已选 ID {{ form.productId }}</span>
           <span class="field-tip" v-if="bulkProducts.length > 1">已选 {{ bulkProducts.length }} 件商品，将批量创建</span>
         </el-form-item>
-        <el-form-item label="团长分成比例" prop="leaderRatio">
-          <el-input-number v-model="form.leaderRatio" :min="0" :max="100" :precision="2" :step="0.1" controls-position="right" />
-          <span class="field-tip">百分比，0 表示使用全局规则</span>
-        </el-form-item>
-        <el-form-item label="代理分成比例" prop="agentRatio">
-          <el-input-number v-model="form.agentRatio" :min="0" :max="100" :precision="2" :step="0.1" controls-position="right" />
-          <span class="field-tip">百分比，0 表示使用全局规则</span>
-        </el-form-item>
-        <el-form-item label="分享官奖励" prop="shareRewardValue">
+        <el-form-item label="代理奖励" prop="shareRewardValue">
           <el-radio-group v-model="form.shareRewardType" class="reward-type">
             <el-radio :label="1">佣金</el-radio>
             <el-radio :label="2">积分</el-radio>
@@ -114,7 +106,7 @@
           <el-input-number v-model="form.shareRewardValue" :min="0" :precision="2" :step="1" controls-position="right" />
           <span class="field-tip">{{ rewardUnit(form.shareRewardType) }}，0 表示不发放</span>
         </el-form-item>
-        <el-form-item label="合伙人奖励" prop="partnerRewardValue">
+        <el-form-item label="团长奖励" prop="partnerRewardValue">
           <el-radio-group v-model="form.partnerRewardType" class="reward-type">
             <el-radio :label="1">佣金</el-radio>
             <el-radio :label="2">积分</el-radio>
@@ -219,8 +211,6 @@ export default {
       pickerSelection: [],
       rules: {
         productId: [{ required: true, message: '请选择商品', trigger: 'change' }],
-        leaderRatio: [{ required: true, message: '请输入团长比例', trigger: 'change' }],
-        agentRatio: [{ required: true, message: '请输入代理比例', trigger: 'change' }],
       },
     };
   },
@@ -240,10 +230,13 @@ export default {
         productId: null,
         productName: '',
         image: '',
+        // 团长/代理分成比例已从弹窗移除，改由佣金规则统一配置；
+        // 这里仍保留字段并在编辑时回填存量值，避免保存时把已有比例清零。
         leaderRatio: 0,
         agentRatio: 0,
         levelDiffRatio: 0,
         // 奖励类配置：类型 1 为佣金/固定积分，2 为积分/支付金额倍数；购物券红包不在分销设置内配置。
+        // shareReward* 对应页面上的「代理奖励」，partnerReward* 对应「团长奖励」。
         shareRewardType: 1,
         shareRewardValue: 0,
         partnerRewardType: 1,
