@@ -46,7 +46,12 @@
         </el-form-item>
         <el-form-item label="新值" prop="value">
           <el-input v-model.trim="form.value" class="selWidth" />
-          <div v-if="current.type === 'RATIO'" class="hint">万分比整数，例如 1500 表示 15%</div>
+          <div v-if="current.type === 'RATIO'" class="hint">
+            万分比整数，例如 1500 表示 15%
+            <span v-if="/^\d+$/.test(form.value)" class="ratio-preview">
+              当前填的是 {{ (form.value / 100).toFixed(2) }}%
+            </span>
+          </div>
           <div v-else-if="current.type === 'INT'" class="hint">整数</div>
           <div v-else-if="current.type === 'DECIMAL'" class="hint">金额，单位为元，最多两位小数</div>
         </el-form-item>
@@ -91,6 +96,7 @@ const META = {
   'commission.agent.ratio': { name: '区域代理默认分成比例', type: 'RATIO', remark: '兜底值' },
   'commission.agent.attribution.mode': { name: '代理分成归因口径', type: 'STRING', remark: 'CHAIN-全额给团长的所属代理 / REGION-全额给收货地代理 / SPLIT-跨区时两个代理按比例拆分。团长分成始终按绑定关系判定，不受此项影响' },
   'commission.agent.origin.share.ratio': { name: '招募代理拆分比例', type: 'RATIO', remark: '仅 SPLIT 口径生效：跨区时代理总池分给招募代理（发展该团长的那位）的比例，剩余归收货地代理' },
+  'commission.agent.origin.take.all': { name: '收货地无代理时全归招募代理', type: 'INT', remark: '仅 SPLIT 口径生效：1-整份代理分成归招募代理 0-按「无代理区域分成去向」走平台兜底' },
   'region.no.agent.fallback': { name: '无代理区域分成去向', type: 'STRING', remark: 'PLATFORM-平台兜底 / SUSPEND-暂挂待开通。PRD 17.3 待确认' },
   'verify.confirm.timeout.seconds': { name: '核销待确认超时', type: 'INT', unit: '秒', remark: 'PRD 8.5，超时自动作废并原路解冻积分' },
   'verify.cancel.window.hours': { name: '核销自助撤销时限', type: 'INT', unit: '小时', remark: 'PRD 8.8，超期走售后退款；平台财务不受限' },
@@ -203,6 +209,7 @@ export default {
   color: #999;
   font-size: 12px;
 }
+.ratio-preview { margin-left: 8px; color: #409eff; font-weight: 600; }
 .remark {
   color: #666;
   font-size: 12px;
