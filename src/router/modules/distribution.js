@@ -43,6 +43,14 @@ const distributionRouter = {
       meta: { title: '团长业绩', icon: '' },
     },
     {
+      // 平台端分销商品总览：跨商户只读 + 强制停用。菜单是既有的 3151，
+      // 它指向的旧「平台给商户配分销」页删掉后一直是隐藏状态，这次按新用途重建
+      path: 'alliance/distribution-product',
+      component: () => import('@/views/distribution/alliance/distribution-product/index'),
+      name: 'allianceDistributionProduct',
+      meta: { title: '分销商品', icon: '' },
+    },
+    {
       path: 'alliance/commission',
       component: () => import('@/views/distribution/alliance/commission/index'),
       name: 'allianceCommission',

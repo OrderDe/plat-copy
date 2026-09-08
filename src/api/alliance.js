@@ -314,3 +314,18 @@ export function getShareSettings(targetRole = 'LEADER') {
 export function saveShareSettings(data) {
   return request({ url: '/api/platform/share/settings', method: 'post', data, baseURL });
 }
+
+// ===================== 分销商品（全平台） =====================
+//
+// 走的是 admin 的 /admin/platform/**，不是联盟服务，所以不带 baseURL —— 它用默认的
+// 商城后台地址。写在这个文件里只是因为菜单归在联盟下面，接口本身不属于联盟模块。
+
+/** 全平台分销商品分页，merId 留空为全部商户 */
+export function getPlatformDistributionProducts(params) {
+  return request({ url: '/admin/platform/distribution/product/list', method: 'get', params });
+}
+
+/** 平台强制开关某条分销商品配置。奖励值不给平台改，只给开关 */
+export function togglePlatformDistributionProduct(id, open) {
+  return request({ url: `/admin/platform/distribution/product/toggle/${id}`, method: 'post', params: { open } });
+}
