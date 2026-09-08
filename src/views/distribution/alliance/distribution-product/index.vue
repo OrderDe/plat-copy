@@ -144,12 +144,47 @@ export default {
       this.loading = true;
       getPlatformDistributionProducts(this.query)
         .then((res) => {
-          this.list = res.list || res.records || [];
+          this.list = (res.list || res.records || []).map(this.normalize);
           this.total = Number(res.total || 0);
         })
         .finally(() => {
           this.loading = false;
         });
+    },
+    /**
+     * 归一化列名。
+     *
+     * 后端这个查询的 resultType 是 Map，返回的键是 SQL 里的列名（下划线），
+     * mybatis 的 map-underscore-to-camel-case 只作用于 POJO 映射，对 Map 不生效。
+     * 商户端 distribution/goods 页里那些 `row.productId || row.product_id`
+     * 就是同一个坑。集中转一次，模板里只认一套字段名。
+     */
+    normalize(row) {
+      const pick = (...keys) => {
+        for (const k of keys) {
+          if (row[k] !== undefined && row[k] !== null && row[k] !== '') return row[k];
+        }
+        return '';
+      };
+      return {
+        id: pick('id'),
+        merId: pick('merId', 'mer_id'),
+        merName: pick('merName', 'mer_name'),
+        productId: pick('productId', 'product_id'),
+        productName: pick('productName', 'product_name'),
+        image: pick('image'),
+        price: pick('price'),
+        sales: pick('sales') || 0,
+        stock: pick('stock') || 0,
+        leaderRatio: pick('leaderRatio', 'leader_ratio'),
+        agentRatio: pick('agentRatio', 'agent_ratio'),
+        shareRewardType: pick('shareRewardType', 'share_reward_type'),
+        shareRewardValue: pick('shareRewardValue', 'share_reward_value'),
+        partnerRewardType: pick('partnerRewardType', 'partner_reward_type'),
+        partnerRewardValue: pick('partnerRewardValue', 'partner_reward_value'),
+        commissionOpen: Number(pick('commissionOpen', 'commission_open') || 0),
+        createTime: pick('createTime', 'create_time'),
+      };
     },
     onSizeChange(size) {
       this.query.limit = size;
