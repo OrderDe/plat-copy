@@ -57,6 +57,12 @@
             </div>
           </template>
         </el-table-column>
+        <el-table-column label="参加规格" width="105">
+          <template slot-scope="{ row }">
+            <span v-if="!row.scopeCount" class="sub">全部规格</span>
+            <el-tag v-else size="mini" type="warning">{{ row.scopeCount }} 个规格</el-tag>
+          </template>
+        </el-table-column>
         <el-table-column prop="price" label="售价(元)" width="95" />
         <el-table-column prop="sales" label="销量" width="70" />
         <el-table-column prop="stock" label="库存" width="70" />
@@ -184,6 +190,11 @@ export default {
         partnerRewardValue: pick('partnerRewardValue', 'partner_reward_value'),
         commissionOpen: Number(pick('commissionOpen', 'commission_open') || 0),
         createTime: pick('createTime', 'create_time'),
+        // 限定了几个规格；0 表示整品参加
+        scopeCount: (() => {
+          const scope = pick('attrValueIds', 'attr_value_ids');
+          return scope ? String(scope).split(',').filter((v) => v.trim()).length : 0;
+        })(),
       };
     },
     onSizeChange(size) {
