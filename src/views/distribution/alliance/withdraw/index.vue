@@ -15,8 +15,9 @@
         <el-table-column prop="accountName" label="收款人" width="110" />
         <el-table-column label="收款账号" min-width="200"><template slot-scope="{ row }"><span>{{ plainCards[row.id] || row.accountNo }}</span><el-button v-if="!plainCards[row.id]" type="text" size="mini" class="reveal-btn" @click="reveal(row)">查看完整卡号</el-button></template></el-table-column>
         <el-table-column label="状态" width="100"><template slot-scope="{ row }"><el-tag size="mini" :type="tagType(row.status)">{{ statusText(row.status) }}</el-tag></template></el-table-column>
+        <el-table-column label="打款" min-width="150"><template slot-scope="{ row }"><el-tag size="mini" :type="payoutTagType(row.payoutStatus)">{{ payoutText(row) }}</el-tag><div v-if="row.payoutFailReason" class="payout-fail">{{ row.payoutFailReason }}</div></template></el-table-column>
         <el-table-column prop="createTime" label="申请时间" min-width="155" />
-        <el-table-column label="操作" width="190" fixed="right"><template slot-scope="{ row }"><el-button v-if="row.status === 0" type="text" size="small" @click="operate(row, 'approve')">审核通过</el-button><el-button v-if="row.status === 0 || row.status === 1" type="text" class="danger-text" size="small" @click="operate(row, 'reject')">驳回</el-button><el-button v-if="row.status === 1" type="text" size="small" @click="operate(row, 'paid')">确认已打款</el-button></template></el-table-column>
+        <el-table-column label="操作" width="190" fixed="right"><template slot-scope="{ row }"><el-button v-if="row.status === 0" type="text" size="small" @click="operate(row, 'approve')">审核通过</el-button><el-button v-if="row.status === 0 || row.status === 1" type="text" class="danger-text" size="small" @click="operate(row, 'reject')">驳回</el-button><el-button v-if="row.status === 1" type="text" size="small" @click="operate(row, 'paid')">确认已打款</el-button><el-button v-if="row.status === 1 && row.payoutStatus === 3" type="text" size="small" @click="retry(row)">重试转账</el-button><el-button v-if="row.payoutStatus === 1 || row.payoutStatus === 4" type="text" size="small" @click="refresh(row)">刷新状态</el-button></template></el-table-column>
       </el-table>
     </el-card>
     <el-dialog :title="dialogTitle" :visible.sync="dialogVisible" width="420px"><el-form size="small"><el-form-item label="备注"><el-input v-model.trim="remark" type="textarea" :rows="3" maxlength="200" show-word-limit /></el-form-item></el-form><div slot="footer"><el-button size="small" @click="dialogVisible = false">取消</el-button><el-button size="small" type="primary" :loading="saving" @click="confirm">确定</el-button></div></el-dialog>
@@ -24,7 +25,7 @@
 </template>
 
 <script>
-import { getLeaderWithdrawList, approveLeaderWithdraw, rejectLeaderWithdraw, markLeaderWithdrawPaid, getLeaderWithdrawCard } from '@/api/alliance';
+import { getLeaderWithdrawList, approveLeaderWithdraw, rejectLeaderWithdraw, markLeaderWithdrawPaid, getLeaderWithdrawCard, retryLeaderWithdrawPayout, refreshLeaderWithdrawPayout } from '@/api/alliance';
 
 export default {
   name: 'AllianceLeaderWithdraw',
@@ -34,6 +35,14 @@ export default {
     statusText(status) { return ['待审核', '审核通过', '已打款', '已驳回', '已取消'][status] || '未知'; },
     tagType(status) { return status === 2 ? 'success' : status === 3 ? 'danger' : status === 0 ? 'warning' : ''; },
     load() { this.loading = true; this.plainCards = {}; getLeaderWithdrawList({ status: this.status, page: 1, size: 100 }).then((res) => { this.list = res.data || []; }).finally(() => { this.loading = false; }); },
+    payoutText(row) {
+      const channel = { WECHAT_CHANGE: '微信零钱', WECHAT_BANK: '微信到银行卡', MANUAL: '人工' }[row.payoutChannel] || '人工';
+      const status = { 0: '未发起', 1: '处理中', 2: '已到账', 3: '失败', 4: '待用户确认' }[row.payoutStatus] || '未发起';
+      return `${channel} · ${status}`;
+    },
+    payoutTagType(status) { return status === 2 ? 'success' : status === 3 ? 'danger' : status === 0 ? 'info' : 'warning'; },
+    retry(row) { retryLeaderWithdrawPayout(row.id).then(() => { this.$message.success('已重新发起'); this.load(); }); },
+    refresh(row) { refreshLeaderWithdrawPayout(row.id).then(() => { this.$message.success('已刷新'); this.load(); }); },
     // 明文按需取：换页或重查后 plainCards 清空，卡号不会一直挂在页面上
     reveal(row) { getLeaderWithdrawCard(row.id).then((res) => { this.$set(this.plainCards, row.id, (res.data && res.data.cardNo) || row.accountNo); }); },
     operate(row, action) { this.current = row; this.action = action; this.remark = ''; this.dialogTitle = action === 'approve' ? '审核提现' : action === 'reject' ? '驳回提现' : '确认人工打款'; this.dialogVisible = true; },
@@ -45,4 +54,5 @@ export default {
 <style scoped>
 .actual-amount { color: #f56c6c; font-weight: 600; }
 .reveal-btn { margin-left: 8px; }
+.payout-fail { color: #f56c6c; font-size: 12px; line-height: 1.4; margin-top: 2px; }
 </style>

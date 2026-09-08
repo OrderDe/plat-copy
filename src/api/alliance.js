@@ -239,6 +239,16 @@ export function markLeaderWithdrawPaid(id, remark) {
   return request({ url: `/api/platform/withdrawals/${id}/paid`, method: 'post', data: { remark }, baseURL });
 }
 
+/** 对该笔提现重新发起微信自动打款（上次转账失败后的重试） */
+export function retryLeaderWithdrawPayout(id) {
+  return request({ url: `/api/platform/withdrawals/${id}/payout`, method: 'post', baseURL });
+}
+
+/** 向微信查询该笔转账的最新状态 */
+export function refreshLeaderWithdrawPayout(id) {
+  return request({ url: `/api/platform/withdrawals/${id}/payout/refresh`, method: 'post', baseURL });
+}
+
 /**
  * 打款时才取的完整卡号。
  *
