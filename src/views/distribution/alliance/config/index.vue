@@ -89,6 +89,8 @@ const META = {
   'commission.settlement.days': { name: '确认收货后入账天数', type: 'INT', unit: '天', remark: 'PRD 10.6 的 T+N，全局配置优先于此兜底值' },
   'commission.leader.ratio': { name: '团长默认分成比例', type: 'RATIO', remark: '兜底值，优先读 eb_distribution_config.leader_ratio' },
   'commission.agent.ratio': { name: '区域代理默认分成比例', type: 'RATIO', remark: '兜底值' },
+  'commission.agent.attribution.mode': { name: '代理分成归因口径', type: 'STRING', remark: 'CHAIN-全额给团长的所属代理 / REGION-全额给收货地代理 / SPLIT-跨区时两个代理按比例拆分。团长分成始终按绑定关系判定，不受此项影响' },
+  'commission.agent.origin.share.ratio': { name: '招募代理拆分比例', type: 'RATIO', remark: '仅 SPLIT 口径生效：跨区时代理总池分给招募代理（发展该团长的那位）的比例，剩余归收货地代理' },
   'region.no.agent.fallback': { name: '无代理区域分成去向', type: 'STRING', remark: 'PLATFORM-平台兜底 / SUSPEND-暂挂待开通。PRD 17.3 待确认' },
   'verify.confirm.timeout.seconds': { name: '核销待确认超时', type: 'INT', unit: '秒', remark: 'PRD 8.5，超时自动作废并原路解冻积分' },
   'verify.cancel.window.hours': { name: '核销自助撤销时限', type: 'INT', unit: '小时', remark: 'PRD 8.8，超期走售后退款；平台财务不受限' },
