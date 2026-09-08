@@ -31,12 +31,6 @@ const distributionRouter = {
       meta: { title: '区域与代理', icon: '' },
     },
     {
-      path: 'alliance/rule',
-      component: () => import('@/views/distribution/alliance/rule/index'),
-      name: 'allianceCommissionRule',
-      meta: { title: '佣金规则', icon: '' },
-    },
-    {
       path: 'alliance/leader',
       component: () => import('@/views/distribution/alliance/leader/index'),
       name: 'allianceLeader',

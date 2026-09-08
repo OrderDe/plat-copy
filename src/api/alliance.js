@@ -143,27 +143,9 @@ export function unbindLeaderAgent(leaderUid, reason) {
   });
 }
 
-// ===================== 佣金规则 =====================
-
-/** 佣金规则列表，status 不传为全部：0-草稿 1-启用 2-停用 */
-export function getRuleList(status) {
-  return request({ url: '/api/platform/rules', method: 'get', params: { status }, baseURL });
-}
-
-/** 保存规则草稿。后端在保存时就做完整校验（计算方式互斥、比例合计、时间区间不重叠） */
-export function saveRule(data) {
-  return request({ url: '/api/platform/rules', method: 'post', data, baseURL });
-}
-
-/** 发布规则，生成不可变版本号 */
-export function publishRule(ruleId) {
-  return request({ url: `/api/platform/rules/${ruleId}/publish`, method: 'post', baseURL });
-}
-
-/** 停用规则，已按该规则算过的订单不受影响 */
-export function disableRule(ruleId) {
-  return request({ url: `/api/platform/rules/${ruleId}/disable`, method: 'post', baseURL });
-}
+// 佣金规则页已下线：地区维度下沉到商户端「分销设置」的分地区奖励，
+// 一件事不再有两处入口。后端 /api/platform/rules 仍在，只服务历史订单的
+// ruleVersion 快照回溯，平台端不再提供维护界面。
 
 // ===================== 风控 =====================
 
