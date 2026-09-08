@@ -271,3 +271,27 @@ export function getVerifyRecords(params) {
 export function getMerchantOverview(merchantId) {
   return request({ url: '/api/platform/merchant/overview', method: 'get', params: { merchantId }, baseURL });
 }
+
+// ===================== 分销设置（分享链路） =====================
+
+/**
+ * 分销设置回显。
+ *
+ * 分享链路是「区域代理 → 团长 → 消费者」：代理把平台开放给他的商品发到名下团长群，
+ * 团长再把链接分发到消费者群，成交后团长与代理各按利润分成设置取佣。
+ *
+ * targetRole: LEADER-团长可分享的商品，AGENT-开放给区域代理选品的商品。
+ */
+export function getShareSettings(targetRole = 'LEADER') {
+  return request({ url: '/api/platform/share/settings', method: 'get', params: { targetRole }, baseURL });
+}
+
+/**
+ * 保存分销设置。
+ *
+ * products 是覆盖式的：提交的清单就是该角色最终能分享的全部商品，
+ * 页面上取消勾选的商品会真的从池子里移除，不会继续被分享。
+ */
+export function saveShareSettings(data) {
+  return request({ url: '/api/platform/share/settings', method: 'post', data, baseURL });
+}

@@ -55,6 +55,13 @@ const distributionRouter = {
       meta: { title: '团长提现', icon: '' },
     },
     {
+      // 分销设置：分享链路（区域代理 → 团长 → 消费者）的选品、开通条件与分成归属口径
+      path: 'alliance/share-settings',
+      component: () => import('@/views/distribution/alliance/share-settings/index'),
+      name: 'allianceShareSettings',
+      meta: { title: '分销设置', icon: '' },
+    },
+    {
       path: 'alliance/verify-limit',
       component: () => import('@/views/distribution/alliance/verify-limit/index'),
       name: 'allianceVerifyLimit',
