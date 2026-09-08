@@ -205,16 +205,23 @@ export default {
       this.query = { page: 1, limit: this.query.limit, merId: null, keywords: '' };
       this.load(1);
     },
-    /** 比例存的是万分比整数 */
+    /**
+     * 单品覆盖比例。DistributionProduct.leaderRatio / agentRatio 的口径就是百分比
+     * （schema：「团长比例覆盖(%)」），不是万分比，直接带单位输出，不要再除 100。
+     */
     ratioText(ratio) {
       const n = Number(ratio || 0);
-      return n > 0 ? (n / 100).toFixed(2) + '%' : '-';
+      return n > 0 ? n.toFixed(2) + '%' : '-';
     },
-    /** type：1 按比例（万分比） 2 固定金额（元）。两种都可能是 0，统一显示 '-' */
+    /**
+     * 单品奖励。type：1-佣金(元) 2-积分（见 DistributionProduct 的 shareRewardType）。
+     * 这一层是固定奖励，不是比例 —— 命中后 CommissionRuleService 直接返回，
+     * 不再往下取规则层与全局比例。
+     */
     rewardText(type, value) {
       const n = Number(value || 0);
       if (!n) return '-';
-      return Number(type) === 1 ? (n / 100).toFixed(2) + '%' : '¥' + n;
+      return Number(type) === 2 ? n + ' 积分' : '¥' + n.toFixed(2);
     },
     toggle(row) {
       const open = row.commissionOpen === 1 ? 0 : 1;

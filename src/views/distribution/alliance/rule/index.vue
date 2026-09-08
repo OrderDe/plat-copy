@@ -23,7 +23,13 @@
         <el-table-column prop="id" label="ID" width="70" />
         <el-table-column prop="ruleName" label="规则名称" min-width="140" show-overflow-tooltip />
         <el-table-column label="适用区域" min-width="140">
-          <template slot-scope="{ row }">{{ row.regionScope || '全平台' }}</template>
+          <template slot-scope="{ row }">
+            <span v-if="!row.regionScope">全平台</span>
+            <span v-else>
+              {{ regionName(row.regionScope) }}
+              <span class="hint">{{ row.regionScope }}</span>
+            </span>
+          </template>
         </el-table-column>
         <el-table-column label="计算方式" width="100">
           <template slot-scope="{ row }">{{ row.calcMode === 2 ? '固定金额' : '比例' }}</template>
@@ -143,7 +149,55 @@ export default {
     this.loadList();
   },
   methods: {
-    async loadCityTree() { try { const res = await cityListTree(); const list = Array.isArray(res) ? res : (res && res.list) || []; this.cityOptions = this.normalizeTree(list); } catch (e) { this.cityOptions = []; } },
+    async loadCityTree() {
+      try {
+        const res = await cityListTree();
+        const list = Array.isArray(res) ? res : (res && res.list) || [];
+        this.cityOptions = this.normalizeTree(list);
+      } catch (e) {
+        this.cityOptions = [];
+      }
+      // 城市树是异步来的。弹窗可能已经开着（编辑时树还没到），
+      // 树到位后按当前 regionScope 补一次回显路径，否则级联器一直是空的。
+      if (this.form.regionScope) {
+        this.form.regionIds = this.regionPath(this.form.regionScope);
+      }
+    },
+    /**
+     * 由区域编码反查完整路径。
+     *
+     * 级联器配了 emitPath: true，v-model 要的是 ['省','市','区'] 这样的整条路径；
+     * 只给叶子编码它匹配不到任何一条路径，表现就是编辑时框里一片空白。
+     * 返回空数组表示这个编码不在当前城市树里（比如树还没加载完）。
+     */
+    /** 列表里光给一串编码没法读，翻成「广东省/广州市/白云区」。树还没到就先回显编码。 */
+    regionName(code) {
+      const path = this.regionPath(code);
+      if (!path.length) return String(code || '');
+      const names = [];
+      let nodes = this.cityOptions;
+      for (const id of path) {
+        const hit = (nodes || []).find((n) => n.id === id);
+        if (!hit) break;
+        names.push(hit.name);
+        nodes = hit.child;
+      }
+      return names.join('/') || String(code || '');
+    },
+    regionPath(code) {
+      const target = String(code || '');
+      if (!target) return [];
+      const walk = (nodes, trail) => {
+        for (const n of nodes || []) {
+          const path = trail.concat(n.id);
+          if (n.id === target) return path;
+          const hit = walk(n.child, path);
+          if (hit) return hit;
+        }
+        return null;
+      };
+      return walk(this.cityOptions, []) || [];
+    },
     normalizeTree(list, depth = 1) { if (!Array.isArray(list)) return []; return list.map(n => { const item = { id: String(n.regionId != null ? n.regionId : n.id), name: n.regionName || n.name }; const children = n.child || n.children; if (depth < 3 && Array.isArray(children) && children.length) item.child = this.normalizeTree(children, depth + 1); return item; }); },
     onRegionChange(value) { this.form.regionScope = value && value.length ? value[value.length - 1] : ''; },
     emptyForm() {
@@ -204,7 +258,7 @@ export default {
           agentPercent: Number(this.bpToPercent(row.agentRatio)),
           leaderFixedYuan: Number(this.fenToYuan(row.leaderFixed)),
           agentFixedYuan: Number(this.fenToYuan(row.agentFixed)),
-          regionIds: row.regionScope ? [String(row.regionScope)] : [],
+          regionIds: this.regionPath(row.regionScope),
         };
         this.timeRange = row.startTime && row.endTime ? [row.startTime, row.endTime] : [];
       } else {
