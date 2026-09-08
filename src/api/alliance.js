@@ -239,6 +239,15 @@ export function markLeaderWithdrawPaid(id, remark) {
   return request({ url: `/api/platform/withdrawals/${id}/paid`, method: 'post', data: { remark }, baseURL });
 }
 
+/**
+ * 打款时才取的完整卡号。
+ *
+ * 列表里只有掩码，明文按笔单独取 —— 一次点开一笔，明文的暴露面就不是一整页。
+ */
+export function getLeaderWithdrawCard(id) {
+  return request({ url: `/api/platform/withdrawals/${id}/card`, method: 'get', baseURL });
+}
+
 /** 积分账户分页，按可用余额倒序 */
 export function getPointsAccounts(params) {
   return request({ url: '/api/platform/points/accounts', method: 'get', params, baseURL });
