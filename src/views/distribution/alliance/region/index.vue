@@ -6,22 +6,26 @@
         <span class="sub">默认只列生效记录。交接产生的历史行要勾「含已失效」才出，否则一个区会看到好几条</span>
       </div>
       <el-form inline size="small" @submit.native.prevent>
-        <el-form-item label="区域编码前缀">
+        <el-form-item label="城市">
+          <!-- 选到哪一级就用哪一级的编码当前缀：选省查全省，选市查全市，选区查一个区 -->
+          <el-cascader
+            v-model="listRegionIds"
+            :options="cityOptions"
+            :props="cascaderProps"
+            clearable
+            filterable
+            class="selWidth"
+            placeholder="请选择省/市/区，留空查全国"
+            @change="onListRegionChange"
+          />
+        </el-form-item>
+        <el-form-item label="联系方式">
           <el-input
-            v-model.trim="listQuery.regionPrefix"
-            placeholder="44=广东 4401=广州，留空查全国"
+            v-model.trim="listQuery.contact"
+            placeholder="联系人姓名或手机号"
             clearable
             class="selWidth"
             @keyup.enter.native="loadAgentList(1)"
-          />
-        </el-form-item>
-        <el-form-item label="代理账号">
-          <el-input-number
-            v-model="listQuery.agentUid"
-            :min="1"
-            :controls="false"
-            placeholder="不限"
-            class="uidWidth"
           />
         </el-form-item>
         <el-form-item>
@@ -359,7 +363,9 @@ export default {
       // agentUid -> {nickname, phone, valid}，由列表接口一次性带回来
       agentUsers: {},
       uidChecking: false,
-      listQuery: { regionPrefix: '', agentUid: undefined, includeInactive: false, page: 1, size: 20 },
+      listQuery: { regionPrefix: '', contact: '', includeInactive: false, page: 1, size: 20 },
+      // 级联选择器的选中路径，提交时只取末级编码当区域前缀
+      listRegionIds: [],
       cityOptions: [],
       cascaderProps: { value: 'id', label: 'name', children: 'child', checkStrictly: true, emitPath: true },
       regionCode: '',
@@ -433,7 +439,7 @@ export default {
       try {
         const res = await getAgentList({
           regionPrefix: this.listQuery.regionPrefix || undefined,
-          agentUid: this.listQuery.agentUid || undefined,
+          contact: this.listQuery.contact || undefined,
           includeInactive: this.listQuery.includeInactive,
           page: this.listQuery.page,
           size: this.listQuery.size,
@@ -453,8 +459,13 @@ export default {
       this.listQuery.size = size;
       this.loadAgentList(1);
     },
+    onListRegionChange(value) {
+      this.listQuery.regionPrefix = value && value.length ? value[value.length - 1] : '';
+      this.loadAgentList(1);
+    },
     resetAgentList() {
-      this.listQuery = { regionPrefix: '', agentUid: undefined, includeInactive: false, page: 1, size: 20 };
+      this.listRegionIds = [];
+      this.listQuery = { regionPrefix: '', contact: '', includeInactive: false, page: 1, size: 20 };
       this.loadAgentList(1);
     },
     /**
@@ -789,9 +800,6 @@ export default {
 }
 .selWidth {
   width: 260px;
-}
-.uidWidth {
-  width: 120px;
 }
 .danger-text {
   color: #f56c6c;
