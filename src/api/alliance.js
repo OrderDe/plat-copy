@@ -311,3 +311,13 @@ export function getPlatformDistributionProducts(params) {
 export function togglePlatformDistributionProduct(id, open) {
   return request({ url: `/admin/platform/distribution/product/toggle/${id}`, method: 'post', params: { open } });
 }
+
+/** 分销基础配置（eb_distribution_config）。merId 留空取平台级（0） */
+export function getDistributionConfig(merId = 0) {
+  return request({ url: '/admin/distribution/config/get', method: 'get', params: { merId } });
+}
+
+/** 保存分销基础配置。整条覆盖，所以调用方要把读回来的对象改完再传回去 */
+export function saveDistributionConfig(data) {
+  return request({ url: '/admin/distribution/config/save', method: 'post', data });
+}
