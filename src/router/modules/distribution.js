@@ -31,6 +31,14 @@ const distributionRouter = {
       meta: { title: '区域与代理', icon: '' },
     },
     {
+      // 成为团长的条件。条件还没定下来，所以做成规则表而不是几个写死的配置项，
+      // 运营自由增删改，不用等发版
+      path: 'alliance/leader-apply-rule',
+      component: () => import('@/views/distribution/alliance/leader-apply-rule/index'),
+      name: 'allianceLeaderApplyRule',
+      meta: { title: '团长申请条件', icon: '' },
+    },
+    {
       path: 'alliance/leader',
       component: () => import('@/views/distribution/alliance/leader/index'),
       name: 'allianceLeader',

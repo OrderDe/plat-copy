@@ -309,3 +309,26 @@ export function getDistributionConfig(merId = 0) {
 export function saveDistributionConfig(data) {
   return request({ url: '/admin/distribution/config/save', method: 'post', data });
 }
+
+// ===================== 成为团长的条件 =====================
+
+/**
+ * 条件规则列表。条件还没定下来，所以做成一行一条规则而不是几个写死的配置项：
+ * 运营自由增删、改阈值、改文案，不用等发版。
+ */
+export function getLeaderApplyRules() {
+  return request({ url: '/api/platform/leader/apply/rules', method: 'get', baseURL });
+}
+
+/** 可选指标清单。前端不维护副本 —— 后端加了指标这里自动就有，不会漏 */
+export function getLeaderApplyMetrics() {
+  return request({ url: '/api/platform/leader/apply/metrics', method: 'get', baseURL });
+}
+
+export function saveLeaderApplyRule(data) {
+  return request({ url: '/api/platform/leader/apply/rules', method: 'post', data, baseURL });
+}
+
+export function deleteLeaderApplyRule(id) {
+  return request({ url: `/api/platform/leader/apply/rules/${id}/delete`, method: 'post', baseURL });
+}
