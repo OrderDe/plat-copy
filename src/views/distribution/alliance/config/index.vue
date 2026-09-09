@@ -102,6 +102,7 @@ const META = {
   'leader.apply.auto.approve': { name: '团长申请自动通过', type: 'INT', remark: '1-提交即通过，不进代理待审列表 0-需代理审批。代理端另有「一键同意」可批量通过' },
   'invite.protect.days': { name: '积分邀请关系保护期', type: 'INT', unit: '天', remark: 'PRD 5.2' },
   'leader.bind.protect.days': { name: '团长绑定保护期', type: 'INT', unit: '天', remark: 'PRD 10.4，保护期内不改绑' },
+  'commission.base.mode': { name: '佣金基数口径', type: 'STRING', remark: 'PROFIT-按毛利（售价-成本），成本 20 售价 30 时比例作用在多出来的 10 元上 / PAY-按实付减运费。商户没填成本价时两者结果相同；只影响之后的新订单，历史订单基数已固化不回溯' },
   'commission.max.payout.ratio': { name: '单笔佣金总上限', type: 'RATIO', remark: 'PRD 10.7.5，团长+代理合计占实付的上限，超出按比例削减' },
   'commission.settlement.days': { name: '确认收货后入账天数', type: 'INT', unit: '天', remark: 'PRD 10.6 的 T+N，全局配置优先于此兜底值' },
   'commission.leader.ratio': { name: '团长默认分成比例', type: 'RATIO', remark: '兜底值，优先读 eb_distribution_config.leader_ratio' },
