@@ -97,11 +97,13 @@ export function getRegionQueue(regionCode) {
 }
 
 /** 从候补队列启用一位代理 */
-export function enableFromQueue(queueId, regionPath) {
+export function enableFromQueue(queueId, regionPath, qualification) {
+  // 启用候补人走的是与平台招商同一个开通入口，所以同样要带资质（营业执照 + 法人身份证）
   return request({
     url: `/api/platform/region/queue/${queueId}/enable`,
     method: 'post',
     params: { regionPath },
+    data: qualification || {},
     baseURL,
   });
 }

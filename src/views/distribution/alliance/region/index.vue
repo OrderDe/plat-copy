@@ -176,8 +176,10 @@
 
     <el-dialog title="开通区域代理" :visible.sync="agentDialog" width="560px">
       <div class="tips">
-        一区一代理：一个区域同时只允许存在一位生效代理。该区已有代理时开通会被后端拒绝，
-        新申请人一律进候补队列，等现任停用且待结算收益结清后再启用。
+        一区一代理：省 / 市 / 区任意一级都能开通，但<b>层级之间不得重叠</b> ——
+        已开了河北省的代理，就不能再开秦皇岛市或山海关区；反过来辖区内已有区级代理时，
+        也不能再开上级的市。该区已有代理时开通会被后端拒绝，新申请人一律进候补队列，
+        等现任停用且待结算收益结清后再启用。
       </div>
       <el-form ref="agentForm" :model="agentForm" :rules="agentRules" label-width="110px" size="small">
         <el-form-item label="区域" prop="regionCode">
@@ -230,6 +232,56 @@
         </el-form-item>
         <el-form-item label="联系方式" prop="contactPhone">
           <el-input v-model.trim="agentForm.contactPhone" maxlength="32" class="selWidth" />
+        </el-form-item>
+        <el-divider content-position="left">开通资质</el-divider>
+        <el-form-item label="企业名称" prop="companyName">
+          <el-input v-model.trim="agentForm.companyName" maxlength="100" class="selWidth" placeholder="与营业执照一致" />
+        </el-form-item>
+        <el-form-item label="统一社会信用代码" prop="licenseNo">
+          <el-input v-model.trim="agentForm.licenseNo" maxlength="32" class="selWidth" />
+        </el-form-item>
+        <el-form-item label="营业执照" prop="licenseImage">
+          <el-upload
+            class="cert-upload"
+            action
+            :http-request="(p) => uploadCert(p, 'licenseImage')"
+            :show-file-list="false"
+            accept="image/*"
+          >
+            <img v-if="agentForm.licenseImage" :src="agentForm.licenseImage" class="cert-image" />
+            <div v-else class="cert-placeholder"><i class="el-icon-plus" /></div>
+          </el-upload>
+        </el-form-item>
+        <el-form-item label="法人姓名" prop="legalPerson">
+          <el-input v-model.trim="agentForm.legalPerson" maxlength="32" class="selWidth" />
+        </el-form-item>
+        <el-form-item label="法人身份证号" prop="idCardNo">
+          <el-input v-model.trim="agentForm.idCardNo" maxlength="18" class="selWidth" placeholder="18 位" />
+          <div class="uid-hint">
+            身份证号在后端加密存储，列表与详情只显示脱敏值，保存后这里不再回显明文。
+          </div>
+        </el-form-item>
+        <el-form-item label="身份证照片" prop="idCardFront">
+          <el-upload
+            class="cert-upload"
+            action
+            :http-request="(p) => uploadCert(p, 'idCardFront')"
+            :show-file-list="false"
+            accept="image/*"
+          >
+            <img v-if="agentForm.idCardFront" :src="agentForm.idCardFront" class="cert-image" />
+            <div v-else class="cert-placeholder"><i class="el-icon-plus" /><span>人像面</span></div>
+          </el-upload>
+          <el-upload
+            class="cert-upload"
+            action
+            :http-request="(p) => uploadCert(p, 'idCardBack')"
+            :show-file-list="false"
+            accept="image/*"
+          >
+            <img v-if="agentForm.idCardBack" :src="agentForm.idCardBack" class="cert-image" />
+            <div v-else class="cert-placeholder"><i class="el-icon-plus" /><span>国徽面</span></div>
+          </el-upload>
         </el-form-item>
         <el-form-item label="合作期">
           <el-date-picker
@@ -335,6 +387,7 @@
 
 <script>
 import request from '@/utils/request';
+import { fileImageApi } from '@/api/systemSetting';
 import {
   openRegionAgent,
   getRegionAgent,
@@ -380,9 +433,14 @@ export default {
       agentForm: {
         regionIds: [], regionCode: '', regionName: '', regionPath: '',
         agentUid: undefined, contactName: '', contactPhone: '', term: null,
+        // 开通资质。身份证号只上行不回显 —— 后端存的是密文，读回来是脱敏值
+        companyName: '', licenseNo: '', licenseImage: '',
+        legalPerson: '', idCardNo: '', idCardFront: '', idCardBack: '',
       },
       // 搜出来的候选用户，只服务于开通弹窗里的那个下拉
       userOptions: [],
+      // 非空表示这次打开弹窗是「启用候补人」，提交走 enable 而不是 open
+      queueEnableId: null,
       editDialog: false,
       // contractNo / subsidyRatio 不在界面上，但要原样带回提交 ——
       // 不传的话后端会当成「清空」，把存量的合同号抹掉
@@ -395,6 +453,15 @@ export default {
         agentUid: [{ required: true, message: '请搜索并选择代理账号', trigger: 'change' }],
         contactName: [{ required: true, message: '请填写联系人', trigger: 'blur' }],
         contactPhone: [{ required: true, message: '请填写联系方式', trigger: 'blur' }],
+        companyName: [{ required: true, message: '请填写企业名称', trigger: 'blur' }],
+        licenseNo: [{ required: true, message: '请填写统一社会信用代码', trigger: 'blur' }],
+        licenseImage: [{ required: true, message: '请上传营业执照', trigger: 'change' }],
+        legalPerson: [{ required: true, message: '请填写法人姓名', trigger: 'blur' }],
+        idCardNo: [
+          { required: true, message: '请填写法人身份证号', trigger: 'blur' },
+          { pattern: /^[0-9]{17}[0-9Xx]$/, message: '身份证号格式不正确', trigger: 'blur' },
+        ],
+        idCardFront: [{ required: true, message: '请上传身份证人像面', trigger: 'change' }],
       },
       handoverDialog: false,
       handoverForm: { regionCode: '', regionName: '', currentAgent: '', newAgentUid: undefined, reason: '' },
@@ -688,8 +755,12 @@ export default {
       this.agentForm = {
         regionIds: [], regionCode: '', regionName: '', regionPath: '',
         agentUid: undefined, contactName: '', contactPhone: '', term: null,
+        // 开通资质。身份证号只上行不回显 —— 后端存的是密文，读回来是脱敏值
+        companyName: '', licenseNo: '', licenseImage: '',
+        legalPerson: '', idCardNo: '', idCardFront: '', idCardBack: '',
       };
       this.userOptions = [];
+      this.queueEnableId = null;
       this.agentDialog = true;
       this.$nextTick(() => this.$refs.agentForm && this.$refs.agentForm.clearValidate());
     },
@@ -708,6 +779,10 @@ export default {
     submitOpen() {
       this.$refs.agentForm.validate(async (valid) => {
         if (!valid) return;
+        // 同一张表单两种提交：从候补队列进来时区域与账号已定，走 enable 接口
+        if (this.queueEnableId) {
+          return this.submitQueueEnable();
+        }
         this.saving = true;
         try {
           await openRegionAgent({
@@ -719,6 +794,7 @@ export default {
             contactPhone: this.agentForm.contactPhone,
             startTime: this.termStart(this.agentForm.term),
             endTime: this.termEnd(this.agentForm.term),
+            ...this.qualificationPayload(),
           });
           this.$message.success('开通成功');
           this.agentDialog = false;
@@ -735,20 +811,69 @@ export default {
         }
       });
     },
-    async onEnable(row) {
+    /**
+     * 启用候补人。
+     *
+     * 走的是与平台招商同一个开通入口，所以同样要提交资质 —— 候补记录里只有申请人 uid，
+     * 执照与身份证只能在这一步补。因此这里不再是一个确认框，而是复用开通表单。
+     */
+    onEnable(row) {
+      this.queueEnableId = row.id;
+      this.agentForm = {
+        regionIds: [],
+        regionCode: row.regionCode || this.regionCode,
+        regionName: row.regionName || this.regionName,
+        regionPath: this.regionPath,
+        agentUid: row.applicantUid,
+        contactName: '', contactPhone: '', term: null,
+        companyName: '', licenseNo: '', licenseImage: '',
+        legalPerson: '', idCardNo: '', idCardFront: '', idCardBack: '',
+      };
+      // 候选下拉是远程搜出来的，直接塞一条进去，否则回显是个光秃秃的 uid
+      this.userOptions = [{ uid: row.applicantUid, nickname: row.applicantName || '候补申请人', phone: '', valid: true }];
+      this.agentDialog = true;
+      this.$nextTick(() => this.$refs.agentForm && this.$refs.agentForm.clearValidate());
+    },
+    async submitQueueEnable() {
+      this.saving = true;
       try {
-        await this.$confirm('确认从候补队列启用该申请人为该区代理？', '提示', { type: 'warning' });
-      } catch (e) {
-        return;
-      }
-      try {
-        await enableFromQueue(row.id, this.regionPath);
+        await enableFromQueue(this.queueEnableId, this.regionPath, this.qualificationPayload());
         this.$message.success('已启用');
+        this.agentDialog = false;
+        this.queueEnableId = null;
         this.loadAll();
         this.loadAgentList(1);
       } catch (e) {
         /* 拦截器已弹过错误 */
+      } finally {
+        this.saving = false;
       }
+    },
+    /** 资质字段平铺进请求体，开通与启用候补人共用 */
+    qualificationPayload() {
+      return {
+        companyName: this.agentForm.companyName,
+        licenseNo: this.agentForm.licenseNo,
+        licenseImage: this.agentForm.licenseImage,
+        legalPerson: this.agentForm.legalPerson,
+        idCardNo: this.agentForm.idCardNo,
+        idCardFront: this.agentForm.idCardFront,
+        idCardBack: this.agentForm.idCardBack,
+      };
+    },
+    /** 证件照上传。只存地址，图片本身在对象存储里 */
+    uploadCert(param, field) {
+      const formData = new FormData();
+      formData.append('multipart', param.file);
+      const loading = this.$loading({ lock: true, text: '上传中，请稍候...', spinner: 'el-icon-loading' });
+      fileImageApi(formData, { model: 'alliance', pid: 0 })
+        .then((res) => {
+          this.agentForm[field] = res.url;
+          // 图片是 change 触发校验的，手动清一下这一项的红字
+          this.$refs.agentForm && this.$refs.agentForm.clearValidate(field);
+        })
+        .catch(() => {})
+        .finally(() => loading.close());
     },
     openHandoverDialog(row) {
       // 区域从行上带，不再依赖下方详情选中的那个区
@@ -851,6 +976,37 @@ export default {
   color: #666;
 }
 .agent-detail ::v-deep .el-form-item {
+  margin-bottom: 4px;
+}
+
+/* 证件照。固定 120x80 的坑位，没传时是个虚线框，传了直接铺满 —— 三张并排能一眼看全 */
+.cert-upload {
+  display: inline-block;
+  margin-right: 12px;
+  vertical-align: top;
+}
+.cert-image {
+  width: 120px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid #dcdfe6;
+}
+.cert-placeholder {
+  width: 120px;
+  height: 80px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #8c939d;
+  font-size: 12px;
+  background: #fafafa;
+  border: 1px dashed #d9d9d9;
+  border-radius: 4px;
+}
+.cert-placeholder i {
+  font-size: 20px;
   margin-bottom: 4px;
 }
 </style>
