@@ -38,6 +38,22 @@
         </el-form-item>
       </el-form>
 
+      <!-- 奖励金额是商户的成本结构，露给消费者容易被反推成「这商品贵了 5 元」，
+           所以给平台一个开关。关掉只影响 App 分销专区的展示，佣金照常计算与发放 -->
+      <div class="zone-switch">
+        <span class="zone-switch-label">App 分销专区展示奖励金额</span>
+        <el-switch
+          v-model="zoneRewardShow"
+          :active-value="1"
+          :inactive-value="0"
+          :disabled="configSaving"
+          @change="saveZoneRewardShow"
+        />
+        <span class="sub">
+          关闭后用户看不到「团长 ¥5 / 代理 ¥3」这类标签，佣金仍按配置正常计算与发放
+        </span>
+      </div>
+
       <el-table v-loading="loading" :data="list" border size="small">
         <el-table-column prop="id" label="配置ID" width="80" />
         <el-table-column label="商户" min-width="140">
@@ -66,12 +82,6 @@
         <el-table-column prop="price" label="售价(元)" width="95" />
         <el-table-column prop="sales" label="销量" width="70" />
         <el-table-column prop="stock" label="库存" width="70" />
-        <el-table-column label="团长分成" width="95">
-          <template slot-scope="{ row }">{{ ratioText(row.leaderRatio) }}</template>
-        </el-table-column>
-        <el-table-column label="代理分成" width="95">
-          <template slot-scope="{ row }">{{ ratioText(row.agentRatio) }}</template>
-        </el-table-column>
         <el-table-column label="代理奖励" width="105">
           <template slot-scope="{ row }">{{ rewardText(row.shareRewardType, row.shareRewardValue) }}</template>
         </el-table-column>
@@ -115,7 +125,12 @@
 </template>
 
 <script>
-import { getPlatformDistributionProducts, togglePlatformDistributionProduct } from '@/api/alliance';
+import {
+  getPlatformDistributionProducts,
+  togglePlatformDistributionProduct,
+  getDistributionConfig,
+  saveDistributionConfig,
+} from '@/api/alliance';
 import { merchantListApi } from '@/api/merchant';
 
 export default {
@@ -127,13 +142,45 @@ export default {
       total: 0,
       merchants: [],
       query: { page: 1, limit: 20, merId: null, keywords: '' },
+      // 平台级分销配置（mer_id=0）。保存要整条回传，所以原样留着读回来的对象
+      config: null,
+      zoneRewardShow: 1,
+      configSaving: false,
     };
   },
   created() {
     this.loadMerchants();
+    this.loadConfig();
     this.load(1);
   },
   methods: {
+    /** 平台级分销配置。没配过时后端回 null，按「展示」处理，与加开关之前的行为一致 */
+    loadConfig() {
+      getDistributionConfig(0)
+        .then((res) => {
+          const data = (res && res.data !== undefined ? res.data : res) || null;
+          this.config = data;
+          this.zoneRewardShow = data && Number(data.zoneRewardShow) === 0 ? 0 : 1;
+        })
+        .catch(() => {});
+    },
+    /** 开关是即时生效的，不额外放一个「保存」按钮 —— 一个开关配一个保存键太重 */
+    saveZoneRewardShow(value) {
+      this.configSaving = true;
+      const payload = { ...(this.config || { merId: 0 }), merId: 0, zoneRewardShow: value };
+      saveDistributionConfig(payload)
+        .then(() => {
+          this.config = payload;
+          this.$message.success(value === 1 ? '已开启奖励金额展示' : '已关闭奖励金额展示');
+        })
+        .catch(() => {
+          // 存失败就把开关拨回去，不然界面显示的是一个并没有生效的状态
+          this.zoneRewardShow = value === 1 ? 0 : 1;
+        })
+        .finally(() => {
+          this.configSaving = false;
+        });
+    },
     /**
      * 商户下拉。一次拉够而不是做远程搜索：这个下拉只是个筛选器，
      * 商户数量在可预见的规模内都装得下，做成远程搜索反而每次点开都要等一次请求。
@@ -182,8 +229,6 @@ export default {
         price: pick('price'),
         sales: pick('sales') || 0,
         stock: pick('stock') || 0,
-        leaderRatio: pick('leaderRatio', 'leader_ratio'),
-        agentRatio: pick('agentRatio', 'agent_ratio'),
         shareRewardType: pick('shareRewardType', 'share_reward_type'),
         shareRewardValue: pick('shareRewardValue', 'share_reward_value'),
         partnerRewardType: pick('partnerRewardType', 'partner_reward_type'),
@@ -206,22 +251,15 @@ export default {
       this.load(1);
     },
     /**
-     * 单品覆盖比例。DistributionProduct.leaderRatio / agentRatio 的口径就是百分比
-     * （schema：「团长比例覆盖(%)」），不是万分比，直接带单位输出，不要再除 100。
-     */
-    ratioText(ratio) {
-      const n = Number(ratio || 0);
-      return n > 0 ? n.toFixed(2) + '%' : '-';
-    },
-    /**
-     * 单品奖励。type：1-佣金(元) 2-积分（见 DistributionProduct 的 shareRewardType）。
-     * 这一层是固定奖励，不是比例 —— 命中后 CommissionRuleService 直接返回，
-     * 不再往下取规则层与全局比例。
+     * 单品奖励。type：1-佣金(元) 2-积分 3-佣金(%)（见 DistributionProduct 的 shareRewardType）。
+     * 命中这一层后 CommissionRuleService 直接返回，不再往下取全局比例。
+     * 比例口径存的是百分比，结算时才按佣金基数折算，所以这里只能显示百分比本身。
      */
     rewardText(type, value) {
       const n = Number(value || 0);
       if (!n) return '-';
-      return Number(type) === 2 ? n + ' 积分' : '¥' + n.toFixed(2);
+      if (Number(type) === 2) return n + ' 积分';
+      return Number(type) === 3 ? n.toFixed(2) + '%' : '¥' + n.toFixed(2);
     },
     toggle(row) {
       const open = row.commissionOpen === 1 ? 0 : 1;
@@ -255,6 +293,23 @@ export default {
 .sub {
   color: #999;
   font-size: 12px;
+}
+.zone-switch {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  background: #fafafa;
+  border-radius: 4px;
+
+  .zone-switch-label {
+    margin-right: 10px;
+    font-size: 13px;
+    color: #333;
+  }
+  .sub {
+    margin-left: 10px;
+  }
 }
 .product-cell {
   display: flex;
