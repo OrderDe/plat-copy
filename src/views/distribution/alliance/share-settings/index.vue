@@ -26,6 +26,8 @@
               <div class="product-meta">
                 <div class="product-name" :title="item.productName">{{ item.productName || '商品' }}</div>
                 <div class="product-id">ID：{{ item.productId }}</div>
+                <!-- 商户后来退出分销时池子里的旧记录不会自动消失，标出来让运营自己决定撤不撤 -->
+                <el-tag v-if="isOutOfDistribution(item.productId)" size="mini" type="danger">已退出分销</el-tag>
               </div>
               <i class="el-icon-close remove" @click="removeProduct(item.productId)" />
             </div>
@@ -99,8 +101,80 @@
       <el-button @click="load">重置</el-button>
     </div>
 
-    <el-dialog title="选择商品" :visible.sync="pickerVisible" width="960px" append-to-body :close-on-click-modal="false">
-      <good-list v-if="pickerVisible" handle-num="many" :checked="checkedProducts" @getStoreItem="onPicked" />
+    <!-- 只能从「已加入分销且分销中」的商品里选：分享链路是靠佣金驱动的，
+         放一个没配奖励的商品进池子，团长发出去、消费者下了单，结算时才发现一分钱没有 -->
+    <el-dialog
+      title="选择分销商品"
+      :visible.sync="pickerVisible"
+      width="960px"
+      append-to-body
+      :close-on-click-modal="false"
+      @open="loadPicker(1)"
+    >
+      <div class="picker-tip">
+        只列出商户已加入分销、且当前分销中的商品。想放别的商品出去，先让商户在「分销设置」里配置奖励。
+      </div>
+      <el-form inline size="small" @submit.native.prevent>
+        <el-form-item label="商品名称">
+          <el-input
+            v-model.trim="pickerQuery.keywords"
+            clearable
+            placeholder="商品名称"
+            @keyup.enter.native="loadPicker(1)"
+          />
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" icon="el-icon-search" @click="loadPicker(1)">查询</el-button>
+        </el-form-item>
+      </el-form>
+      <el-table
+        ref="pickerTable"
+        v-loading="pickerLoading"
+        :data="pickerList"
+        border
+        size="small"
+        height="380"
+        @selection-change="onPickerSelect"
+      >
+        <el-table-column type="selection" width="45" />
+        <el-table-column label="商品" min-width="240">
+          <template slot-scope="{ row }">
+            <div class="product-cell">
+              <el-image v-if="row.image" :src="row.image" fit="cover" class="picker-image" />
+              <div>
+                <div>{{ row.productName || '商品' }}</div>
+                <div class="product-id">商品ID：{{ row.productId }}</div>
+              </div>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column label="商户" min-width="120">
+          <template slot-scope="{ row }">{{ row.merName || '-' }}</template>
+        </el-table-column>
+        <el-table-column prop="price" label="售价(元)" width="95" />
+        <el-table-column label="奖励" min-width="150">
+          <template slot-scope="{ row }">
+            <div>团长 {{ rewardText(row.partnerRewardType, row.partnerRewardValue) }}</div>
+            <div>代理 {{ rewardText(row.shareRewardType, row.shareRewardValue) }}</div>
+          </template>
+        </el-table-column>
+      </el-table>
+      <div class="picker-footer">
+        <el-pagination
+          background
+          layout="total, prev, pager, next"
+          :current-page="pickerQuery.page"
+          :page-size="pickerQuery.limit"
+          :total="pickerTotal"
+          @current-change="loadPicker"
+        />
+        <div>
+          <el-button size="small" @click="pickerVisible = false">取消</el-button>
+          <el-button size="small" type="primary" :disabled="!pickerSelected.length" @click="confirmPick">
+            添加 {{ pickerSelected.length ? pickerSelected.length + ' 件' : '' }}
+          </el-button>
+        </div>
+      </div>
     </el-dialog>
   </div>
 </template>
@@ -112,17 +186,26 @@
  * 两个 tab 共用同一个 activeRole：商品池与开通条件按角色分开存，
  * 分享关系与归因口径是全局一份，切 tab 时不会变。
  */
-import goodList from '@/components/goodList';
-import { getShareSettings, saveShareSettings } from '@/api/alliance';
+import {
+  getShareSettings,
+  saveShareSettings,
+  getPlatformDistributionProducts,
+} from '@/api/alliance';
 
 export default {
   name: 'AllianceShareSettings',
-  components: { goodList },
   data() {
     return {
       loading: false,
       saving: false,
       pickerVisible: false,
+      pickerLoading: false,
+      pickerList: [],
+      pickerTotal: 0,
+      pickerSelected: [],
+      pickerQuery: { page: 1, limit: 10, keywords: '' },
+      // 当前分销中的商品 id，用来标出池子里已经退出分销的旧记录
+      distributableIds: [],
       activeRole: 'LEADER',
       form: {
         targetRole: 'LEADER',
@@ -144,13 +227,10 @@ export default {
         ? '支持批量勾选，选中后区域代理可在代理端从中挑选，再分发到名下团长群'
         : '支持批量勾选，选中后可在团长中心推广分享';
     },
-    // goodList 组件按商品 id 回显勾选状态
-    checkedProducts() {
-      return this.form.products.map((item) => ({ id: item.productId, image: item.image }));
-    },
   },
   created() {
     this.load();
+    this.loadDistributableIds();
   },
   methods: {
     load() {
@@ -182,23 +262,100 @@ export default {
     onRoleChange() {
       this.load();
     },
-    onPicked(rows) {
-      const list = Array.isArray(rows) ? rows : [rows];
-      const exists = new Set(this.form.products.map((item) => item.productId));
-      list
-        .filter((row) => row && row.id)
-        .forEach((row) => {
-          if (exists.has(Number(row.id))) return;
-          exists.add(Number(row.id));
-          this.form.products.push({
-            productId: Number(row.id),
-            productName: row.name || row.storeName || '',
-            image: row.image || row.src || '',
-            price: row.price || 0,
-            sort: 0,
-          });
+    /**
+     * 选品弹窗的数据源是「全平台分销商品」，不是商品库 ——
+     * 后端保存时也会拦一遍没配分销的商品，这里只是不让运营先选了再被拒。
+     */
+    loadPicker(page) {
+      this.pickerQuery.page = page || 1;
+      this.pickerLoading = true;
+      getPlatformDistributionProducts({
+        page: this.pickerQuery.page,
+        limit: this.pickerQuery.limit,
+        keywords: this.pickerQuery.keywords || undefined,
+      })
+        .then((res) => {
+          const data = (res && res.data !== undefined ? res.data : res) || {};
+          const rows = data.list || data.records || [];
+          // 强制关闭的配置不给选：选了后端也会拒
+          this.pickerList = rows.map(this.normalizePickerRow).filter((row) => row.commissionOpen === 1);
+          this.pickerTotal = Number(data.total || 0);
+        })
+        .catch(() => {
+          this.pickerList = [];
+          this.pickerTotal = 0;
+        })
+        .finally(() => {
+          this.pickerLoading = false;
         });
+    },
+    /** 后端这个查询回的是 Map，键是 SQL 列名（下划线），这里统一成一套字段名 */
+    normalizePickerRow(row) {
+      const pick = (...keys) => {
+        for (const k of keys) {
+          if (row[k] !== undefined && row[k] !== null && row[k] !== '') return row[k];
+        }
+        return '';
+      };
+      return {
+        productId: Number(pick('productId', 'product_id') || 0),
+        productName: pick('productName', 'product_name'),
+        image: pick('image'),
+        price: pick('price'),
+        merName: pick('merName', 'mer_name'),
+        shareRewardType: pick('shareRewardType', 'share_reward_type'),
+        shareRewardValue: pick('shareRewardValue', 'share_reward_value'),
+        partnerRewardType: pick('partnerRewardType', 'partner_reward_type'),
+        partnerRewardValue: pick('partnerRewardValue', 'partner_reward_value'),
+        commissionOpen: Number(pick('commissionOpen', 'commission_open') || 0),
+      };
+    },
+    /** 奖励口径：1-佣金(元) 2-积分 3-佣金(%)，与商户端「分销设置」弹窗一致 */
+    rewardText(type, value) {
+      const n = Number(value || 0);
+      if (!n) return '不发放';
+      if (Number(type) === 2) return n + ' 积分';
+      return Number(type) === 3 ? n.toFixed(2) + '%' : '¥' + n.toFixed(2);
+    },
+    onPickerSelect(rows) {
+      this.pickerSelected = rows || [];
+    },
+    confirmPick() {
+      const exists = new Set(this.form.products.map((item) => item.productId));
+      this.pickerSelected.forEach((row) => {
+        if (!row.productId || exists.has(row.productId)) return;
+        exists.add(row.productId);
+        this.form.products.push({
+          productId: row.productId,
+          productName: row.productName || '',
+          image: row.image || '',
+          price: row.price || 0,
+          sort: 0,
+        });
+      });
+      this.pickerSelected = [];
       this.pickerVisible = false;
+      this.loadDistributableIds();
+    },
+    /**
+     * 当前分销中的商品 id 全量。只用来给池子里的旧记录打「已退出分销」标记，
+     * 所以一次多拉一些，不做分页 —— 这个页面本身就不是高频访问的。
+     */
+    loadDistributableIds() {
+      getPlatformDistributionProducts({ page: 1, limit: 500 })
+        .then((res) => {
+          const data = (res && res.data !== undefined ? res.data : res) || {};
+          const rows = (data.list || data.records || []).map(this.normalizePickerRow);
+          this.distributableIds = rows.filter((row) => row.commissionOpen === 1).map((row) => row.productId);
+        })
+        .catch(() => {
+          // 拉不到就不标记，总比把在售商品误标成「已退出分销」强
+          this.distributableIds = [];
+        });
+    },
+    isOutOfDistribution(productId) {
+      if (!this.distributableIds.length) return false;
+      return this.distributableIds.indexOf(Number(productId)) === -1;
     },
     removeProduct(productId) {
       this.form.products = this.form.products.filter((item) => item.productId !== productId);
@@ -221,6 +378,35 @@ export default {
 <style scoped lang="scss">
 .share-settings-page {
   padding-bottom: 70px;
+}
+.picker-tip {
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  color: #666;
+  font-size: 12px;
+  line-height: 1.6;
+  background: #f8f8f9;
+  border-radius: 4px;
+}
+.picker-image {
+  width: 40px;
+  height: 40px;
+  margin-right: 8px;
+  border-radius: 4px;
+}
+.product-cell {
+  display: flex;
+  align-items: center;
+}
+.product-id {
+  color: #999;
+  font-size: 12px;
+}
+.picker-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 12px;
 }
 .section-card {
   margin-bottom: 16px;
