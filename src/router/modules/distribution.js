@@ -23,6 +23,45 @@ const distributionRouter = {
       name: 'distributionConfig',
       meta: { title: '分销配置', icon: '' },
     },
+    {
+      // 产品分享菜单来自数据库，平台端必须注册同名路由，否则点击会进入 404。
+      path: 'product-share',
+      component: () => import('@/views/distribution/product-share/ParentView'),
+      name: 'productShare',
+      meta: { title: '产品分享', icon: '' },
+      children: [
+        {
+          path: 'distributor',
+          component: () => import('@/views/distribution/index'),
+          name: 'productShareDistributor',
+          meta: { title: '分销商列表', icon: '' },
+        },
+        {
+          path: 'settings',
+          component: () => import('@/views/distribution/config/index'),
+          name: 'productShareSettings',
+          meta: { title: '分销设置', icon: '' },
+        },
+        {
+          path: 'withdraw',
+          component: () => import('@/views/distribution/product-share/withdraw/index'),
+          name: 'productShareWithdraw',
+          meta: { title: '分销商提现', icon: '' },
+        },
+        {
+          path: 'makers',
+          component: () => import('@/views/distribution/product-share/makers/index'),
+          name: 'productShareMakers',
+          meta: { title: '创客', icon: '' },
+        },
+        {
+          path: 'maker-withdraw',
+          component: () => import('@/views/distribution/product-share/withdraw/index'),
+          name: 'productShareMakerWithdraw',
+          meta: { title: '创客提现申请', icon: '' },
+        },
+      ],
+    },
     // 校园收益联盟。接口在 tjMall-alliance，走网关 /alliance；挂在分销路由下，不新开一级菜单
     {
       path: 'alliance/region',
