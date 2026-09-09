@@ -15,7 +15,18 @@
       <el-form label-width="130px" size="small" class="section-form">
         <el-form-item :label="`${roleName}分享商品`">
           <el-button type="primary" plain icon="el-icon-plus" @click="pickerVisible = true">
-            从商品库选择
+            从分销商品选择
+          </el-button>
+          <!-- 一件件点叉在池子几十件时很折磨；这里只清「已退出分销」的，
+               不碰其它商品，所以做成一个按钮而不是全选反选那一套 -->
+          <el-button
+            v-if="outOfDistributionCount"
+            type="danger"
+            plain
+            icon="el-icon-delete"
+            @click="removeOutOfDistribution"
+          >
+            移除已退出分销（{{ outOfDistributionCount }}）
           </el-button>
           <span class="form-tip">{{ pickTip }}</span>
 
@@ -222,6 +233,10 @@ export default {
     roleName() {
       return this.activeRole === 'AGENT' ? '区域代理' : '团长';
     },
+    /** 池子里已经退出分销的商品数。为 0 时清理按钮不出现，免得给一个点了没反应的键 */
+    outOfDistributionCount() {
+      return this.form.products.filter((item) => this.isOutOfDistribution(item.productId)).length;
+    },
     pickTip() {
       return this.activeRole === 'AGENT'
         ? '支持批量勾选，选中后区域代理可在代理端从中挑选，再分发到名下团长群'
@@ -352,6 +367,28 @@ export default {
           // 拉不到就不标记，总比把在售商品误标成「已退出分销」强
           this.distributableIds = [];
         });
+    },
+    /**
+     * 一键清掉池子里已退出分销的商品。
+     *
+     * 只改本地清单，仍要点「保存」才落库 —— 与手动点叉的行为一致，
+     * 误点了还能直接刷新页面退回去。
+     */
+    removeOutOfDistribution() {
+      const stale = this.form.products.filter((item) => this.isOutOfDistribution(item.productId));
+      if (!stale.length) return;
+      this.$confirm(
+        `将从${this.roleName}分享池里移除 ${stale.length} 件已退出分销的商品，保存后生效。继续？`,
+        '提示',
+        { type: 'warning' },
+      )
+        .then(() => {
+          this.form.products = this.form.products.filter(
+            (item) => !this.isOutOfDistribution(item.productId),
+          );
+          this.$message.success(`已移除 ${stale.length} 件，记得点「保存」`);
+        })
+        .catch(() => {});
     },
     isOutOfDistribution(productId) {
       if (!this.distributableIds.length) return false;
