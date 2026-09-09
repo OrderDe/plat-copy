@@ -99,6 +99,7 @@ const META = {
   'leader.apply.require.member': { name: '仅代理下线可申请团长', type: 'INT', remark: '1 是 0 否。开启后必须先扫代理邀请码成为其下线，才能提交团长申请' },
   'leader.apply.min.consume': { name: '申请团长的消费门槛', type: 'DECIMAL_FEN', unit: '元', remark: '在商城的累计实付金额，0 表示不限。校验在申请入口，不达标当场提示还差多少' },
   'leader.apply.min.orders': { name: '申请团长的订单数门槛', type: 'INT', unit: '单', remark: '累计已支付订单数，0 表示不限' },
+  'leader.apply.recheck.on.approve': { name: '审批时复核申请条件', type: 'INT', remark: '1 复核 0 不复核。条件只在提交时校验一次，代理压着几天没审或平台中途调严条件，审批时不会再看一眼；打开后审批与一键通过都会复核，不达标的会被跳过并留在待审列表' },
   'leader.apply.auto.approve': { name: '团长申请自动通过', type: 'INT', remark: '1-提交即通过，不进代理待审列表 0-需代理审批。代理端另有「一键同意」可批量通过' },
   'share.relation.mode': { name: '分享关系口径', type: 'STRING', remark: 'LIFELONG-终身分享·新用户邀请即绑定（首次点开链接即定终身）/ FIRST_ORDER-终身分享·首单邀请即绑定（首单那一刻才定）/ INSTANT-即时分享（归最近一次点开链接的人，没人点过就不分润）/ INSTANT_LIFELONG-即时+终身（先看最近点击，没有再看终身绑定人）/ PROTECT-保护期内绑定（旧口径）。商户端「分销设置 → 全局设置」里也能改，是同一个值' },
   'share.leader.open.mode': { name: '团长开通方式', type: 'STRING', remark: 'FREE-免费开通 / PAID-付费开通。平台端「分销设置」页已下线，此项当前不生效，保留供恢复' },

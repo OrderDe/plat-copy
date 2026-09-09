@@ -26,8 +26,17 @@
                 <el-option v-for="s in applyStatusOptions" :key="s.value" :label="s.label" :value="s.value" />
               </el-select>
             </el-form-item>
-            <el-form-item><el-button type="primary" @click="loadApplies(1)">查询</el-button><el-button @click="resetApplies">重置</el-button></el-form-item>
+            <el-form-item>
+              <el-button type="primary" @click="loadApplies(1)">查询</el-button>
+              <el-button @click="resetApplies">重置</el-button>
+              <el-button type="success" :loading="batchApproving" @click="approveAll">一键通过</el-button>
+            </el-form-item>
           </el-form>
+          <div class="tips">
+            审批权在区域代理手上（他招的人他审），这里是平台的兜底通道：代理长期不审、
+            或要集中放行时用。<b>审批人仍记在该区代理名下</b>，事后追溯与代理自己审批时一致。<br />
+            「一键通过」只处理<b>当前筛选条件下</b>的待审申请；选了城市就只批那个区域，不选就是全平台。
+          </div>
           <el-table :data="applyList" v-loading="applyLoading" border size="small">
             <el-table-column prop="id" label="ID" width="70" />
             <el-table-column prop="realName" label="申请人" min-width="100" />
@@ -48,6 +57,36 @@
             </el-table-column>
             <el-table-column prop="createTime" label="提交时间" min-width="150" />
             <el-table-column prop="auditTime" label="审批时间" min-width="150" />
+            <el-table-column label="条件达标" width="110">
+              <template slot-scope="{ row }">
+                <!-- 点开才查：一页 20 条，每条都要跑一遍规则取数，进页面就全查会拖慢列表 -->
+                <el-popover placement="left" width="300" trigger="click"
+                  @show="loadConditions(row.uid)">
+                  <div v-loading="conditionLoading">
+                    <div v-if="!conditionCache[row.uid]" class="sub-line">加载中…</div>
+                    <template v-else>
+                      <div v-if="!conditionCache[row.uid].items.length" class="sub-line">
+                        平台未配置任何条件，谁都能申请
+                      </div>
+                      <div v-for="(c, i) in conditionCache[row.uid].items" :key="i" class="cond-line">
+                        <span>{{ c.label }}</span>
+                        <span :class="c.passed ? 'cond-ok' : 'cond-bad'">
+                          {{ c.passed ? '已达标' : ('当前 ' + c.actualText) }}
+                        </span>
+                      </div>
+                    </template>
+                  </div>
+                  <el-button slot="reference" type="text" size="small">查看</el-button>
+                </el-popover>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="90" fixed="right">
+              <template slot-scope="{ row }">
+                <el-button v-if="Number(row.status) === 0" type="text" size="small"
+                  @click="approveOne(row)">通过</el-button>
+                <span v-else class="sub-line">-</span>
+              </template>
+            </el-table-column>
           </el-table>
           <!-- 申请列表原来没有分页控件，只能看到第一页 20 条 —— 申请多起来之后
                后面的根本翻不到，运营会以为「只有这些人申请过」 -->
@@ -64,7 +103,13 @@
 </template>
 <script>
 import request from '@/utils/request';
-import { getLeaderList, getLeaderApplyList } from '@/api/alliance';
+import {
+  getLeaderList,
+  getLeaderApplyList,
+  getApplicantConditions,
+  approveLeaderApply,
+  approveAllLeaderApplies,
+} from '@/api/alliance';
 
 const cityListTree = () => request({ url: '/admin/merchant/city/region/city/tree', method: 'get' });
 
@@ -81,6 +126,9 @@ export default {
       applyRegionIds: [],
       leaderList: [], leaderTotal: 0, leaderLoading: false,
       applyList: [], applyTotal: 0, applyLoading: false,
+      batchApproving: false,
+      // 按 uid 缓存达标情况：同一个人可能在列表里被反复点开，没必要每次都跑一遍规则
+      conditionCache: {}, conditionLoading: false,
       leaderUsers: {},
       leaderQuery: { regionCode: '', contact: '', auditStatus: null, page: 1, size: 20 },
       applyQuery: { regionCode: '', contact: '', status: undefined, page: 1, size: 20 },
@@ -154,6 +202,62 @@ export default {
       this.loadApplies(1);
     },
     onApplySizeChange(size) { this.applyQuery.size = size; this.loadApplies(1); },
+    /**
+     * 拉某个申请人当前的达标情况。
+     *
+     * 算的是「此刻」的值而不是提交那一刻的快照 —— 审批要判断的是「现在该不该批」：
+     * 中途退款会让消费额掉下来，平台也可能在这期间把条件调严了。
+     */
+    loadConditions(uid) {
+      if (!uid || this.conditionCache[uid]) return;
+      this.conditionLoading = true;
+      getApplicantConditions(uid)
+        .then((res) => {
+          const data = (res && res.items) ? res : { items: [] };
+          this.$set(this.conditionCache, uid, data);
+        })
+        .catch(() => { this.$set(this.conditionCache, uid, { items: [] }); })
+        .finally(() => { this.conditionLoading = false; });
+    },
+    async approveOne(row) {
+      try {
+        await this.$confirm(
+          `确认通过「${row.realName || row.uid}」的团长申请？通过后对方立即成为团长。`,
+          '提示', { type: 'warning' });
+        await approveLeaderApply(row.id);
+        this.$message.success('已通过');
+        this.loadApplies();
+      } catch (e) {
+        /* 取消或拦截器已弹过错误 */
+      }
+    },
+    /**
+     * 一键通过。后端逐条走审批流程，单条失败不影响其余，
+     * 所以这里报的是「实际通过几条」而不是「全部通过」——
+     * 一批里混进一个已经是团长的人，说全部通过就是骗人。
+     */
+    async approveAll() {
+      const scope = this.applyQuery.regionCode ? '该区域' : '全平台';
+      try {
+        await this.$confirm(
+          `确认把${scope}所有待审批的团长申请全部通过？通过后对方立即成为团长。`,
+          '一键通过', { type: 'warning' });
+      } catch (e) {
+        return;
+      }
+      this.batchApproving = true;
+      try {
+        const res = await approveAllLeaderApplies(this.applyQuery.regionCode || undefined);
+        const n = typeof res === 'number' ? res : (res && res.data) || 0;
+        this.$message.success(`已通过 ${n} 条`);
+        this.conditionCache = {};
+        this.loadApplies(1);
+      } catch (e) {
+        /* 拦截器已弹过错误 */
+      } finally {
+        this.batchApproving = false;
+      }
+    },
     /** 状态原来直接打印数字，运营看到一列 0/1/2 完全不知道是什么 */
     applyStatusText(status) {
       const hit = this.applyStatusOptions.find((s) => s.value === Number(status));
@@ -168,4 +272,4 @@ export default {
   },
 };
 </script>
-<style scoped>.selWidth{width:280px}.selWidthSm{width:160px}.sub-line{color:#909399;font-size:12px;margin-top:4px}.tips{margin-bottom:16px;color:#909399}.block{margin-top:14px;text-align:right}</style>
+<style scoped>.selWidth{width:280px}.selWidthSm{width:160px}.sub-line{color:#909399;font-size:12px;margin-top:4px}.tips{margin-bottom:16px;color:#909399}.block{margin-top:14px;text-align:right}.cond-line{display:flex;justify-content:space-between;padding:4px 0;font-size:12px}.cond-ok{color:#67c23a}.cond-bad{color:#f56c6c}</style>

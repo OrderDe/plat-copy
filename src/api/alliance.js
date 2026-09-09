@@ -332,3 +332,23 @@ export function saveLeaderApplyRule(data) {
 export function deleteLeaderApplyRule(id) {
   return request({ url: `/api/platform/leader/apply/rules/${id}/delete`, method: 'post', baseURL });
 }
+
+/** 某申请人当前的条件达标情况，供审批时参考。算的是此刻的值，不是提交时的快照 */
+export function getApplicantConditions(uid) {
+  return request({ url: `/api/platform/leader/applies/${uid}/conditions`, method: 'get', baseURL });
+}
+
+/** 平台代批一条申请。审批人仍记在该区代理名下，责任链与代理自己审批时一致 */
+export function approveLeaderApply(applyId) {
+  return request({ url: `/api/platform/leader/applies/${applyId}/approve`, method: 'post', baseURL });
+}
+
+/** 一键通过：把筛选出的待审申请全部批掉，返回实际通过条数 */
+export function approveAllLeaderApplies(regionPrefix) {
+  return request({
+    url: '/api/platform/leader/applies/approve-all',
+    method: 'post',
+    params: { regionPrefix },
+    baseURL,
+  });
+}
