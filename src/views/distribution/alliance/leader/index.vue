@@ -21,9 +21,42 @@
               <el-cascader v-model="applyRegionIds" :options="cityOptions" :props="cascaderProps" clearable class="selWidth" placeholder="请选择省/市/区" @change="onApplyRegionChange" />
             </el-form-item>
             <el-form-item label="联系方式"><el-input v-model.trim="applyQuery.contact" clearable class="selWidthSm" /></el-form-item>
+            <el-form-item label="状态">
+              <el-select v-model="applyQuery.status" clearable placeholder="全部" class="selWidthSm">
+                <el-option v-for="s in applyStatusOptions" :key="s.value" :label="s.label" :value="s.value" />
+              </el-select>
+            </el-form-item>
             <el-form-item><el-button type="primary" @click="loadApplies(1)">查询</el-button><el-button @click="resetApplies">重置</el-button></el-form-item>
           </el-form>
-          <el-table :data="applyList" v-loading="applyLoading" border size="small"><el-table-column prop="id" label="ID" width="70" /><el-table-column prop="realName" label="申请人" /><el-table-column prop="phone" label="联系方式" /><el-table-column prop="regionName" label="申请区域" /><el-table-column prop="status" label="状态" /><el-table-column prop="createTime" label="提交时间" /></el-table>
+          <el-table :data="applyList" v-loading="applyLoading" border size="small">
+            <el-table-column prop="id" label="ID" width="70" />
+            <el-table-column prop="realName" label="申请人" min-width="100" />
+            <el-table-column prop="phone" label="联系方式" min-width="120" />
+            <el-table-column prop="regionName" label="申请区域" min-width="110" />
+            <el-table-column label="申请类型" width="90">
+              <template slot-scope="{ row }">{{ applyTypeText(row.applyType) }}</template>
+            </el-table-column>
+            <el-table-column label="状态" width="90">
+              <template slot-scope="{ row }">
+                <el-tag size="mini" :type="applyStatusTag(row.status)">{{ applyStatusText(row.status) }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="审批备注" min-width="160" show-overflow-tooltip>
+              <template slot-scope="{ row }">
+                {{ row.platformVetoReason || row.auditRemark || '-' }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="createTime" label="提交时间" min-width="150" />
+            <el-table-column prop="auditTime" label="审批时间" min-width="150" />
+          </el-table>
+          <!-- 申请列表原来没有分页控件，只能看到第一页 20 条 —— 申请多起来之后
+               后面的根本翻不到，运营会以为「只有这些人申请过」 -->
+          <div class="block">
+            <el-pagination background layout="total, sizes, prev, pager, next"
+              :total="Number(applyTotal)" :page-size="Number(applyQuery.size)"
+              :current-page="Number(applyQuery.page)"
+              @size-change="onApplySizeChange" @current-change="loadApplies" />
+          </div>
         </el-tab-pane>
       </el-tabs>
     </el-card>
@@ -50,7 +83,15 @@ export default {
       applyList: [], applyTotal: 0, applyLoading: false,
       leaderUsers: {},
       leaderQuery: { regionCode: '', contact: '', auditStatus: null, page: 1, size: 20 },
-      applyQuery: { regionCode: '', contact: '', page: 1, size: 20 },
+      applyQuery: { regionCode: '', contact: '', status: undefined, page: 1, size: 20 },
+      // 状态码与后端 LeaderService 里的常量一一对应，改一边要同步改另一边
+      applyStatusOptions: [
+        { value: 0, label: '待审批' },
+        { value: 1, label: '已通过' },
+        { value: 2, label: '已驳回' },
+        { value: 3, label: '已撤回' },
+        { value: 4, label: '平台否决' },
+      ],
     };
   },
   created() {
@@ -107,8 +148,24 @@ export default {
     },
     onTabChange() { if (this.tab === 'apply' && !this.applyList.length) this.loadApplies(1); },
     resetLeaders() { this.leaderRegionIds = []; this.leaderQuery = { regionCode: '', contact: '', auditStatus: null, page: 1, size: 20 }; this.loadLeaders(1); },
-    resetApplies() { this.applyRegionIds = []; this.applyQuery = { regionCode: '', contact: '', page: 1, size: 20 }; this.loadApplies(1); },
+    resetApplies() {
+      this.applyRegionIds = [];
+      this.applyQuery = { regionCode: '', contact: '', status: undefined, page: 1, size: 20 };
+      this.loadApplies(1);
+    },
+    onApplySizeChange(size) { this.applyQuery.size = size; this.loadApplies(1); },
+    /** 状态原来直接打印数字，运营看到一列 0/1/2 完全不知道是什么 */
+    applyStatusText(status) {
+      const hit = this.applyStatusOptions.find((s) => s.value === Number(status));
+      return hit ? hit.label : String(status == null ? '-' : status);
+    },
+    applyStatusTag(status) {
+      return { 0: 'warning', 1: 'success', 2: 'danger', 3: 'info', 4: 'danger' }[Number(status)] || 'info';
+    },
+    applyTypeText(type) {
+      return { PERSONAL: '个人', STORE: '门店' }[type] || (type || '-');
+    },
   },
 };
 </script>
-<style scoped>.selWidth{width:280px}.selWidthSm{width:160px}.sub-line{color:#909399;font-size:12px;margin-top:4px}.tips{margin-bottom:16px;color:#909399}</style>
+<style scoped>.selWidth{width:280px}.selWidthSm{width:160px}.sub-line{color:#909399;font-size:12px;margin-top:4px}.tips{margin-bottom:16px;color:#909399}.block{margin-top:14px;text-align:right}</style>
