@@ -23,6 +23,8 @@
             <span>{{ row.value }}</span>
             <span v-if="row.unit" class="unit">{{ row.unit }}</span>
             <span v-if="row.type === 'RATIO'" class="unit">（{{ (row.value / 100).toFixed(2) }}%）</span>
+            <!-- 库里存的是分，运营看的是元；不换算的话 100000 会被当成十万元 -->
+            <span v-if="row.type === 'DECIMAL_FEN'" class="unit">（{{ (row.value / 100).toFixed(2) }} 元）</span>
           </template>
         </el-table-column>
         <el-table-column prop="remark" label="说明" min-width="320" show-overflow-tooltip />
@@ -54,6 +56,12 @@
           </div>
           <div v-else-if="current.type === 'INT'" class="hint">整数</div>
           <div v-else-if="current.type === 'DECIMAL'" class="hint">金额，单位为元，最多两位小数</div>
+          <div v-else-if="current.type === 'DECIMAL_FEN'" class="hint">
+            以<b>分</b>为单位的整数，例如 100000 表示 1000 元；0 表示不限
+            <span v-if="/^\d+$/.test(form.value)" class="ratio-preview">
+              当前填的是 {{ (form.value / 100).toFixed(2) }} 元
+            </span>
+          </div>
         </el-form-item>
       </el-form>
       <div slot="footer">
@@ -88,6 +96,10 @@ const META = {
   'leader.withdraw.wechat.scene.report': { name: '转账场景报备信息', type: 'STRING', remark: 'JSON 数组；字段名与内容须与申请场景时完全一致，否则微信拒绝受理' },
   'leader.withdraw.wechat.bank.enabled': { name: '银行卡自动打款', type: 'INT', remark: '1 是 0 否。开启后走微信「企业付款到银行卡」；需商户号已开通该产品，且收款卡填了银行编号' },
   'leader.withdraw.wechat.notify.url': { name: '转账结果回调地址', type: 'STRING', remark: '选填。留空则只能靠「刷新状态」主动查询微信' },
+  'leader.apply.require.member': { name: '仅代理下线可申请团长', type: 'INT', remark: '1 是 0 否。开启后必须先扫代理邀请码成为其下线，才能提交团长申请' },
+  'leader.apply.min.consume': { name: '申请团长的消费门槛', type: 'DECIMAL_FEN', unit: '元', remark: '在商城的累计实付金额，0 表示不限。校验在申请入口，不达标当场提示还差多少' },
+  'leader.apply.min.orders': { name: '申请团长的订单数门槛', type: 'INT', unit: '单', remark: '累计已支付订单数，0 表示不限' },
+  'leader.apply.auto.approve': { name: '团长申请自动通过', type: 'INT', remark: '1-提交即通过，不进代理待审列表 0-需代理审批。代理端另有「一键同意」可批量通过' },
   'invite.protect.days': { name: '积分邀请关系保护期', type: 'INT', unit: '天', remark: 'PRD 5.2' },
   'leader.bind.protect.days': { name: '团长绑定保护期', type: 'INT', unit: '天', remark: 'PRD 10.4，保护期内不改绑' },
   'commission.max.payout.ratio': { name: '单笔佣金总上限', type: 'RATIO', remark: 'PRD 10.7.5，团长+代理合计占实付的上限，超出按比例削减' },
