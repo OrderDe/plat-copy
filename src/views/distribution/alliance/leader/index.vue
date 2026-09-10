@@ -12,7 +12,47 @@
             <el-form-item label="审批状态"><el-select v-model="leaderQuery.auditStatus" clearable class="selWidthSm"><el-option label="待审" :value="0" /><el-option label="通过" :value="1" /><el-option label="驳回" :value="2" /></el-select></el-form-item>
             <el-form-item><el-button type="primary" @click="loadLeaders(1)">查询</el-button><el-button @click="resetLeaders">重置</el-button></el-form-item>
           </el-form>
-          <el-table :data="leaderList" v-loading="leaderLoading" border size="small"><el-table-column prop="id" label="ID" width="70" /><el-table-column label="团长" min-width="180"><template slot-scope="{row}">{{ userName(row.uid) }}<div class="sub-line">{{ contact(row.uid) }}</div></template></el-table-column><el-table-column label="区域" width="140"><template slot-scope="{row}">{{ regionName(row.regionCode) }}</template></el-table-column><el-table-column prop="agentId" label="所属代理" width="90" /><el-table-column prop="memberCount" label="团员数" width="80" /><el-table-column label="累计佣金"><template slot-scope="{row}">¥{{ money(row.totalCommission) }}</template></el-table-column><el-table-column label="可提现"><template slot-scope="{row}">¥{{ money(row.balance) }}</template></el-table-column><el-table-column prop="createTime" label="创建时间" /></el-table>
+          <div v-if="leaderQuery.agentId" class="agent-filter">
+            正在看代理 <b>#{{ leaderQuery.agentId }}</b> 名下的团长
+            <el-button type="text" size="small" @click="clearAgentFilter">查看全部团长</el-button>
+          </div>
+          <el-table :data="leaderList" v-loading="leaderLoading" border size="small">
+            <el-table-column prop="id" label="ID" width="70" />
+            <el-table-column label="团长" min-width="180">
+              <template slot-scope="{ row }">
+                {{ userName(row.uid) }}<div class="sub-line">{{ contact(row.uid) }}</div>
+              </template>
+            </el-table-column>
+            <el-table-column label="区域" width="140">
+              <template slot-scope="{ row }">{{ regionName(row.regionCode) }}</template>
+            </el-table-column>
+            <el-table-column label="所属代理" width="110">
+              <template slot-scope="{ row }">
+                <span v-if="Number(row.agentId) > 0">#{{ row.agentId }}</span>
+                <el-tag v-else size="mini" type="info">未绑定</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="memberCount" label="团员数" width="80" />
+            <el-table-column label="累计佣金">
+              <template slot-scope="{ row }">¥{{ money(row.totalCommission) }}</template>
+            </el-table-column>
+            <el-table-column label="可提现">
+              <template slot-scope="{ row }">¥{{ money(row.balance) }}</template>
+            </el-table-column>
+            <el-table-column prop="createTime" label="创建时间" />
+            <el-table-column label="操作" width="90" fixed="right">
+              <template slot-scope="{ row }">
+                <el-button
+                  v-if="Number(row.agentId) > 0"
+                  type="text"
+                  size="small"
+                  class="danger-text"
+                  @click="unbindAgent(row)"
+                >解绑代理</el-button>
+                <span v-else class="sub-line">-</span>
+              </template>
+            </el-table-column>
+          </el-table>
           <el-pagination background layout="total, sizes, prev, pager, next" :total="Number(leaderTotal)" :page-size="Number(leaderQuery.size)" :current-page="Number(leaderQuery.page)" @current-change="loadLeaders" />
         </el-tab-pane>
         <el-tab-pane label="团长申请" name="apply">
@@ -109,6 +149,7 @@ import {
   getApplicantConditions,
   approveLeaderApply,
   approveAllLeaderApplies,
+  unbindLeaderAgent,
 } from '@/api/alliance';
 
 const cityListTree = () => request({ url: '/admin/merchant/city/region/city/tree', method: 'get' });
@@ -130,7 +171,7 @@ export default {
       // 按 uid 缓存达标情况：同一个人可能在列表里被反复点开，没必要每次都跑一遍规则
       conditionCache: {}, conditionLoading: false,
       leaderUsers: {},
-      leaderQuery: { regionCode: '', contact: '', auditStatus: null, page: 1, size: 20 },
+      leaderQuery: { regionCode: '', contact: '', auditStatus: null, agentId: null, page: 1, size: 20 },
       applyQuery: { regionCode: '', contact: '', status: undefined, page: 1, size: 20 },
       // 状态码与后端 LeaderService 里的常量一一对应，改一边要同步改另一边
       applyStatusOptions: [
@@ -144,6 +185,9 @@ export default {
   },
   created() {
     this.loadCityTree();
+    // 「区域与代理」页点「查看」跳过来时带着 agentId，直接筛成那个代理名下的团长
+    const agentId = this.$route.query && this.$route.query.agentId;
+    if (agentId) this.leaderQuery.agentId = Number(agentId) || null;
     this.loadLeaders(1);
   },
   methods: {
@@ -180,7 +224,11 @@ export default {
     loadLeaders(p) {
       if (p) this.leaderQuery.page = Number(p);
       this.leaderLoading = true;
-      getLeaderList(this.clean(this.leaderQuery)).then(r => {
+      // 后端收的是 regionPrefix（按区域编码前缀匹配，省/市/区都能筛），
+      // 原来直接把 regionCode 发过去，那个参数后端根本不认 —— 城市筛选一直是摆设
+      const { regionCode, ...rest } = this.leaderQuery;
+      const params = this.clean({ ...rest, regionPrefix: regionCode });
+      getLeaderList(params).then(r => {
         this.leaderList = (r && r.list) || [];
         this.leaderUsers = (r && r.users) || {};
         this.leaderTotal = Number(r && r.total) || 0;
@@ -195,7 +243,49 @@ export default {
       }).catch(() => { this.$message.error('团长申请加载失败'); }).finally(() => { this.applyLoading = false; });
     },
     onTabChange() { if (this.tab === 'apply' && !this.applyList.length) this.loadApplies(1); },
-    resetLeaders() { this.leaderRegionIds = []; this.leaderQuery = { regionCode: '', contact: '', auditStatus: null, page: 1, size: 20 }; this.loadLeaders(1); },
+    resetLeaders() {
+      this.leaderRegionIds = [];
+      // 重置保留 agentId：从「区域与代理」点「查看」跳过来时，重置查询条件
+      // 不该顺手把「只看这个代理名下」也清掉 —— 那样用户会以为跳转失效了
+      this.leaderQuery = {
+        regionCode: '', contact: '', auditStatus: null,
+        agentId: this.leaderQuery.agentId, page: 1, size: 20,
+      };
+      this.loadLeaders(1);
+    },
+    clearAgentFilter() { this.leaderQuery.agentId = null; this.loadLeaders(1); },
+    /**
+     * 解除团长与区域代理的管理绑定。
+     *
+     * 只摘管理关系，团长身份、推广码、团员、历史订单与已产生的佣金全部保留 ——
+     * 想停掉一个人的团长身份走的是另一条路（平台否决）。
+     *
+     * 解绑之后：该团长的申请不再由原代理审批、不再计入原代理的名下团长数；
+     * 「按分享链路」口径下这一单的代理分成会回落到收货地判定。
+     * 历史订单在支付成功时已固化归属，不回溯。
+     */
+    unbindAgent(row) {
+      const name = this.userName(row.uid);
+      this.$prompt(
+        `将「${name}」从代理 #${row.agentId} 名下解绑。团长身份、推广码、团员与历史佣金都保留，`
+          + '此后不再由该代理审批与统计；已产生的订单分账不回溯。',
+        '解绑代理',
+        {
+          confirmButtonText: '确定解绑',
+          cancelButtonText: '取消',
+          inputPlaceholder: '请填写解绑原因（必填，会记进操作日志）',
+          // 后端 unbindAgent 强制要求原因，这里先拦一道，省得填空了才报错
+          inputValidator: (v) => (v && v.trim() ? true : '请填写解绑原因'),
+        },
+      ).then(({ value }) => {
+        unbindLeaderAgent(row.uid, value.trim())
+          .then(() => {
+            this.$message.success('已解绑');
+            this.loadLeaders();
+          })
+          .catch(() => {});
+      }).catch(() => {});
+    },
     resetApplies() {
       this.applyRegionIds = [];
       this.applyQuery = { regionCode: '', contact: '', status: undefined, page: 1, size: 20 };
@@ -272,4 +362,14 @@ export default {
   },
 };
 </script>
-<style scoped>.selWidth{width:280px}.selWidthSm{width:160px}.sub-line{color:#909399;font-size:12px;margin-top:4px}.tips{margin-bottom:16px;color:#909399}.block{margin-top:14px;text-align:right}.cond-line{display:flex;justify-content:space-between;padding:4px 0;font-size:12px}.cond-ok{color:#67c23a}.cond-bad{color:#f56c6c}</style>
+<style scoped>
+.agent-filter {
+  margin-bottom: 10px;
+  padding: 8px 12px;
+  background: #ecf5ff;
+  border-radius: 4px;
+  font-size: 13px;
+  color: #409eff;
+}
+.danger-text { color: #f56c6c; }
+.selWidth{width:280px}.selWidthSm{width:160px}.sub-line{color:#909399;font-size:12px;margin-top:4px}.tips{margin-bottom:16px;color:#909399}.block{margin-top:14px;text-align:right}.cond-line{display:flex;justify-content:space-between;padding:4px 0;font-size:12px}.cond-ok{color:#67c23a}.cond-bad{color:#f56c6c}</style>
