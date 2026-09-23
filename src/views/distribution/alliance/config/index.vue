@@ -129,9 +129,46 @@ const META = {
   'verify.code.fail.lock.seconds': { name: '解析失败锁定时长', type: 'INT', unit: '秒', remark: 'PRD 8.4' },
   'risk.address.change.threshold': { name: '改址次数告警阈值', type: 'INT', unit: '次/30天', remark: 'PRD 8.9 改址套利' },
   'risk.agent.audit.daily.limit': { name: '代理单日审批上限', type: 'INT', unit: '人/日', remark: 'PRD 8.9 代理滥招' },
+  'commission.ratio.product.scope': { name: '全局比例适用商品', type: 'STRING', remark: '逗号分隔的商品 ID，空表示全部商品。只作用于团长/代理默认分成比例这一层，跟着「区域代理奖励设置」页走' },
+  'commission.region.reward.bindings': { name: '区域代理奖励绑定', type: 'STRING', remark: 'JSON 数组，由「区域代理奖励设置」页维护，不建议在这里手改。命中顺序：单品奖励 > 区域绑定 > 全局比例' },
+  'commission.reward.direct.type': { name: '直推奖励类型（平台默认）', type: 'INT', remark: '1-佣金（元）/ 2-积分 / 3-按比例（%）。单品没配时按这里发' },
+  'commission.reward.direct.value': { name: '直推奖励数值（平台默认）', type: 'STRING', remark: '按类型分别是元 / 积分 / 百分比；不是正数即视为没配' },
+  'commission.reward.indirect.type': { name: '间推奖励类型（平台默认）', type: 'INT', remark: '1-佣金（元）/ 2-积分 / 3-按比例（%）。发给直推人的上级团长' },
+  'commission.reward.indirect.value': { name: '间推奖励数值（平台默认）', type: 'STRING', remark: '按类型分别是元 / 积分 / 百分比；不是正数即视为没配' },
+  'commission.reward.team.type': { name: '团队奖励类型（平台默认）', type: 'INT', remark: '1-佣金（元）/ 2-积分 / 3-按比例（%）' },
+  'commission.reward.team.value': { name: '团队奖励数值（平台默认）', type: 'STRING', remark: '按类型分别是元 / 积分 / 百分比；不是正数即视为没配' },
+  'commission.reward.region.rewards': { name: '区域奖励默认表', type: 'STRING', remark: 'JSON 数组，如 [{"region":"440111","type":1,"value":2.00}]，按收货地 区 > 市 > 省 匹配' },
+  'verify.cancel.apply.window.hours': { name: '核销后可申请撤销时限', type: 'INT', unit: '小时', remark: '核销之后多少小时内允许消费者发起撤销申请' },
+  'verify.cancel.apply.auto.hours': { name: '撤销申请自动同意时限', type: 'INT', unit: '小时', remark: '团长超过该时长未处理撤销申请则自动同意；0 表示不自动同意' },
   'distribution.self.buy.rebate': { name: '自购返佣', type: 'BOOL', locked: true, remark: '红线 R4/R5，本期强制关闭' },
   'distribution.level.diff.enable': { name: '等级差返佣', type: 'BOOL', locked: true, remark: '红线 R3，本期强制关闭' },
 };
+
+/**
+ * 提现条件按身份分三套：leader.withdraw.* / promoter.withdraw.* / agent.withdraw.*，
+ * 后缀相同，这里按「身份 + 后缀」拼出中文名，上面已单独写过的 leader.* 以上面为准。
+ * 身份专属值没配时后端回落到 leader.withdraw.* 那一套，再回落到代码默认值。
+ */
+const WITHDRAW_ROLES = { leader: '团长', promoter: '分销员', agent: '区域代理' };
+const WITHDRAW_SUFFIX_META = {
+  'withdraw.min.amount': { name: '最低提现金额', type: 'DECIMAL', unit: '元', remark: '单笔低于该金额不允许提交提现申请' },
+  'withdraw.max.amount': { name: '单笔最高提现金额', type: 'DECIMAL', unit: '元', remark: '单笔超过该金额不允许提交；0 表示不限' },
+  'withdraw.fee.fixed': { name: '提现固定手续费', type: 'DECIMAL', unit: '元', remark: '每笔提现固定收取，从提现金额里扣；0 表示不收' },
+  'withdraw.fee.rate': { name: '提现手续费费率', type: 'RATIO', remark: '万分比，按提现金额收取，与固定手续费叠加；例如 100 表示 1%' },
+  'withdraw.time.begin': { name: '可提现时段起', type: 'STRING', unit: 'HH:mm', remark: '与结束时间相同表示不限时段，如 07:00' },
+  'withdraw.time.end': { name: '可提现时段止', type: 'STRING', unit: 'HH:mm', remark: '如 20:00；时段外提交会被拒绝' },
+  'withdraw.workday.only': { name: '仅工作日可提现', type: 'INT', remark: '1 是 0 否。银行周末不到账，建议开启' },
+  'withdraw.daily.limit': { name: '每日最多提现笔数', type: 'INT', unit: '笔/日', remark: '每个自然日最多提交几笔提现申请；0 表示不限' },
+  'withdraw.min.join.days': { name: '加入满多少天可提现', type: 'INT', unit: '天', remark: '从成为该身份之日起算；0 表示不限' },
+};
+Object.keys(WITHDRAW_ROLES).forEach((prefix) => {
+  Object.keys(WITHDRAW_SUFFIX_META).forEach((suffix) => {
+    const key = `${prefix}.${suffix}`;
+    if (META[key]) return;
+    const meta = WITHDRAW_SUFFIX_META[suffix];
+    META[key] = { ...meta, name: `${WITHDRAW_ROLES[prefix]}${meta.name}` };
+  });
+});
 
 export default {
   name: 'AllianceConfig',
