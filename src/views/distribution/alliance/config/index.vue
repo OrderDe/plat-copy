@@ -87,7 +87,6 @@ const META = {
   'leader.withdraw.time.begin': { name: '可提现时段起', type: 'STRING', unit: 'HH:mm', remark: '与结束时间相同表示不限时段，如 07:00' },
   'leader.withdraw.time.end': { name: '可提现时段止', type: 'STRING', unit: 'HH:mm', remark: '如 20:00；时段外提交会被拒绝' },
   'leader.withdraw.workday.only': { name: '仅工作日可提现', type: 'INT', remark: '1 是 0 否。银行周末不到账，建议开启' },
-  'leader.withdraw.card.secret': { name: '收款信息加密密钥', type: 'STRING', remark: '证件号与卡号的 AES 密钥，须为 16/24/32 位。留空则无法绑卡；已绑卡后更换会导致旧卡号无法解密' },
   'leader.withdraw.payout.mode': { name: '打款方式', type: 'STRING', remark: 'MANUAL 平台人工打款 / WECHAT_AUTO 审核通过后自动发起微信转账' },
   'leader.withdraw.wechat.change.api': { name: '微信零钱转账接口', type: 'STRING', remark: 'TRANSFER_BILLS 商家转账（团长需在小程序确认收款）/ TRANSFER_BATCHES 批量转账（免确认，微信正在下线）' },
   'leader.withdraw.wechat.scene.id': { name: '商家转账场景ID', type: 'STRING', remark: '在微信商户平台申请转账场景后获得，TRANSFER_BILLS 必填' },
