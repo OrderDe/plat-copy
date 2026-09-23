@@ -15,7 +15,6 @@
         <el-table-column prop="key" label="配置项" min-width="240">
           <template slot-scope="{ row }">
             <div>{{ row.name }}</div>
-            <div class="key">{{ row.key }}</div>
           </template>
         </el-table-column>
         <el-table-column label="当前值" min-width="180">
@@ -41,7 +40,6 @@
       <el-form ref="form" :model="form" :rules="rules" label-width="90px" size="small">
         <el-form-item label="配置项">
           <div>{{ current.name }}</div>
-          <div class="key">{{ current.key }}</div>
         </el-form-item>
         <el-form-item label="说明">
           <div class="remark">{{ current.remark }}</div>
