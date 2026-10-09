@@ -118,7 +118,7 @@
 <script>
 import { getCommissionList } from '@/api/alliance';
 
-const ROLE = { LEADER: '团长', AGENT: '收货地代理', AGENT_ORIGIN: '招募代理' };
+const ROLE = { LEADER: '团长', AGENT_PROVINCE: '省代', AGENT_CITY: '市代', AGENT: '区代', AGENT_ORIGIN: '招募代理', DEALER: '经销商' };
 const STATUS = { 0: '待结算', 1: '结算中', 2: '已入账', 3: '已失效' };
 
 export default {
