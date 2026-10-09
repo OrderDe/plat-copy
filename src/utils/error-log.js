@@ -24,12 +24,16 @@ if (checkNeed()) {
     // Don't ask me why I use Vue.nextTick, it just a hack.
     // detail see https://forum.vuejs.org/t/dispatch-in-vue-config-errorhandler-has-some-problem/23500
     Vue.nextTick(() => {
-      store.dispatch('errorLog/addErrorLog', {
-        err,
-        vm,
+      // 只存纯数据，不能把 err / vm 原样放进 Vuex：state 会被递归改成响应式，
+      // 一个组件实例连着整棵组件树，主线程直接卡死 —— 提示不消失、按钮点不动，只能刷新（#1422）。
+      // async 按钮方法里接口报错（如质检提交库位容量不足）在 Vue 2.6 下也会走到这里。
+      store.dispatch('errorLog/addErrorLog', Object.freeze({
+        message: (err && (err.message || err.msg)) || String(err),
+        stack: (err && err.stack) || '',
+        component: (vm && vm.$options && vm.$options.name) || '',
         info,
         url: window.location.href,
-      });
+      }));
     });
   };
 }
