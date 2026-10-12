@@ -68,10 +68,10 @@
         <template slot-scope="{row}">{{ row.batchNo || '-' }}</template>
       </el-table-column>
       <el-table-column label="关联订单号" min-width="180" show-overflow-tooltip>
-        <template slot-scope="{row}">{{ splitBizCode(row).orderNo || '-' }}</template>
+        <template slot-scope="{row}">{{ row.orderNo || '-' }}</template>
       </el-table-column>
       <el-table-column label="关联出入库单号" min-width="180" show-overflow-tooltip>
-        <template slot-scope="{row}">{{ splitBizCode(row).stockCode || '-' }}</template>
+        <template slot-scope="{row}">{{ row.stockCode || '-' }}</template>
       </el-table-column>
       <el-table-column label="变动" width="90">
         <template slot-scope="{row}">
@@ -132,23 +132,6 @@ export default {
     emptyQuery() {
       return { page: 1, limit: 20, warehouseId: null, merId: null, productId: null,
         bizCode: '', bizType: null, startTime: null, endTime: null };
-    },
-    // bizCode 混合了订单号与出入库单号：
-    //   CONSUME:S123 / OCCUPY:S123 / RELEASE:S123 → 仅订单号（预占、消耗等按订单记的流水）
-    //   OUT2026...:REF123                        → 出入库单号 + 关联订单(退款)号
-    //   IN2026...                                → 仅出入库单号
-    // 后端若直接返回 orderNo / stockCode 则优先使用
-    splitBizCode(row) {
-      if (row.orderNo || row.stockCode) {
-        return { orderNo: row.orderNo || '', stockCode: row.stockCode || '' };
-      }
-      const code = row.bizCode || '';
-      const idx = code.indexOf(':');
-      if (idx < 0) return { orderNo: '', stockCode: code };
-      const head = code.slice(0, idx);
-      const tail = code.slice(idx + 1);
-      if (/^[A-Z_]+$/.test(head)) return { orderNo: tail, stockCode: '' };
-      return { orderNo: tail, stockCode: head };
     },
     warehouseText(id) {
       const w = this.warehouseList.find(x => x.id === id);
