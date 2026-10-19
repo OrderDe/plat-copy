@@ -15,7 +15,7 @@ const distributionRouter = {
       path: 'index',
       component: () => import('@/views/distribution/index'),
       name: 'distributionIndex',
-      meta: { title: '推广员管理', icon: '' },
+      meta: { title: '淘客管理', icon: '' },
     },
     {
       path: 'distributionconfig',

@@ -200,7 +200,7 @@
                   <div class="section-hd">推广信息</div>
                   <div class="section-bd">
                     <div class="item">
-                      <div>是否为推广员：</div>
+                      <div>是否为淘客：</div>
                       <div class="value">{{ userDetailData.isPromoter == true ? '是' : '否' || '-' }}</div>
                     </div>
                     <div class="item">
@@ -208,19 +208,19 @@
                       <div class="value">{{ userDetailData.spreadCount || '-' }}</div>
                     </div>
                     <div class="item">
-                      <div>成为推广员时间：</div>
+                      <div>成为淘客时间：</div>
                       <div class="value">{{ userDetailData.promoterTime || '-' }}</div>
                     </div>
                     <div class="item">
-                      <div>上级推广员昵称：</div>
+                      <div>上级淘客昵称：</div>
                       <div class="value">{{ userDetailData.spreadName || '-' }}</div>
                     </div>
                     <div class="item">
-                      <div>上级推广员ID：</div>
+                      <div>上级淘客ID：</div>
                       <div class="value">{{ userDetailData.spreadUid || '-' }}</div>
                     </div>
                     <div class="item">
-                      <div>绑定上级推广员时间：</div>
+                      <div>绑定上级淘客时间：</div>
                       <div class="value">{{ userDetailData.spreadTime || '-' }}</div>
                     </div>
                   </div>

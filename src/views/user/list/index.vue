@@ -94,7 +94,7 @@
               <el-form-item label="用户身份：">
                 <el-select v-model="userFrom.identity" placeholder="请选择" size="small" class="selWidth" clearable>
                   <el-option value="" label="全部"></el-option>
-                  <el-option value="1" label="推广员"></el-option>
+                  <el-option value="1" label="淘客"></el-option>
                   <el-option value="3" label="付费会员"></el-option>
                 </el-select>
               </el-form-item>
@@ -340,7 +340,7 @@
       </span>
     </el-dialog>
     <!--用户列表-->
-    <el-dialog class="big-dialog" title="推广员列表" :visible.sync="userVisible" width="900px">
+    <el-dialog class="big-dialog" title="淘客列表" :visible.sync="userVisible" width="900px">
       <user-list v-if="userVisible" @getTemplateRow="getTemplateRow"></user-list>
       <!-- <span slot="footer">
         <el-button @click="userVisible = false">取 消</el-button>

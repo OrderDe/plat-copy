@@ -21,7 +21,7 @@ export function registerTypeFilter(status) {
  */
 export function filterIsPromoter(status) {
   const statusMap = {
-    true: '推广员',
+    true: '淘客',
     false: '普通用户',
   };
   return statusMap[status];

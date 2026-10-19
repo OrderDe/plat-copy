@@ -25,7 +25,7 @@
           <el-option :value="item.id" v-for="(item, index) in labelLists" :key="index" :label="item.name"></el-option>
         </el-select>
       </el-form-item>
-      <el-form-item label="推广员:">
+      <el-form-item label="淘客:">
         <el-radio-group v-model="ruleForm.isPromoter">
           <el-radio :label="true">开启</el-radio>
           <el-radio :label="false">关闭</el-radio>

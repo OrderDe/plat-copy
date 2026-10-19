@@ -722,7 +722,7 @@ export const defaultIconList = [
         },
         {
             "img": "/diy/icon-set/invite.png",
-            title: "推广员申请",
+            title: "淘客申请",
             route: "/plugins3/WechatVideoShop/invite"
         },
         {

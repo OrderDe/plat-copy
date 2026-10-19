@@ -146,7 +146,7 @@ const META = {
  * 后缀相同，这里按「身份 + 后缀」拼出中文名，上面已单独写过的 leader.* 以上面为准。
  * 身份专属值没配时后端回落到 leader.withdraw.* 那一套，再回落到代码默认值。
  */
-const WITHDRAW_ROLES = { leader: '团长', promoter: '推广员', agent: '区域代理' };
+const WITHDRAW_ROLES = { leader: '团长', promoter: '淘客', agent: '区域代理' };
 const WITHDRAW_SUFFIX_META = {
   'withdraw.min.amount': { name: '最低提现金额', type: 'DECIMAL', unit: '元', remark: '单笔低于该金额不允许提交提现申请' },
   'withdraw.max.amount': { name: '单笔最高提现金额', type: 'DECIMAL', unit: '元', remark: '单笔超过该金额不允许提交；0 表示不限' },

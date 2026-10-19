@@ -139,7 +139,7 @@
           "
           prop="freezeBrokeragePrice"
         />
-        <el-table-column prop="promoterTime" label="成为推广员时间" min-width="150" />
+        <el-table-column prop="promoterTime" label="成为淘客时间" min-width="150" />
         <el-table-column prop="spreadNickname" label="上级推广人" min-width="150" />
         <el-table-column label="操作" width="200" fixed="right">
           <template slot-scope="scope">
@@ -238,7 +238,7 @@
           </template>
         </el-table-column>
         <el-table-column prop="nickname" label="用户信息" min-width="130" />
-        <el-table-column prop="is_promoter" label="是否推广员" min-width="120">
+        <el-table-column prop="is_promoter" label="是否淘客" min-width="120">
           <template slot-scope="scope">
             <span>{{ scope.row.isPromoter | filterYesOrNo }}</span>
           </template>
@@ -342,7 +342,7 @@ export default {
         link.href = window.URL.createObjectURL(blob);
         // 从响应头获取文件名，如果没有则使用默认名称
         const contentDisposition = res.headers['content-disposition'];
-        let filename = '推广员列表.xlsx';
+        let filename = '淘客列表.xlsx';
         if (contentDisposition) {
           const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
           const matches = filenameRegex.exec(contentDisposition);
