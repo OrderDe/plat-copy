@@ -232,8 +232,8 @@ export function CheckDeliveryArea(params) {
 
 // ==================== 阶段三：订单查询/物流 ====================
 /**
- * 查询售后单详细信息（分销商）
- * @description 分销商视角查询售后单详情
+ * 查询售后单详细信息（淘客商）
+ * @description 淘客商视角查询售后单详情
  * @param {Object} params 查询参数 {refundId}
  * @returns {Promise}
  */
@@ -246,8 +246,8 @@ export function GetRefundDetailDistributor(params) {
 }
 
 /**
- * 换货确认收货（分销商）
- * @description 分销商确认收到换货商品
+ * 换货确认收货（淘客商）
+ * @description 淘客商确认收到换货商品
  * @param {Object} params 查询参数 {orderId, refundId}
  * @returns {Promise}
  */
@@ -288,8 +288,8 @@ export function GetYytOrderDetail(params) {
 }
 
 /**
- * 查询物流信息（分销商）
- * @description 分销商查询订单物流跟踪信息
+ * 查询物流信息（淘客商）
+ * @description 淘客商查询订单物流跟踪信息
  * @param {Object} params 查询参数 {orderId, logisticsNo}
  * @returns {Promise}
  */
@@ -316,7 +316,7 @@ export function GetOrderDetailSupplier(params) {
 }
 
 /**
- * 根据外部订单号查询订单详情列表（分销商）
+ * 根据外部订单号查询订单详情列表（淘客商）
  * @description 通过外部订单号查询关联的订单详情
  * @param {Object} params 查询参数 {externalOrderNo}
  * @returns {Promise}

@@ -61,7 +61,7 @@
                 <span class="price-text">¥{{ row.basePrice }}</span>
               </template>
             </el-table-column>
-            <el-table-column prop="officialDistriPrice" label="官方分销价" width="110" align="right">
+            <el-table-column prop="officialDistriPrice" label="官方淘客价" width="110" align="right">
               <template slot-scope="{ row }">
                 <span class="price-text">¥{{ row.officialDistriPrice }}</span>
               </template>

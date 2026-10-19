@@ -161,12 +161,12 @@ export const defaultIconList = [
 
         {
             img: "/diy/icon-set/distribution.png",
-            title: "分销分红",
+            title: "淘客分红",
             route: "/plugins/distribution/index"
         },
         {
             img: "/diy/icon-set/premium-distribution.png",
-            title: "特级分销",
+            title: "特级淘客",
             route: "/plugins/premiumDistribution/index"
         },
         {
@@ -584,7 +584,7 @@ export const defaultIconList = [
         },
         {
             img: "/diy/icon-set/distribution.png",
-            title: "分销分红",
+            title: "淘客分红",
             route: "/plugins/CircleDistribution/index"
         },
 

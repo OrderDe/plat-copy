@@ -27,7 +27,7 @@
 
 <script>
 /**
- * 分销信息 —— 画布预览
+ * 淘客信息 —— 画布预览
  * 迁移自 PHP common/commission-info/preview.php + style-components/commission-info/style1.php
  *
  * PHP 侧只有风格1，这里把子组件合并进 preview。

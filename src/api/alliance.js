@@ -145,7 +145,7 @@ export function unbindLeaderAgent(leaderUid, reason) {
   });
 }
 
-// 佣金规则页已下线：地区维度下沉到商户端「分销设置」的分地区奖励，
+// 佣金规则页已下线：地区维度下沉到商户端「淘客设置」的分地区奖励，
 // 一件事不再有两处入口。后端 /api/platform/rules 仍在，只服务历史订单的
 // ruleVersion 快照回溯，平台端不再提供维护界面。
 
@@ -275,37 +275,37 @@ export function getMerchantOverview(merchantId) {
   return request({ url: '/api/platform/merchant/overview', method: 'get', params: { merchantId }, baseURL });
 }
 
-// ===================== 分销设置（分享链路） =====================
+// ===================== 淘客设置（分享链路） =====================
 
-// 平台端「分销设置」页已作废：
+// 平台端「淘客设置」页已作废：
 //   · 开通条件目前不使用；
-//   · 可分享商品池改由 eb_distribution_product 推导 —— 商户在商品库点「加入分销」
+//   · 可分享商品池改由 eb_distribution_product 推导 —— 商户在商品库点「加入淘客」
 //     就是把商品放进了分享池，不必让运营再勾一遍；
-//   · 分享关系与代理利润分成归属挪到了商户端商品库的分销设置弹窗
+//   · 分享关系与代理利润分成归属挪到了商户端商品库的淘客设置弹窗
 //     （仍是 eb_ca_config 里全平台共用的一份值，只是换了入口）。
 // 后端 /api/platform/share/settings 保留，平台端不再调用。
 
-// ===================== 分销商品（全平台） =====================
+// ===================== 淘客商品（全平台） =====================
 //
 // 走的是 admin 的 /admin/platform/**，不是联盟服务，所以不带 baseURL —— 它用默认的
 // 商城后台地址。写在这个文件里只是因为菜单归在联盟下面，接口本身不属于联盟模块。
 
-/** 全平台分销商品分页，merId 留空为全部商户 */
+/** 全平台淘客商品分页，merId 留空为全部商户 */
 export function getPlatformDistributionProducts(params) {
   return request({ url: '/admin/platform/distribution/product/list', method: 'get', params });
 }
 
-/** 平台强制开关某条分销商品配置。奖励值不给平台改，只给开关 */
+/** 平台强制开关某条淘客商品配置。奖励值不给平台改，只给开关 */
 export function togglePlatformDistributionProduct(id, open) {
   return request({ url: `/admin/platform/distribution/product/toggle/${id}`, method: 'post', params: { open } });
 }
 
-/** 分销基础配置（eb_distribution_config）。merId 留空取平台级（0） */
+/** 淘客基础配置（eb_distribution_config）。merId 留空取平台级（0） */
 export function getDistributionConfig(merId = 0) {
   return request({ url: '/admin/distribution/config/get', method: 'get', params: { merId } });
 }
 
-/** 保存分销基础配置。整条覆盖，所以调用方要把读回来的对象改完再传回去 */
+/** 保存淘客基础配置。整条覆盖，所以调用方要把读回来的对象改完再传回去 */
 export function saveDistributionConfig(data) {
   return request({ url: '/admin/distribution/config/save', method: 'post', data });
 }

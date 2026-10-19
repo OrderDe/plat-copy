@@ -7,7 +7,7 @@ const distributionRouter = {
   redirect: '/distribution/distributionconfig',
   name: 'Distribution',
   meta: {
-    title: '分销',
+    title: '淘客',
     icon: 'clipboard',
   },
   children: [
@@ -21,7 +21,7 @@ const distributionRouter = {
       path: 'distributionconfig',
       component: () => import('@/views/distribution/config/index'),
       name: 'distributionConfig',
-      meta: { title: '分销配置', icon: '' },
+      meta: { title: '淘客配置', icon: '' },
     },
     {
       // 产品分享菜单来自数据库，平台端必须注册同名路由，否则点击会进入 404。
@@ -34,19 +34,19 @@ const distributionRouter = {
           path: 'distributor',
           component: () => import('@/views/distribution/index'),
           name: 'productShareDistributor',
-          meta: { title: '分销商列表', icon: '' },
+          meta: { title: '淘客商列表', icon: '' },
         },
         {
           path: 'settings',
           component: () => import('@/views/distribution/config/index'),
           name: 'productShareSettings',
-          meta: { title: '分销设置', icon: '' },
+          meta: { title: '淘客设置', icon: '' },
         },
         {
           path: 'withdraw',
           component: () => import('@/views/distribution/product-share/withdraw/index'),
           name: 'productShareWithdraw',
-          meta: { title: '分销商提现', icon: '' },
+          meta: { title: '淘客商提现', icon: '' },
         },
         {
           path: 'makers',
@@ -62,7 +62,7 @@ const distributionRouter = {
         },
       ],
     },
-    // 校园收益联盟。接口在 tjMall-alliance，走网关 /alliance；挂在分销路由下，不新开一级菜单
+    // 校园收益联盟。接口在 tjMall-alliance，走网关 /alliance；挂在淘客路由下，不新开一级菜单
     {
       path: 'alliance/region',
       component: () => import('@/views/distribution/alliance/region/index'),
@@ -84,12 +84,12 @@ const distributionRouter = {
       meta: { title: '团长业绩', icon: '' },
     },
     {
-      // 平台端分销商品总览：跨商户只读 + 强制停用。菜单是既有的 3151，
-      // 它指向的旧「平台给商户配分销」页删掉后一直是隐藏状态，这次按新用途重建
+      // 平台端淘客商品总览：跨商户只读 + 强制停用。菜单是既有的 3151，
+      // 它指向的旧「平台给商户配淘客」页删掉后一直是隐藏状态，这次按新用途重建
       path: 'alliance/distribution-product',
       component: () => import('@/views/distribution/alliance/distribution-product/index'),
       name: 'allianceDistributionProduct',
-      meta: { title: '分销商品', icon: '' },
+      meta: { title: '淘客商品', icon: '' },
     },
     {
       path: 'alliance/commission',

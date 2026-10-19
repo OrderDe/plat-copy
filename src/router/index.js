@@ -65,7 +65,7 @@ export const constantRoutes = [
   orderRouter,
   // 会员
   userRouter,
-  // 分销
+  // 淘客
   distributionRouter,
   // 第三方私域渠道订单
   channelRouter,

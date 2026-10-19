@@ -90,7 +90,7 @@
 </template>
 
 <script>
-/** 分销信息 —— 属性面板。迁移自 PHP common/commission-info/style.php */
+/** 淘客信息 —— 属性面板。迁移自 PHP common/commission-info/style.php */
 import { deepClone } from '../../controls/utils';
 
 export default {

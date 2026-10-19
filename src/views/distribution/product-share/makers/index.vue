@@ -17,7 +17,7 @@
           <el-button icon="el-icon-refresh" @click="reset">重置</el-button>
         </el-form-item>
       </el-form>
-      <div class="page-tip">创客即分销团队长，佣金和提现余额来自分销结算记录。</div>
+      <div class="page-tip">创客即淘客团队长，佣金和提现余额来自淘客结算记录。</div>
     </el-card>
 
     <el-card shadow="never" :bordered="false" class="table-card">

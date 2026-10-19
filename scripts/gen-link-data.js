@@ -34,14 +34,14 @@ const WRITE = process.argv.includes('--write');
 
 /**
  * linkaddress 按 type 分组渲染（见 components/linkaddress/index.vue）：
- *   1 基础链接   2 分销   3 个人中心   4 积分   8 拼团   其它 优惠券
+ *   1 基础链接   2 淘客   3 个人中心   4 积分   8 拼团   其它 优惠券
  * 新页面按路径归类，归不上的一律进「基础链接」。
  */
 const TYPE_BASIC = 1;
 const TYPE_DISTRIBUTION = 2;
 const TYPE_USER = 3;
 
-/** 分销相关页面的路径特征 */
+/** 淘客相关页面的路径特征 */
 const DISTRIBUTION_HINT = /promoter|commission|spread|distribution|poster|extension/i;
 
 /**
@@ -145,7 +145,7 @@ const ALIAS = {
   'pages/discover/discover_user/index': { name: '逛逛-个人主页', desc: '某个用户在逛逛里的主页' },
 
   'pages/users/web_page/index': { name: '外部网页', desc: '在 App 里打开一个外部链接，需要填网址' },
-  'pages/users/user_spread_money/index': { name: '佣金明细', desc: '分销佣金的收支流水' },
+  'pages/users/user_spread_money/index': { name: '佣金明细', desc: '淘客佣金的收支流水' },
   'pages/users/user_sgin/index': { name: '每日签到', desc: '签到领积分的页面' },
   'pages/users/couponList/index': { name: '我的卡券包', desc: '用户已领取的优惠券。注意和「领券中心」（去领新券）不是同一个页面' },
   'pages/users/login/index': { name: '登录页', desc: '一般不用配，未登录时系统会自动跳' },
@@ -246,7 +246,7 @@ function main() {
   }
 
   if (added.length) {
-    const group = { 1: '基础链接', 2: '分销', 3: '个人中心' };
+    const group = { 1: '基础链接', 2: '淘客', 3: '个人中心' };
     const byType = {};
     added.forEach((a) => {
       (byType[a.type] = byType[a.type] || []).push(a.name);

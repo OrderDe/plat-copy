@@ -64,12 +64,12 @@
           </el-descriptions>
         </el-card>
 
-        <!-- 供应商/分销商信息 -->
+        <!-- 供应商/淘客商信息 -->
         <el-card shadow="never" class="mb15">
-          <div slot="header"><span class="card-title">供应商/分销商信息</span></div>
+          <div slot="header"><span class="card-title">供应商/淘客商信息</span></div>
           <el-descriptions :column="2" border size="small">
             <el-descriptions-item label="供应商名称">{{ detail.supplierName || '—' }}</el-descriptions-item>
-            <el-descriptions-item label="分销商">{{ detail.distributor || '—' }}</el-descriptions-item>
+            <el-descriptions-item label="淘客商">{{ detail.distributor || '—' }}</el-descriptions-item>
             <el-descriptions-item label="买家名称">{{ detail.buyerName || '—' }}</el-descriptions-item>
             <el-descriptions-item label="买家ID">{{ detail.buyerId || '—' }}</el-descriptions-item>
           </el-descriptions>

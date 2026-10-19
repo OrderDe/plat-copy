@@ -34,7 +34,7 @@
           <el-radio :label="0">最低价</el-radio>
         </el-radio-group>
       </diy-style-contain>
-      <diy-style-contain title="分销佣金">
+      <diy-style-contain title="淘客佣金">
         <el-radio-group v-model="goodsData.commission" @change="changes($event, 'commission')">
           <el-radio :label="1">显示</el-radio>
           <el-radio :label="0">隐藏</el-radio>

@@ -84,7 +84,7 @@
             </div>
           </div>
           <div v-if="filteredDistribution.length">
-            <div class="cont">分销</div>
+            <div class="cont">淘客</div>
             <div class="Box">
               <el-tooltip
                 v-for="(item, index) in filteredDistribution"

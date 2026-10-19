@@ -158,7 +158,7 @@ export default {
         categoryId2: '',
         categoryId3: '',
         name: '',
-        // libName: '分销商测试专用商品库',
+        // libName: '淘客商测试专用商品库',
         libName: '',
         spuId: '',
       },
@@ -258,7 +258,7 @@ export default {
       this.getList();
     },
     onFillTestLib() {
-      this.queryForm.libName = '分销商测试专用商品库';
+      this.queryForm.libName = '淘客商测试专用商品库';
       this.queryForm.pageIndex = 1;
       this.getList();
     },

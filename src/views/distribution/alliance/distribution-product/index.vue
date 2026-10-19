@@ -2,7 +2,7 @@
   <div class="divBox">
     <el-card shadow="never" :bordered="false">
       <div class="tips">
-        全平台在售的分销商品。奖励由各商户自己承担、自己配置，平台不代配也不审核 ——
+        全平台在售的淘客商品。奖励由各商户自己承担、自己配置，平台不代配也不审核 ——
         这里只用来看全平台放了哪些商品出来、奖励开到多少，发现异常配置时可以强制关闭。
       </div>
       <el-form inline size="small" @submit.native.prevent>
@@ -39,9 +39,9 @@
       </el-form>
 
       <!-- 奖励金额是商户的成本结构，露给消费者容易被反推成「这商品贵了 5 元」，
-           所以给平台一个开关。关掉只影响 App 分销专区的展示，佣金照常计算与发放 -->
+           所以给平台一个开关。关掉只影响 App 淘客专区的展示，佣金照常计算与发放 -->
       <div class="zone-switch">
-        <span class="zone-switch-label">App 分销专区展示奖励金额</span>
+        <span class="zone-switch-label">App 淘客专区展示奖励金额</span>
         <el-switch
           v-model="zoneRewardShow"
           :active-value="1"
@@ -91,7 +91,7 @@
         <el-table-column label="状态" width="90">
           <template slot-scope="{ row }">
             <el-tag size="mini" :type="row.commissionOpen === 1 ? 'success' : 'info'">
-              {{ row.commissionOpen === 1 ? '分销中' : '已关闭' }}
+              {{ row.commissionOpen === 1 ? '淘客中' : '已关闭' }}
             </el-tag>
           </template>
         </el-table-column>
@@ -142,7 +142,7 @@ export default {
       total: 0,
       merchants: [],
       query: { page: 1, limit: 20, merId: null, keywords: '' },
-      // 平台级分销配置（mer_id=0）。保存要整条回传，所以原样留着读回来的对象
+      // 平台级淘客配置（mer_id=0）。保存要整条回传，所以原样留着读回来的对象
       config: null,
       zoneRewardShow: 1,
       configSaving: false,
@@ -154,7 +154,7 @@ export default {
     this.load(1);
   },
   methods: {
-    /** 平台级分销配置。没配过时后端回 null，按「展示」处理，与加开关之前的行为一致 */
+    /** 平台级淘客配置。没配过时后端回 null，按「展示」处理，与加开关之前的行为一致 */
     loadConfig() {
       getDistributionConfig(0)
         .then((res) => {
@@ -265,7 +265,7 @@ export default {
       const open = row.commissionOpen === 1 ? 0 : 1;
       const action = open === 1 ? '重新开启' : '强制关闭';
       this.$confirm(
-        `确定${action}「${row.merName || row.merId}」的商品「${row.productName}」的分销吗？`,
+        `确定${action}「${row.merName || row.merId}」的商品「${row.productName}」的淘客吗？`,
         '提示',
         { type: 'warning' },
       )

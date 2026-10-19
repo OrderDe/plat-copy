@@ -11,8 +11,8 @@
       >
         <el-form-item prop="retailStoreSwitch">
           <span slot="label">
-            <span>分销启用：</span>
-            <el-tooltip class="item" effect="dark" content="商城分销功能开启关闭" placement="top-start">
+            <span>淘客启用：</span>
+            <el-tooltip class="item" effect="dark" content="商城淘客功能开启关闭" placement="top-start">
               <i class="el-icon-warning-outline" />
             </el-tooltip>
           </span>
@@ -23,14 +23,14 @@
         </el-form-item>
         <el-form-item prop="retailStoreLine">
           <span slot="label">
-            <span>满额分销最低金额：</span>
-            <el-tooltip class="item" effect="dark" content="满额分销满足金额开通分销权限" placement="top-start">
+            <span>满额淘客最低金额：</span>
+            <el-tooltip class="item" effect="dark" content="满额淘客满足金额开通淘客权限" placement="top-start">
               <i class="el-icon-warning-outline" />
             </el-tooltip>
           </span>
           <el-input-number
             v-model.trim="promoterForm.retailStoreLine"
-            placeholder="满额分销满足金额开通分销权限"
+            placeholder="满额淘客满足金额开通淘客权限"
             :min="-1"
             :step="1"
             class="selWidth"
@@ -39,7 +39,7 @@
         </el-form-item>
         <el-form-item prop="retailStoreBindingType">
           <span slot="label">
-            <span>分销关系绑定：</span>
+            <span>淘客关系绑定：</span>
             <el-tooltip
               class="item"
               effect="dark"
@@ -196,7 +196,7 @@ export default {
       },
       loading: false,
       rules: {
-        retailStoreSwitch: [{ required: true, message: '请选择是否启用分销', trigger: 'change' }],
+        retailStoreSwitch: [{ required: true, message: '请选择是否启用淘客', trigger: 'change' }],
         retailStoreBrokerageFirstRatio: [{ required: true, message: '请输入一级返佣比例', trigger: 'blur' }],
         retailStoreBrokerageSecondRatio: [{ required: true, message: '请输入二级返佣比例', trigger: 'blur' }],
         merchantShareFreezeTime: [{ required: true, message: '请输入冻结时间', trigger: 'blur' }],

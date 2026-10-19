@@ -2,7 +2,7 @@
 import request from '@/utils/request';
 
 /**
- * @description 分销设置 -- 详情
+ * @description 淘客设置 -- 详情
  */
 export function configApi() {
   return request({
@@ -12,7 +12,7 @@ export function configApi() {
 }
 
 /**
- * @description 分销设置 -- 表单提交
+ * @description 淘客设置 -- 表单提交
  */
 export function configUpdateApi(data) {
   return request({

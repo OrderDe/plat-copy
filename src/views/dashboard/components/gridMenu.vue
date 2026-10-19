@@ -67,7 +67,7 @@ export default {
         {
           bgColor: '#1890FF',
           icon: 'icon-fenxiaoshezhi',
-          title: '分销设置',
+          title: '淘客设置',
           url: '/distribution/distributionconfig',
           perms: ['platform:retail:store:config:get'],
         },

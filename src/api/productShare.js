@@ -1,6 +1,6 @@
 import request from '@/utils/request';
 
-/** 产品分享 - 分销商/创客提现申请列表。 */
+/** 产品分享 - 淘客商/创客提现申请列表。 */
 export function shareWithdrawListApi(params) {
   return request({
     url: '/admin/distribution/withdraw/list',

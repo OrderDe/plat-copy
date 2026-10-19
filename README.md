@@ -57,7 +57,7 @@ utils 自定义工具 js 独立命名，一般不用新建文件夹
 ├─ dashboard 首页
 ├─ store 商品管理
 ├─ order 系统订单管理
-├─ distribution 分销
+├─ distribution 淘客
 ├─ user 用户管理
 ├─ content 内容管理
 ├─ appSetting 各个应用模块功能管理公众号、小程序、支付宝、百度小程序、今日头条小程序
@@ -84,7 +84,7 @@ utils 自定义工具 js 独立命名，一般不用新建文件夹
 │   │    └──categoryApi.js         # 有关配置的接口
 │   │    └──configTabApi.js        # 有关配置分类的接口
 │   │    └──dashboard.js           # 有关控制台的接口
-│   │    └──distribution.js        # 有关分销的接口
+│   │    └──distribution.js        # 有关淘客的接口
 │   │    └──logistics.js           # 有关城市数据、物流配置的接口
 │   │    └──marketing.js           # 有关优惠券、签到配置的接口
 │   │    └──order.js               # 有关订单的接口
@@ -194,7 +194,7 @@ utils 自定义工具 js 独立命名，一般不用新建文件夹
 │   │         └──apply               # 申请接入
 │   │         └──videoList           # 商品列表
 │   │         └──weChatcategoryAndBrand # 微信商品类目
-│   │    └──distribution             # 分销设置
+│   │    └──distribution             # 淘客设置
 │   │    └──maintain                 # 维护
 │   │         └──devconfig           # 组合数据
 │   │         └──formConfig          # 表单配置
@@ -233,7 +233,7 @@ utils 自定义工具 js 独立命名，一般不用新建文件夹
 │   │         └──user.js             # 有关用户
 │   │         └──application.js      # 有关应用
 │   │         └──marketing.js        # 有关积分、签到
-│   │         └──distribution.js     # 有关分销
+│   │         └──distribution.js     # 有关淘客
 │   │         └──order.js            # 有关订单
 │   │         └──finance.js          # 有关财务
 │   │         └──product.js          # 有关商品

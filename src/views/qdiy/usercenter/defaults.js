@@ -35,7 +35,7 @@ export const USER_CENTER_SECTIONS = [
   },
   {
     key: 'distribution',
-    title: '分销功能',
+    title: '淘客功能',
     items: [
       { key: 'experience', name: '体验官', iconClass: 'el-icon-position', color: '#F56C6C', link: '/pages/distribution/index' },
       { key: 'channel', name: '渠道中心', iconClass: 'el-icon-user', color: '#409EFF', link: '/pages/distribution/channel' },

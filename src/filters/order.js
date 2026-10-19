@@ -82,7 +82,7 @@ export function orderTypeFilter(status) {
     0: '普通订单',
     1: '秒杀订单',
     2: '拼团订单',
-    3: '分销订单',
+    3: '淘客订单',
   };
   return statusMap[status];
 }
