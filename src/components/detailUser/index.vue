@@ -208,7 +208,7 @@
                       <div class="value">{{ userDetailData.spreadCount || '-' }}</div>
                     </div>
                     <div class="item">
-                      <div>成为分销员时间：</div>
+                      <div>成为推广员时间：</div>
                       <div class="value">{{ userDetailData.promoterTime || '-' }}</div>
                     </div>
                     <div class="item">

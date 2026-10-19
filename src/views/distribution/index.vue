@@ -342,7 +342,7 @@ export default {
         link.href = window.URL.createObjectURL(blob);
         // 从响应头获取文件名，如果没有则使用默认名称
         const contentDisposition = res.headers['content-disposition'];
-        let filename = '分销员列表.xlsx';
+        let filename = '推广员列表.xlsx';
         if (contentDisposition) {
           const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
           const matches = filenameRegex.exec(contentDisposition);

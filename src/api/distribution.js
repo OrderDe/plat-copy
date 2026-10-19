@@ -23,7 +23,7 @@ export function configUpdateApi(data) {
 }
 
 /**
- * @description 分销员 -- 列表
+ * @description 推广员 -- 列表
  */
 export function promoterListApi(params) {
   return request({
@@ -66,7 +66,7 @@ export function spreadClearApi(id) {
 }
 
 /**
- * 导出分销员Excel
+ * 导出推广员Excel
  * @param params 对象
  */
 export function peopleExcelApi(params) {
